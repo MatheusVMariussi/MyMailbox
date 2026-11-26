@@ -11,6 +11,8 @@ export type ConversationPageInput = {
 	where: SQL | undefined;
 	offset: number;
 	limit: number;
+	/** What groups rows into one conversation (`conversationKey`); a thread by default. */
+	threadKey?: SQL<string>;
 };
 
 export type ConversationPage = {

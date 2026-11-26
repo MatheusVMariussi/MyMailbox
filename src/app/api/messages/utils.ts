@@ -1,6 +1,22 @@
 import { countDistinct, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { messages } from "@/db/schema";
 import type { ConversationPage, ConversationPageInput, MessageListColumns } from "./types";
+
+/**
+ * The conversation a row belongs to: its thread, or itself when never threaded. In search results (which span
+ * every folder) an unsent draft stands alone, so acting on a conversation never moves a draft out of Drafts.
+ */
+export function conversationKey(searching = false): SQL<string> {
+	return searching
+		? sql<string>`CASE WHEN ${messages.status} = 'draft' THEN ${messages.id} ELSE coalesce(${messages.threadId}, ${messages.id}) END`
+		: sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
+}
+
+/** `conversationKey` for a loaded row. */
+export function rowConversationKey(row: { id: string; threadId: string | null; status: string }, searching = false): string {
+	return searching && row.status === "draft" ? row.id : row.threadId ?? row.id;
+}
 
 export function getMessageListColumns(): MessageListColumns {
 	return Object.fromEntries(
@@ -9,8 +25,7 @@ export function getMessageListColumns(): MessageListColumns {
 }
 
 /** Select one newest matching message per thread before applying pagination. */
-export async function loadConversationPage({ db, where, offset, limit }: ConversationPageInput): Promise<ConversationPage> {
-	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
+export async function loadConversationPage({ db, where, offset, limit, threadKey = conversationKey() }: ConversationPageInput): Promise<ConversationPage> {
 
 	// A conversation sorts by its newest matching message, so the first page of
 	// heads is just the first occurrence of each thread key while scanning
@@ -24,7 +39,7 @@ export async function loadConversationPage({ db, where, offset, limit }: Convers
 	// directly.
 	const SCAN_CAP = 10_000;
 	if (needed > SCAN_CAP) {
-		return loadConversationPageWindowed({ db, where, offset, limit });
+		return loadConversationPageWindowed({ db, where, offset, limit, threadKey });
 	}
 	const headIds: string[] = [];
 	const seen = new Set<string>();
@@ -50,20 +65,19 @@ export async function loadConversationPage({ db, where, offset, limit }: Convers
 		// ~10 rows per head — the windowed plan wins on that shape, so bail
 		// early rather than discovering it at the cap.
 		if (headIds.length < needed && headIds.length * 10 < fetched) {
-			return loadConversationPageWindowed({ db, where, offset, limit });
+			return loadConversationPageWindowed({ db, where, offset, limit, threadKey });
 		}
 	}
 	// Only reachable on degenerate thread shapes; keep the old plan as the
 	// correctness net rather than walking the table forever.
 	if (!exhausted && headIds.length < needed) {
-		return loadConversationPageWindowed({ db, where, offset, limit });
+		return loadConversationPageWindowed({ db, where, offset, limit, threadKey });
 	}
 	const [totals] = await db.select({ total: countDistinct(threadKey) }).from(messages).where(where);
 	return { ids: headIds.slice(offset, offset + limit), total: totals?.total ?? 0 };
 }
 
-async function loadConversationPageWindowed({ db, where, offset, limit }: ConversationPageInput): Promise<ConversationPage> {
-	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
+async function loadConversationPageWindowed({ db, where, offset, limit, threadKey = conversationKey() }: ConversationPageInput): Promise<ConversationPage> {
 	const ranked = db
 		.select({
 			id: messages.id,

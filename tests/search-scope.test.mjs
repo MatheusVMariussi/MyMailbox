@@ -117,6 +117,27 @@ test("the legacy title parameter joins the query as a subject phrase", async (t)
 	assert.deepEqual(await list({ scope: "search", title: 'a" OR "b' }), [], "quotes in the title cannot change the query");
 });
 
+test("in a conversation view of a search, an unsent draft stays its own row", async (t) => {
+	await setup(t, `
+		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, subject, status, read, private_draft, thread_id, created_at) VALUES
+			('t1', 'owner', 'mb-a', 'inbound', 'ana@x.test', 'me@alpha.test', 'Budget review', 'received', 0, 0, 'thr-b', 20),
+			('t2', 'owner', 'mb-a', 'outbound', 'me@alpha.test', 'ana@x.test', 'Re: Budget review', 'draft', 1, 1, 'thr-b', 21),
+			('t3', 'owner', 'mb-a', 'outbound', 'me@alpha.test', 'ana@x.test', 'Re: Budget review', 'sent', 1, 0, 'thr-b', 22);
+	`);
+	const { status, body } = await json(await app.list.GET(get("/api/messages", { scope: "search", q: "budget", group: "thread" })));
+	assert.equal(status, 200);
+	assert.equal(body.total, 2);
+	const rows = Object.fromEntries(body.messages.map((message) => [message.id, message.threadMessageIds]));
+	assert.deepEqual(Object.keys(rows).sort(), ["t2", "t3"]);
+	assert.deepEqual([...rows.t3].sort(), ["t1", "t3"], "acting on the conversation never moves the draft");
+	assert.deepEqual(rows.t2, ["t2"]);
+	const navigation = await json(await app.navigation.GET(get("/api/messages/navigation", { folder: "inbox", scope: "search", q: "budget", group: "thread" })));
+	assert.deepEqual(navigation.body.messages.map((entry) => entry.id), ["t3", "t2"]);
+	// Outside a search the inbox groups as before.
+	const inbox = await json(await app.list.GET(get("/api/messages", { direction: "inbound", status: "received", group: "thread", q: "budget" })));
+	assert.deepEqual(inbox.body.messages.map((message) => message.id), ["t1"]);
+});
+
 test("reader navigation walks the same search", async (t) => {
 	await setup(t);
 	const { status, body } = await json(await app.navigation.GET(get("/api/messages/navigation", { folder: "inbox", scope: "search", q: "quarterly" })));
@@ -147,6 +168,16 @@ test("a refused query is a 400 with a clear message on every route", async (t) =
 		assert.equal((await app.navigation.GET(get("/api/messages/navigation", { folder: "inbox", scope: "search", q }))).status, 400);
 		assert.equal((await app.v1.GET(get("/api/v1/messages", { q }))).status, 400);
 	}
+});
+
+test("with very many mailboxes a heavy search is a 400, never a D1 error", async (t) => {
+	const mailboxes = Array.from({ length: 75 }, (_, index) => `('mb-${index}', 'owner', 'd-alpha', 'box${index}', 'personal', 1)`).join(",");
+	const { state } = await setup(t, `INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ${mailboxes};`);
+	const heavy = Array.from({ length: 30 }, (_, index) => `larger:${index + 1}`).join(" ");
+	const listed = await json(await app.list.GET(get("/api/messages", { scope: "search", q: heavy, group: "thread" })));
+	assert.equal(listed.status, 400, JSON.stringify(listed.body));
+	assert.equal((await json(await app.list.GET(get("/api/messages", { scope: "search", q: "quarterly", group: "thread" })))).status, 200);
+	assert.ok(state.maxBound <= D1_MAX_BOUND_PARAMETERS, `max bound ${state.maxBound}`);
 });
 
 test("the worst valid search stays under D1's 100 parameters with many mailboxes", async (t) => {

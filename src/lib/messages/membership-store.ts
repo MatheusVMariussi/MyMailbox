@@ -3,7 +3,8 @@ import type { MessageMembershipState } from "./change-events";
 import {
 	getListMembershipContext,
 	getListMembershipKey,
-	messageMatchesFolder,
+	messageMatchesList,
+	type ListMembershipContext,
 	type MessageMembershipFields,
 } from "./list-membership";
 
@@ -307,7 +308,7 @@ export function getRestoredRowsForList(key: string, now = Date.now(), offset?: n
 
 function filterPendingRow(
 	row: Message,
-	context: { folder: Parameters<typeof messageMatchesFolder>[1]; labelId?: string | null } | null,
+	context: ListMembershipContext | null,
 	now: number,
 ): Message | null {
 	if (!context) return row;
@@ -315,12 +316,12 @@ function filterPendingRow(
 	if (!members?.length) {
 		const patch = getVisibleMembership(row.id);
 		if (Object.keys(patch).length === 0) return row;
-		return messageMatchesFolder({ ...membershipFieldsOf(row), ...patch }, context.folder, context.labelId, now) ? row : null;
+		return messageMatchesList({ ...membershipFieldsOf(row), ...patch }, context, now) ? row : null;
 	}
 	const remaining = members.filter((id) => {
 		const patch = getVisibleMembership(id);
 		if (Object.keys(patch).length === 0) return true;
-		return messageMatchesFolder({ ...membershipFieldsOf(row), ...patch }, context.folder, context.labelId, now);
+		return messageMatchesList({ ...membershipFieldsOf(row), ...patch }, context, now);
 	});
 	if (remaining.length === members.length) return row;
 	if (remaining.length === 0) return null;

@@ -273,8 +273,11 @@ class SearchParser {
 		switch (key) {
 			case "has":
 				return /^attachments?$/.test(lower) ? { kind: "has", value: "attachment" } : null;
-			case "filename":
-				return lower ? { kind: "filename", value: lower } : "empty";
+			case "filename": {
+				// Folded like SQLite's lower() (ASCII only), which the filename side goes through.
+				const name = value.trim().replace(/[A-Z]/g, (char) => char.toLowerCase());
+				return name ? { kind: "filename", value: name } : "empty";
+			}
 			case "is":
 				return IS_VALUES[lower] ? { kind: "is", value: IS_VALUES[lower] } : null;
 			case "in":

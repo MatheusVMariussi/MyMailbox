@@ -37,7 +37,8 @@ const seed = `
 		('m-trash', 'u1', 'mb2', 'inbound', 'eve@y.test', 'team@example.com', NULL, 'Old stuff', 'bye', 'trash', 1, 0, NULL, NULL, 'team@example.com', 'p3', 0, ${ago(400)});
 	INSERT INTO message_attachments (id, message_id, filename, content_type, size, disposition, r2_key, created_at) VALUES
 		('a1', 'm-inbox', 'Report-Q3.PDF', 'application/pdf', 4000, 'attachment', 'k1', 1),
-		('a2', 'm-archived', 'photo_1.jpg', 'image/jpeg', 3000000, 'inline', 'k2', 1);
+		('a2', 'm-archived', 'photo_1.jpg', 'image/jpeg', 3000000, 'inline', 'k2', 1),
+		('a3', 'm-sent', 'Relatório-ÁGUA.xlsx', 'application/vnd.ms-excel', 100, 'attachment', 'k3', 1);
 	INSERT INTO labels (id, user_id, mailbox_id, name, color, created_at) VALUES
 		('l1', 'u1', 'mb1', 'Client Work', '#2563eb', 1),
 		('l2', 'u1', 'mb2', 'client-work', '#2563eb', 1),
@@ -69,10 +70,11 @@ test("text and field operators", async (t) => {
 
 test("attachments, flags and folders", async (t) => {
 	const { search } = await setup(t);
-	assert.deepEqual(await search("has:attachment"), ["m-inbox"], "inline images are not attachments");
+	assert.deepEqual(await search("has:attachment"), ["m-inbox", "m-sent"], "inline images are not attachments");
 	assert.deepEqual(await search("filename:pdf"), ["m-inbox"]);
 	assert.deepEqual(await search("filename:report-q3"), ["m-inbox"]);
 	assert.deepEqual(await search("filename:photo_"), ["m-archived"], "an underscore is a plain character");
+	assert.deepEqual(await search("filename:RELATóRIO-ÁGUA"), ["m-sent"], "ASCII letters fold as SQLite's lower() does, other letters keep their case");
 	assert.deepEqual(await search("is:unread"), ["m-inbox", "m-snoozed"]);
 	assert.deepEqual(await search("is:read"), except("m-inbox", "m-snoozed"));
 	assert.deepEqual(await search("is:starred"), ["m-inbox"]);
@@ -139,6 +141,7 @@ test("combinations follow the tree", async (t) => {
 	assert.deepEqual(await search("from:ana OR from:carol"), ["m-archived", "m-inbox"]);
 	assert.deepEqual(await search('in:sent subject:"quarterly"'), ["m-sent"]);
 	assert.deepEqual(await search("(label:personal OR has:attachment) -is:starred"), ["m-sent"]);
+	assert.deepEqual(await search("has:attachment -is:starred"), ["m-sent"]);
 	assert.deepEqual(await search("quarterly -in:sent"), ["m-inbox"]);
 	assert.deepEqual(await search("quarterly OR is:snoozed"), ["m-inbox", "m-sent", "m-snoozed"]);
 	assert.deepEqual(await search("{in:spam in:trash} -from:eve"), ["m-spam"]);
@@ -151,7 +154,7 @@ test("negated column predicates keep rows whose column is null", async (t) => {
 	assert.deepEqual(await search("-is:snoozed"), except("m-snoozed"));
 	assert.deepEqual(await search("-label:client-work"), except("m-inbox", "m-archived"));
 	assert.deepEqual(await search("-label:nope"), ALL);
-	assert.deepEqual(await search("-has:attachment"), except("m-inbox"));
+	assert.deepEqual(await search("-has:attachment"), except("m-inbox", "m-sent"));
 	assert.deepEqual(await search("-filename:pdf"), except("m-inbox"));
 	assert.deepEqual(await search("-project:acme"), except("m-archived"));
 	assert.deepEqual(await search("-deliveredto:sales@example.com"), except("m-inbox"));

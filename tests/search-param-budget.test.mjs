@@ -51,6 +51,20 @@ test("the worst valid query stays within the budget and one more parameter is re
 	);
 });
 
+test("the budget shrinks with the mailbox scope so the statement stays under D1's limit", async (t) => {
+	const { db } = await newDatabase(t);
+	const mailboxIds = Array.from({ length: 80 }, (_, index) => `mb-${index}`);
+	const query = Array.from({ length: 10 }, (_, index) => `larger:${index + 1}`).join(" ");
+	await assert.rejects(
+		app.buildSearchFilter(db, { query, timeZone: "UTC" }, { mailboxIds, userId: "u1" }),
+		(error) => error instanceof app.SearchQueryError && error.code === "budget",
+	);
+	const filter = await app.buildSearchFilter(db, { query, timeZone: "UTC" }, { mailboxIds: mailboxIds.slice(0, 10), userId: "u1" });
+	assert.ok(filter.condition);
+	const plain = await app.buildSearchFilter(db, { query: "invoice OR from:ana", timeZone: "UTC" }, { mailboxIds: Array.from({ length: 95 }, (_, index) => `mb-${index}`), userId: "u1" });
+	assert.ok(plain.condition, "a one-parameter search still runs for very large scopes");
+});
+
 test("a query cut at the length or leaf cap is refused, not silently widened", async (t) => {
 	const { db } = await newDatabase(t);
 	const scope = { mailboxIds: [], userId: "u1" };

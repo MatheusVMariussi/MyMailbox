@@ -33,6 +33,8 @@ export function parseSearchQuery() { return {}; }
 `],
 	["@/lib/time/utils", `
 export function getUserTimeZone() { return "UTC"; }
+export function normalizeTimeZone(zone) { return zone || "UTC"; }
+export function dateFromZonedFields(fields) { return fields; }
 `],
 	["@/lib/messages/detail-cache", `
 export function patchCachedMessage() {}

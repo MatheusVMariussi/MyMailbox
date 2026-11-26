@@ -17,6 +17,7 @@ import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes
 import { SearchQueryError, searchScopeExclusion } from "@/lib/search/conditions";
 import { buildSearchFilter } from "@/lib/search/service";
 import { getRequestTimeZone } from "@/lib/time/utils";
+import { rowConversationKey } from "../utils";
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
 
@@ -113,7 +114,7 @@ export async function GET(request: Request) {
 	if (grouped) {
 		const byThread = new Map<string, MessageNavigationEntry>();
 		for (const row of rows) {
-			const key = row.threadId ?? row.id;
+			const key = rowConversationKey(row, searching);
 			const unread = row.direction === "inbound" && !row.read;
 			const existing = byThread.get(key);
 			if (existing) existing.unread ||= unread;
@@ -136,6 +137,7 @@ const NAV_COLUMNS = {
 	read: messages.read,
 	direction: messages.direction,
 	threadId: messages.threadId,
+	status: messages.status,
 };
 
 type NavigationRow = {
@@ -143,6 +145,7 @@ type NavigationRow = {
 	read: boolean;
 	direction: "inbound" | "outbound";
 	threadId: string | null;
+	status: string;
 };
 
 type NavigationRows = {

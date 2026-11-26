@@ -15,7 +15,7 @@ import { buildSearchFilter } from "@/lib/search/service";
 import { getRequestTimeZone } from "@/lib/time/utils";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
 import { selectInBatches } from "@/lib/db-params";
-import { getMessageListColumns, loadConversationPage } from "./utils";
+import { conversationKey, getMessageListColumns, loadConversationPage, rowConversationKey } from "./utils";
 import type { ListMessage } from "./types";
 import { getOpenCounts } from "@/lib/tracking/open-tracking";
 import { summarizeNotesForRows } from "@/lib/notes/service";
@@ -146,7 +146,7 @@ export async function GET(request: Request) {
 	}
 	const where = and(...conditions);
 	// Messages that were never threaded (older rows, drafts) stand alone.
-	const threadKey = sql<string>`coalesce(${messages.threadId}, ${messages.id})`;
+	const threadKey = conversationKey(searching);
 
 	// The list renders `snippet`. Bodies stay on the thread endpoint.
 	const messageListColumns = getMessageListColumns();
@@ -160,14 +160,14 @@ export async function GET(request: Request) {
 	// has to match what marking it read will actually change.
 	const scopedThreadCounts = new Map<string, { total: number; unread: number }>();
 	if (groupByThread) {
-		const page = await loadConversationPage({ db, where, offset, limit });
+		const page = await loadConversationPage({ db, where, offset, limit, threadKey });
 		total = page.total;
 		rows = page.ids.length
 			? await selectInBatches(page.ids, (batch) => db.select(messageListColumns).from(messages).where(and(where, inArray(messages.id, batch))))
 			: [];
 		const rowById = new Map(rows.map((row) => [row.id, row]));
 		rows = page.ids.map((id) => rowById.get(id)).filter((row): row is ListMessage => !!row);
-		const keys = rows.map((row) => row.threadId ?? row.id);
+		const keys = rows.map((row) => rowConversationKey(row, searching));
 		if (keys.length > 0) {
 			const members = await selectInBatches(keys, (batch) => db
 				.select({ id: messages.id, key: threadKey, read: messages.read })
@@ -262,7 +262,7 @@ export async function GET(request: Request) {
 	// neither selected nor sent here.
 	const enrichedRows = rows.map(({ rawR2Key: _rawR2Key, ...message }) => {
 		const threadStats = message.threadId ? threadCounts.get(message.threadId) : undefined;
-		const folderUnread = scopedThreadCounts.get(message.threadId ?? message.id)?.unread;
+		const folderUnread = scopedThreadCounts.get(rowConversationKey(message, searching))?.unread;
 		const contactMap = contactMapsByUserId.get(message.userId);
 		const accountName = message.mailboxId ? mailboxNameMap.get(message.mailboxId) : null;
 		const firstTo = getFirstEmailAddressEntry(message.toAddr);
@@ -280,7 +280,7 @@ export async function GET(request: Request) {
 			threadCount: threadStats?.total || 1,
 			threadUnread: (groupByThread ? folderUnread : threadStats?.unread) || 0,
 			...(groupByThread
-				? { threadMessageIds: threadMessageIds.get(message.threadId ?? message.id) ?? [message.id] }
+				? { threadMessageIds: threadMessageIds.get(rowConversationKey(message, searching)) ?? [message.id] }
 				: {}),
 		};
 	});

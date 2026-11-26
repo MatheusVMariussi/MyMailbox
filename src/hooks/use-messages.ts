@@ -6,7 +6,7 @@ import { applyPendingToMessages, getKnownThreadUnread, subscribePendingOverlay }
 import type { ThreadUnreadTarget } from "@/lib/messages/field-store";
 import { registerMessageRefresh } from "./message-refresh";
 import { getRestoredRowsForList, rememberRemovedRow, updateRemovedRows, type RestoredRow } from "@/lib/messages/membership-store";
-import { getListMembershipKey, messageMatchesFolder, type MessageMembershipFields } from "@/lib/messages/list-membership";
+import { getListMembershipContext, getListMembershipKey, messageMatchesList, type ListMembershipContext, type MessageMembershipFields } from "@/lib/messages/list-membership";
 import { applyLabelDelta } from "@/lib/labels/label-utils";
 import {
 	clearMessageCountsCache,
@@ -175,8 +175,7 @@ function targetMembership(
 function getRemovedMessageIds(
 	detail: MessagesChangedDetail,
 	messages: Message[],
-	folder: MessageFolder,
-	labelId: string | null | undefined,
+	context: ListMembershipContext,
 	now: number,
 ): Set<string> {
 	const affected = new Set(detail.messageIds ?? []);
@@ -191,7 +190,7 @@ function getRemovedMessageIds(
 				removed.add(id);
 				continue;
 			}
-			if (target && !messageMatchesFolder(target, folder, labelId, now)) removed.add(id);
+			if (target && !messageMatchesList(target, context, now)) removed.add(id);
 		}
 	}
 	return removed;
@@ -232,7 +231,10 @@ export function useMessages(
 		let cancelled = false;
 		let refreshTimer: number | null = null;
 		let requestNumber = 0;
-		const listKey = getListMembershipKey(getMessageQueryParams(folder, mailboxId, filters, labelId));
+		const listParams = getMessageQueryParams(folder, mailboxId, filters, labelId);
+		const listKey = getListMembershipKey(listParams);
+		// A search list keeps a changed row unless it left for Spam or Trash; a folder list follows the folder.
+		const membershipContext: ListMembershipContext = (filters?.query?.trim() ? getListMembershipContext(listParams) : null) ?? { folder, labelId };
 		async function loadMessages(force = false, showLoading = false) {
 			const currentRequest = ++requestNumber;
 			if (showLoading) setIsLoading(true);
@@ -240,7 +242,7 @@ export function useMessages(
 				const params = getMessageQueryParams(folder, mailboxId, filters, labelId);
 				let refused = false;
 				const data = await fetchMessageList(params, force).catch((error: unknown): MessageListResponse => {
-					if (!(error instanceof MessageListRequestError) || error.status !== 400) throw error;
+					if (!(error instanceof MessageListRequestError) || error.status !== 400 || !filters?.query?.trim()) throw error;
 					refused = true;
 					return { messages: [], total: 0 };
 				});
@@ -330,7 +332,7 @@ export function useMessages(
 		function patchRemovedState(event: Event) {
 			const detail = (event as CustomEvent<MessagesChangedDetail>).detail;
 			if (detail?.kind !== "removed" || !detail.messageIds?.length) return;
-			const ids = getRemovedMessageIds(detail, listRef.current.messages, folder, labelId, Date.now());
+			const ids = getRemovedMessageIds(detail, listRef.current.messages, membershipContext, Date.now());
 			if (ids.size === 0) {
 				// The optimistic prune already removed the row; the committed state
 				// still has to update its tombstone for an exact rollback.

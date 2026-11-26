@@ -162,13 +162,13 @@ function compileNode(node: SearchNode, context: SearchCompileContext): Part {
 	return compileLeaf(node, context);
 }
 
-/** Compile a parsed tree; throws `SearchQueryError` past `SEARCH_PARAM_BUDGET` parameters. */
-export function compileSearchTree(root: SearchNode | null, context: SearchCompileContext): CompiledSearch {
+/** Compile a parsed tree; throws `SearchQueryError` past `budget` parameters (`SEARCH_PARAM_BUDGET` by default). */
+export function compileSearchTree(root: SearchNode | null, context: SearchCompileContext, budget = SEARCH_PARAM_BUDGET): CompiledSearch {
 	const pruned = pruneSearchTree(root);
 	if (!pruned) return { condition: null, params: 0 };
 	const compiled = compileNode(pruned, context);
-	if (compiled.params > SEARCH_PARAM_BUDGET) {
-		throw new SearchQueryError(`This search is too complex (it needs ${compiled.params} values, at most ${SEARCH_PARAM_BUDGET}); remove some operators`, "budget");
+	if (compiled.params > budget) {
+		throw new SearchQueryError(`This search is too complex (it needs ${compiled.params} values, at most ${budget}); remove some operators`, "budget");
 	}
 	return { condition: compiled.sql, params: compiled.params };
 }

@@ -1,6 +1,8 @@
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageStateSnapshot } from "./actions/types";
 import { labelFilterMatches } from "@/lib/labels/label-utils";
+import { parseSearch, searchFolderNames } from "@/lib/search/parser-utils";
+import type { SearchFolder } from "@/lib/search/types";
 
 /** The fields that decide which folder lists still contain a message. */
 export type MessageMembershipFields = Pick<
@@ -12,6 +14,9 @@ export type MessageMembershipFields = Pick<
 	/** Optional: unknown labels count as still carrying the label being viewed. */
 	labelIds?: string[];
 };
+
+/** Which list a cached page is: a folder or label view, or a search (`scope=search`) with the folders its query names. */
+export type ListMembershipContext = { folder: MessageFolder; labelId?: string | null; search?: ReadonlySet<SearchFolder> };
 
 /** Statuses a label view never lists (Gmail keeps labelled mail in Trash and Spam out of the label). */
 const OUTSIDE_LABEL_VIEWS = new Set(["trash", "spam", "template"]);
@@ -63,13 +68,33 @@ export function messageMatchesFolder(
 }
 
 /**
+ * Whether a search result still belongs to its results after a change. The query itself is only evaluated on
+ * the server, so a row stays unless it went where a search never looks: Spam or Trash the query does not name
+ * (`in:spam`, `in:trash`, `in:anywhere`), or a template.
+ */
+export function messageMatchesSearch(state: MessageMembershipFields, folders: ReadonlySet<SearchFolder>): boolean {
+	if (state.status === "template") return false;
+	if (folders.has("anywhere")) return true;
+	if (state.status === "spam") return folders.has("spam");
+	if (state.status === "trash") return folders.has("trash");
+	return true;
+}
+
+/** Membership in a list of either kind. */
+export function messageMatchesList(state: MessageMembershipFields, context: ListMembershipContext, now = Date.now()): boolean {
+	return context.search ? messageMatchesSearch(state, context.search) : messageMatchesFolder(state, context.folder, context.labelId, now);
+}
+
+/**
  * Reads the list identity back from the request key so cache ingress can apply
  * membership without the hook passing folder/labelId through every call.
  */
 export function getListMembershipContext(
 	params: URLSearchParams | string,
-): { folder: MessageFolder; labelId?: string | null } | null {
+): ListMembershipContext | null {
 	const search = typeof params === "string" ? new URLSearchParams(params) : params;
+	const query = search.get("q")?.trim();
+	if (search.get("scope") === "search" && query) return { folder: "inbox", search: searchFolderNames(parseSearch(query).root) };
 	const labelId = search.get("labelId");
 	if (labelId) return { folder: "inbox", labelId };
 	if (search.get("starred") === "true") return { folder: "starred" };

@@ -31,6 +31,8 @@ export function parseSearchQuery() { return {}; }
 `],
 	["@/lib/time/utils", `
 export function getUserTimeZone() { return "UTC"; }
+export function normalizeTimeZone(zone) { return zone || "UTC"; }
+export function dateFromZonedFields(fields) { return fields; }
 `],
 	["@/lib/messages/detail-cache", `
 export function patchCachedMessage() {}
@@ -47,8 +49,8 @@ await build({
 
 			export { clearMessageListCache, clearKnownMessageFieldsForTests };
 
-			export function Harness({ folder = "inbox", labelId = null, offset = 0 }) {
-				const list = useMessages(folder, "mailbox-1", { limit: 25, offset }, true, labelId);
+			export function Harness({ folder = "inbox", labelId = null, offset = 0, query = "" }) {
+				const list = useMessages(folder, "mailbox-1", { limit: 25, offset, query }, true, labelId);
 				return React.createElement(
 					"div",
 					null,
@@ -148,7 +150,7 @@ function total(container) {
 	return container.querySelector('[data-testid="total"]').textContent;
 }
 
-async function render({ folder = "inbox", labelId = null, offset = 0 } = {}) {
+async function render({ folder = "inbox", labelId = null, offset = 0, query = "" } = {}) {
 	clearMessageListCache();
 	clearKnownMessageFieldsForTests();
 	pending = [];
@@ -156,7 +158,7 @@ async function render({ folder = "inbox", labelId = null, offset = 0 } = {}) {
 	document.body.appendChild(container);
 	const reactRoot = createRoot(container);
 	await act(async () => {
-		reactRoot.render(createElement(Harness, { folder, labelId, offset }));
+		reactRoot.render(createElement(Harness, { folder, labelId, offset, query }));
 	});
 	return {
 		container,
@@ -190,6 +192,25 @@ test("a successful move removes the row and total before the refetch starts", as
 	assert.deepEqual(ids(view.container), ["m1", "m3"]);
 	assert.equal(total(view.container), "2");
 	assert.equal(pending.length, 0, "the debounced refetch has not started yet");
+});
+
+test("search results keep a changed row unless it goes to Trash or Spam", async (t) => {
+	const view = await render({ query: "invoice" });
+	t.after(view.cleanup);
+	await resolveNext({ messages: [message("m1"), message("m2", { status: "archived" }), message("m3", { direction: "outbound", status: "sent" })], total: 3, limit: 25, offset: 0 });
+	assert.deepEqual(ids(view.container), ["m1", "m2", "m3"]);
+
+	await act(async () => {
+		window.dispatchEvent(event({ action: "archive", messageIds: ["m1"] }));
+		window.dispatchEvent(event({ action: "star", messageIds: ["m2", "m3"] }));
+	});
+	assert.deepEqual(ids(view.container), ["m1", "m2", "m3"], "archived, starred and sent results still match the search");
+
+	await act(async () => {
+		window.dispatchEvent(event({ action: "trash", messageIds: ["m2"] }));
+	});
+	assert.deepEqual(ids(view.container), ["m1", "m3"], "a search without in:trash drops what went to Trash");
+	assert.equal(total(view.container), "2");
 });
 
 test("an in-flight refresh cannot put a removed row back", async (t) => {

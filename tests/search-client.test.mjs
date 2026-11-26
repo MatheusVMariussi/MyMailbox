@@ -15,7 +15,7 @@ await build({
 	stdin: {
 		contents: `
 			export { getMessageQueryParams } from "./src/hooks/utils.ts";
-			export { getListMembershipContext } from "./src/lib/messages/list-membership.ts";
+			export { getListMembershipContext, messageMatchesList } from "./src/lib/messages/list-membership.ts";
 			export { isSearchQuerySettled, appendSearchOperator } from "./src/lib/search/input-utils.ts";
 			export { SEARCH_HELP_ENTRIES } from "./src/components/mail-search/search-help-utils.ts";
 		`,
@@ -59,9 +59,21 @@ test("without a query the folder parameters are unchanged", () => {
 	assert.equal(u.getMessageQueryParams("inbox", null, {}, "l1").get("labelId"), "l1");
 });
 
-test("search lists are not filtered optimistically by a folder's membership", () => {
-	assert.equal(u.getListMembershipContext(u.getMessageQueryParams("inbox", null, { query: "invoice" })), null);
+test("search lists keep changed rows unless they go where the search does not look", () => {
+	const context = u.getListMembershipContext(u.getMessageQueryParams("starred", null, { query: "invoice" }));
+	const state = (status, extra = {}) => ({ status, snoozedUntil: null, starred: false, ...extra });
+	assert.equal(u.messageMatchesList(state("archived"), context), true, "not starred, still a result of a search started from Starred");
+	assert.equal(u.messageMatchesList(state("sent"), context), true);
+	assert.equal(u.messageMatchesList(state("trash"), context), false);
+	assert.equal(u.messageMatchesList(state("spam"), context), false);
+	assert.equal(u.messageMatchesList(state("template"), context), false);
+	const trashSearch = u.getListMembershipContext(u.getMessageQueryParams("inbox", null, { query: "in:trash invoice" }));
+	assert.equal(u.messageMatchesList(state("trash"), trashSearch), true);
+	assert.equal(u.messageMatchesList(state("spam"), trashSearch), false);
+	const anywhere = u.getListMembershipContext(u.getMessageQueryParams("inbox", null, { query: "in:anywhere" }));
+	assert.equal(u.messageMatchesList(state("spam"), anywhere), true);
 	assert.deepEqual(u.getListMembershipContext(u.getMessageQueryParams("inbox", null, {})), { folder: "inbox" });
+	assert.equal(u.messageMatchesList(state("archived"), { folder: "inbox" }), false, "a folder list still follows its folder");
 });
 
 test("a query runs as you type only once it is settled", () => {
