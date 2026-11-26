@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import type { Message, MessageFilterOptions, MessageFolder } from "./types";
+import type { Message, MessageFilterOptions, MessageFolder, MessageListResponse } from "./types";
 import { getMessageActionPatch } from "@/lib/messages/actions/definitions";
 import type { MessagesChangedDetail } from "@/lib/messages/change-events";
 import { applyPendingToMessages, getKnownThreadUnread, subscribePendingOverlay } from "@/lib/messages/field-store";
@@ -13,6 +13,7 @@ import {
 	clearMessageListCache,
 	fetchMessageList,
 	getMessageQueryParams,
+	MessageListRequestError,
 	peekMessageList,
 } from "./utils";
 
@@ -214,6 +215,8 @@ export function useMessages(
 		offset: initialPage?.offset ?? filters?.offset ?? 0,
 	});
 	const [isLoading, setIsLoading] = useState(enabled && !initialPage);
+	// A search the server refused (400): the list shows no rows and the page explains why.
+	const [isRefused, setIsRefused] = useState(false);
 	const listRef = useRef(list);
 	useEffect(() => {
 		listRef.current = list;
@@ -235,8 +238,14 @@ export function useMessages(
 			if (showLoading) setIsLoading(true);
 			try {
 				const params = getMessageQueryParams(folder, mailboxId, filters, labelId);
-				const data = await fetchMessageList(params, force);
+				let refused = false;
+				const data = await fetchMessageList(params, force).catch((error: unknown): MessageListResponse => {
+					if (!(error instanceof MessageListRequestError) || error.status !== 400) throw error;
+					refused = true;
+					return { messages: [], total: 0 };
+				});
 				if (!cancelled && currentRequest === requestNumber) {
+					setIsRefused(refused);
 					dispatch({
 						type: "loaded",
 						messages: applyPendingToMessages(data.messages ?? []),
@@ -392,5 +401,5 @@ export function useMessages(
 		};
 	}, [enabled, filters?.group, filters?.limit, filters?.offset, filters?.projectId, filters?.query, filters?.read, filters?.title, folder, labelId, mailboxId]);
 
-	return { messages: list.messages, unreadCount, isLoading, total: list.total, limit: list.limit, offset: list.offset, updateMessages };
+	return { messages: list.messages, unreadCount, isLoading, total: list.total, limit: list.limit, offset: list.offset, updateMessages, isRefused };
 }

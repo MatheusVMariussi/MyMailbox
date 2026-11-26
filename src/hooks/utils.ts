@@ -1,5 +1,4 @@
 import { authFetch } from "@/lib/auth/client";
-import { parseSearchQuery } from "@/lib/search/query-utils";
 import { getUserTimeZone } from "@/lib/time/utils";
 import { patchCachedMessage } from "@/lib/messages/detail-cache";
 import {
@@ -18,29 +17,8 @@ import { isReadOnlyChange, type MessageFieldPatch } from "@/lib/messages/change-
 import type { MessageFilterOptions, MessageFolder } from "./types";
 import type { MessageCounts, MessageListResponse } from "./types";
 
-/**
- * The search string goes to the server whole; operators are parsed there
- * against the full-text index. Only the read state is lifted out here so the
- * unread toggle and `is:unread` share one `read` parameter.
- */
-export function parseMessageSearchQuery(query: string): MessageFilterOptions {
-	const parsed = parseSearchQuery(query);
-	const filters: MessageFilterOptions = {};
-	if (parsed.read) filters.read = parsed.read;
-	const remaining = query.replace(/(^|\s)(is:(un)?read|:(un)?read)(?=\s|$)/gi, " ").replace(/\s+/g, " ").trim();
-	if (remaining) filters.query = remaining;
-	return filters;
-}
-
-export function getMessageQueryParams(
-	folder: MessageFolder,
-	mailboxId?: string | null,
-	filters?: MessageFilterOptions,
-	labelId?: string | null,
-) {
-	const params = new URLSearchParams();
-	params.set("timeZone", getUserTimeZone());
-
+/** The filters of a folder or label view. */
+function setFolderParams(params: URLSearchParams, folder: MessageFolder, labelId?: string | null) {
 	// A label view lists every direction and status (but Trash and Spam), so it sets no folder filter.
 	if (labelId) params.set("labelId", labelId);
 	else if (folder === "inbox") {
@@ -66,20 +44,49 @@ export function getMessageQueryParams(
 	} else if (folder === "archived" || folder === "trash" || folder === "spam") {
 		params.set("status", folder);
 	}
+}
+
+/**
+ * The list request for a folder, or for a search. A search (a non-empty query) goes to the server whole with
+ * `scope=search`, which spans every folder as in Gmail, so no folder or label filter is sent; the mailbox,
+ * project and unread toggle still apply. Nothing is lifted out of the query: `is:unread` inside an OR or a
+ * negation only means what it says on the server, which parses the whole tree.
+ */
+export function getMessageQueryParams(
+	folder: MessageFolder,
+	mailboxId?: string | null,
+	filters?: MessageFilterOptions,
+	labelId?: string | null,
+) {
+	const params = new URLSearchParams();
+	params.set("timeZone", getUserTimeZone());
+	const query = filters?.query?.trim();
+	if (query) {
+		params.set("scope", "search");
+		params.set("q", query);
+	} else {
+		setFolderParams(params, folder, labelId);
+	}
 	if (mailboxId) params.set("mailboxId", mailboxId);
-	const searchFilters = filters?.query ? parseMessageSearchQuery(filters.query) : null;
-	const parsedFilters = searchFilters
-		? { ...filters, ...searchFilters, read: filters?.read ?? searchFilters.read }
-		: filters;
-	if (parsedFilters?.query?.trim()) params.set("q", parsedFilters.query.trim());
-	if (parsedFilters?.title?.trim()) params.set("title", parsedFilters.title.trim());
-	if (parsedFilters?.read && parsedFilters.read !== "all") params.set("read", parsedFilters.read);
+	if (filters?.title?.trim()) params.set("title", filters.title.trim());
+	if (filters?.read && filters.read !== "all") params.set("read", filters.read);
 	if (filters?.limit) params.set("limit", String(filters.limit));
 	if (filters?.offset) params.set("offset", String(filters.offset));
 	if (filters?.group) params.set("group", filters.group);
 	if (filters?.projectId) params.set("projectId", filters.projectId);
 
 	return params;
+}
+
+/** A list request the server refused; a 400 is a search it could not run (too long or too complex). */
+export class MessageListRequestError extends Error {
+	constructor(
+		message: string,
+		readonly status: number,
+	) {
+		super(message);
+		this.name = "MessageListRequestError";
+	}
 }
 
 const messageCountsCache = new Map<string, MessageCounts>();
@@ -285,7 +292,7 @@ export async function fetchMessageList(params: URLSearchParams, force = false): 
 			// An error body is not a message list; do not cache it or paint it as an empty folder.
 			if (!res.ok) {
 				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? `Message list request failed (${res.status})`);
+				throw new MessageListRequestError(body?.error ?? `Message list request failed (${res.status})`, res.status);
 			}
 			return res.json();
 		})

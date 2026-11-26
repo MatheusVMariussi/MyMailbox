@@ -438,12 +438,14 @@ export function MessageFolderPage({
 	selectedMessageId,
 }: MessageFolderPageProps) {
 	const { t } = useLanguage();
-	const title = config.titleKey ? t(config.titleKey) : config.title;
+	const { query } = useMailSearch();
+	// A search spans every folder (the list asks with scope=search), so the page is about its results, not the folder.
+	const isSearching = !!query.trim();
+	const title = isSearching ? t("search.results") : config.titleKey ? t(config.titleKey) : config.title;
 	const { selectedMailbox, mailboxes: accessibleMailboxes } = useSelectedMailbox();
 	// What the list shows: every accessible mailbox by default, or one; optionally one project.
 	const scope = useListScope();
 	const mailboxesLoading = scope.isLoading;
-	const { query } = useMailSearch();
 	const router = useRouter();
 	const isMobile = useIsMobile();
 	const isDesktop = useIsDesktop();
@@ -488,7 +490,7 @@ export function MessageFolderPage({
 	const setSelectedMessages = listState?.setSelectedMessages ?? setInternalSelectedMessages;
 	const unreadOnly = listState?.unreadOnly ?? internalUnreadOnly;
 	const setUnreadOnly = listState?.setUnreadOnly ?? setInternalUnreadOnly;
-	const { messages, isLoading, total, limit, updateMessages } = useMessages(config.folder, scope.mailboxId, {
+	const { messages, isLoading, total, limit, updateMessages, isRefused } = useMessages(config.folder, scope.mailboxId, {
 		query,
 		limit: pageSize,
 		offset,
@@ -509,13 +511,15 @@ export function MessageFolderPage({
 		status: message.status,
 	}), [accessibleMailboxes, config.folder, config.labelId, counts.promotionModes]);
 	// Promotions with every mailbox off is empty by design; say so and point at the setting.
-	const promotionsOff = config.folder === "promotions" && !mailboxesLoading && !countsLoading && !hasActivePromotions(counts.promotionModes);
+	const promotionsOff = config.folder === "promotions" && !isSearching && !mailboxesLoading && !countsLoading && !hasActivePromotions(counts.promotionModes);
 	usePageLoading(mailboxesLoading || isLoading, true);
 	const headerIcons = config.headerIcons ?? [];
-	const hasActiveFilters = !!query.trim();
-	const folderCount = config.labelId
-		? sumLabelCounts(config.labelId, counts.labels)
-		: counts.folders[config.folder];
+	const hasActiveFilters = isSearching;
+	const folderCount = isSearching
+		? undefined
+		: config.labelId
+			? sumLabelCounts(config.labelId, counts.labels)
+			: counts.folders[config.folder];
 	const titleTotal = folderCount?.total ?? total;
 	const titleUnread = folderCount?.unread ?? 0;
 	const mailboxAddress = getMailboxAddress(selectedMailbox);
@@ -582,12 +586,12 @@ export function MessageFolderPage({
 		if (mailboxesLoading) return;
 		document.title = formatEmailPageTitle({
 			location: title,
-			inbox: config.folder === "inbox" && !config.labelId,
+			inbox: config.folder === "inbox" && !config.labelId && !isSearching,
 			total: titleTotal,
 			unread: titleUnread,
 			emailAddress: mailboxAddress,
 		});
-	}, [title, config.folder, config.labelId, mailboxAddress, mailboxesLoading, titleTotal, titleUnread]);
+	}, [title, config.folder, config.labelId, isSearching, mailboxAddress, mailboxesLoading, titleTotal, titleUnread]);
 
 	useEffect(() => {
 		if (isLoading) return;
@@ -653,7 +657,8 @@ export function MessageFolderPage({
 		});
 	}
 
-	const permanentDeleteFolder = !config.labelId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	// Emptying acts on the whole folder, never on search results.
+	const permanentDeleteFolder = !isSearching && !config.labelId && supportsPermanentDelete(config.folder) ? config.folder : null;
 	// The unified view empties the folder of every mailbox the user manages.
 	const emptyTargets = scope.mailboxId
 		? [scope.mailboxId]
@@ -757,7 +762,7 @@ export function MessageFolderPage({
 		<div className="flex h-full min-h-0 flex-col">
 			<div className={`flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
 				{selectedMessageId ? <h2 className="sr-only">{title}</h2> : <h1 className="sr-only">{title}</h1>}
-				<div className="flex items-center gap-3 w-full">
+				<div className="flex min-w-0 items-center gap-3 w-full">
 					<Tooltip label={t("list.selectAll")}>
 						<Checkbox
 							checked={allVisibleSelected}
@@ -858,7 +863,7 @@ export function MessageFolderPage({
 			)}
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
-				{config.folder === "inbox" && !config.labelId && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={scope.mailboxId ?? undefined} />}
+				{config.folder === "inbox" && !config.labelId && !isSearching && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={scope.mailboxId ?? undefined} />}
 				<div role="list" aria-label={title} className="divide-y divide-neutral-100">
 					{messages.map((message) => (
 						<MessageListRow
@@ -894,7 +899,7 @@ export function MessageFolderPage({
 				)}
 				{!isLoading && messages.length === 0 && !promotionsOff && (
 					<p className="px-6 py-4 text-sm text-neutral-500">
-						{hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
+						{isRefused ? t("search.invalid") : hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
 					</p>
 				)}
 			</div>

@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useListScope } from "@/components/list-scope-provider";
+import { useMailSearch } from "@/components/mail-search/mail-search-context";
 import { authFetch } from "@/lib/auth/client";
 import { fetchCachedMessageDetail, getCachedMessageDetail } from "@/lib/messages/detail-cache";
 import { fetchInviteCard, getCachedInviteCard } from "@/lib/calendar/invite-cache";
@@ -31,9 +32,11 @@ function warmMessageInvite(messageId: string, detail?: CachedMessageDetail) {
 export function MessageDetailNavigationProvider({ children, config, currentMessageId }: MessageDetailNavigationProviderProps) {
 	// Prev/next walk the list as it is scoped: every mailbox or one, optionally one project.
 	const { mailboxId, projectId, isLoading: mailboxesLoading } = useListScope();
+	// While searching, prev/next walk the results (every folder), as the list does.
+	const query = useMailSearch().query.trim();
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const key = `${config.folder}:${config.labelId ?? ""}:${mailboxId ?? "all"}:${projectId ?? ""}:${grouped}`;
+	const key = `${config.folder}:${config.labelId ?? ""}:${mailboxId ?? "all"}:${projectId ?? ""}:${grouped}:${query}`;
 	const [snapshot, setSnapshot] = useState<MessageDetailNavigationSnapshot>({ key: "", entries: [] });
 	const [openedUnread, setOpenedUnread] = useState<OpenedUnreadMessages>({ key: "", ids: new Set() });
 	const recordUnread = useCallback((messageId: string) => {
@@ -73,7 +76,10 @@ export function MessageDetailNavigationProvider({ children, config, currentMessa
 		if (mailboxesLoading || !requestAnchor) return;
 		let cancelled = false;
 		const params = new URLSearchParams({ folder: config.folder });
-		if (config.labelId) params.set("labelId", config.labelId);
+		if (query) {
+			params.set("scope", "search");
+			params.set("q", query);
+		} else if (config.labelId) params.set("labelId", config.labelId);
 		if (mailboxId) params.set("mailboxId", mailboxId);
 		if (projectId) params.set("projectId", projectId);
 		if (grouped) params.set("group", "thread");
@@ -90,7 +96,7 @@ export function MessageDetailNavigationProvider({ children, config, currentMessa
 				if (!cancelled) setSnapshot({ key, entries: [] });
 			});
 		return () => { cancelled = true; };
-	}, [config.folder, config.labelId, grouped, key, mailboxId, mailboxesLoading, projectId, requestAnchor]);
+	}, [config.folder, config.labelId, grouped, key, mailboxId, mailboxesLoading, projectId, query, requestAnchor]);
 
 	const unreadIds = openedUnread.key === key ? openedUnread.ids : null;
 	const droppedIds = dropped.key === key ? dropped.ids : null;
