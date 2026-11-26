@@ -257,19 +257,32 @@ Removing the last passkey (`DELETE /api/settings/passkeys/:id`) is allowed when 
 
 ## Searching
 
-`GET /api/messages?q=...` (session) and `GET /api/v1/messages?q=...` (API key, `read` scope) accept the same query grammar, backed by an FTS5 index over subject, sender, recipients and body:
+`GET /api/messages?q=...` (session) and `GET /api/v1/messages?q=...` (API key, `read` scope) accept the same Gmail-style grammar (`src/lib/search/parser-utils.ts`), backed by an FTS5 index over subject, sender, To, Cc, Bcc and body plus plain column filters:
 
 | Syntax | Meaning |
 |---|---|
 | `invoice` | prefix match anywhere (`inv` finds "invoice") |
 | `"private window"` | exact phrase |
-| `-word` | exclude |
-| `from:maya`, `to:sam`, `subject:report` | restrict a term to one field (`to:` covers Cc) |
-| `has:attachment` | at least one non-inline attachment |
-| `is:unread`, `is:read`, `is:starred` | flags |
-| `after:2026-09-01`, `before:2026-09-30` | date bounds (midnight in the account's time zone, or the `X-Time-Zone` header when none is saved; `before` exclusive) |
+| `-word`, `-from:x`, `-(a b)` | exclude a term, an operator or a group |
+| `a OR b`, `{a b}` | either; `OR` (upper case) binds tighter than the implicit AND, so `a b OR c` is `a AND (b OR c)` |
+| `(a b)`, `from:(ana OR bob)` | group; an operator before a group applies to each term in it |
+| `from:`, `to:`, `cc:`, `bcc:`, `subject:` (or `title:`) | restrict a term to one field (`to:` covers Cc) |
+| `has:attachment`, `filename:pdf` | a non-inline attachment; any attachment whose name contains the text |
+| `is:unread`, `is:read`, `is:starred`, `is:snoozed` | flags |
+| `in:inbox`, `in:sent`, `in:drafts`, `in:archive`, `in:snoozed`, `in:spam`, `in:trash`, `in:anywhere` | folder (`in:inbox` includes promotions) |
+| `label:client-work` | carries a label of that name in any searched mailbox (case-insensitive, spaces, hyphens and slashes equivalent) |
+| `project:side-project` | stamped with the user's project of that name (same comparison) |
+| `deliveredto:sales@acme.test` | delivered to that address (a domain or fragment such as `@acme.test` matches anywhere in it) |
+| `category:promotions`, `category:primary` | Promotions, or anything else |
+| `after:2026-09-01`, `before:2026-09-30` (or `newer:`/`older:`) | date bounds (midnight in the account's time zone, or the `X-Time-Zone` header when none is saved; `before` exclusive; epoch seconds also work) |
+| `newer_than:7d`, `older_than:1y` | relative age in days, weeks, months or years |
+| `larger:1M`, `smaller:10K`, `size:500` | size in bytes, `K`/`M`/`G` 1024-based (`size:` is `larger:`); mail stored before sizes were recorded has size 0 and never counts as smaller |
 
-Terms combine with AND. Admins can check or rebuild the index with `GET` / `POST /api/admin/search-index`; triggers keep it current, so a rebuild is only needed after restoring a backup made before the index existed.
+An unknown operator, or a known one with a value it does not understand (`is:important`, `after:yesterday`), stays free text, so nothing is silently dropped. Malformed input (an open quote or bracket, a trailing `OR`, a lone `-`) degrades to the nearest sensible query. A query longer than 1000 characters, with more than 60 terms, or needing more than 40 bound values (fewer when the request covers so many mailboxes that D1's 100-parameter limit would be reached) answers `400` with an `error` message.
+
+The session list searches the folder it is given unless it also gets `scope=search`, which the web app sends while searching: then the folder parameters (`status`, `direction`, `labelId`, `category`, `starred`, `snoozed`, `scheduled`) are ignored and every folder except Spam and Trash is searched, as in Gmail, unless the query names `in:spam`, `in:trash` or `in:anywhere`. `mailboxId`, `projectId` and `read` still apply, and with `group=thread` an unsent draft stays its own row instead of joining its conversation. `GET /api/messages/navigation` accepts the same `q` and `scope=search`, so reader prev/next walk the results; `/api/v1/messages` never excludes Spam or Trash. The legacy `title` parameter is a subject phrase ANDed with the query.
+
+Admins can check or rebuild the index with `GET` / `POST /api/admin/search-index`; triggers keep it current, so a rebuild is only needed after restoring a backup made before the index existed.
 
 ## Real-time updates
 
