@@ -54,25 +54,14 @@ async function fixture(t) {
 	return (actor, mailboxId) => contactsRoute.GET(new Request(`https://mail.test/api/contacts?mailboxId=${mailboxId}&address=jane%40x.test`, { headers: { Authorization: `Bearer ${sessions.get(actor)}` } }));
 }
 
-test("the contact's imported details go to the address book owner only", async (t) => {
+test("the contact lookup returns the stored contact and never serves leftover contact_details rows", async (t) => {
 	const get = await fixture(t);
-	for (const [actor, mailbox] of [["owner", "m-owner"], ["owner", "m-shared"]]) {
+	for (const [actor, mailbox] of [["owner", "m-owner"], ["owner", "m-shared"], ["manager", "m-shared"], ["reader", "m-shared"]]) {
 		const response = await get(actor, mailbox);
 		assert.equal(response.status, 200, `${actor} ${mailbox}`);
-		const { contact } = await response.json();
-		assert.equal(contact.displayName, "Jane");
-		assert.equal(contact.details?.note, "private", `${actor} ${mailbox}`);
-	}
-});
-
-test("a delegate of a shared mailbox gets the contact but no details, even with full access", async (t) => {
-	const get = await fixture(t);
-	for (const actor of ["manager", "reader"]) {
-		const response = await get(actor, "m-shared");
-		assert.equal(response.status, 200, actor);
 		const body = await response.json();
-		assert.equal(body.contact.displayName, "Jane", actor);
-		assert.equal("details" in body.contact, false, actor);
-		assert.ok(!JSON.stringify(body).includes("private"), actor);
+		assert.equal(body.contact.displayName, "Jane", `${actor} ${mailbox}`);
+		assert.equal("details" in body.contact, false, `${actor} ${mailbox}`);
+		assert.ok(!JSON.stringify(body).includes("private"), `${actor} ${mailbox}`);
 	}
 });

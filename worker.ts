@@ -8,7 +8,6 @@ import {
 } from "./src/lib/email/inbound";
 import { processOutboundQueue, type OutboundQueueMessage } from "./src/lib/email/send";
 import {
-	isImportJobMessage,
 	isInboundQueueMessage,
 	isWebhookRetryMessage,
 	settleFailedInboundMessage,
@@ -18,7 +17,6 @@ import {
 import { runWithD1Session } from "./src/lib/d1-session-context";
 import { sweepOrphanedRawMail } from "./src/lib/email/raw-sweeper";
 import { pruneExpiredMessageActionUndoClaims } from "./src/lib/messages/actions/claims";
-import { processImportJob, sweepImportJobs } from "./src/lib/import/jobs";
 import { processWebhookRetry, type WebhookRetryMessage } from "./src/lib/email/webhooks";
 import { resolveIncomingMail, forwardMessage } from "./src/lib/email/incoming";
 import { createBatchBudget } from "./src/lib/deliverability/ingest";
@@ -153,8 +151,6 @@ export default {
 					await processInboundMessage(env, msg.body, { reportBudget });
 				} else if (isWebhookRetryMessage(msg.body)) {
 					await processWebhookRetry(env, msg.body as WebhookRetryMessage);
-				} else if (isImportJobMessage(msg.body)) {
-					await processImportJob(env, { ...msg.body, attempt: msg.attempts });
 				} else if (typeof msg.body === "object" && msg.body !== null && (msg.body as { kind?: unknown }).kind === "email.scheduled") {
 					await processOutboundQueue(env, msg.body as OutboundQueueMessage);
 				} else {
@@ -181,7 +177,6 @@ export default {
 		ctx.waitUntil(runFollowUpReminders(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runCalendarReminders(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runPromotionsBackfill(env, new Date(controller.scheduledTime)).catch((error) => console.error("Promotions backfill failed", error)));
-		ctx.waitUntil(sweepImportJobs(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(pruneExpiredMessageActionUndoClaims(env, new Date(controller.scheduledTime)));
 		// DAV log retention takes a small slice per run (one collection, 90 rows, 3 queries), so it runs on every cron tick.
 		ctx.waitUntil(runDavChangeRetention(env, new Date(controller.scheduledTime)).catch((error) => console.error("DAV change retention failed", error)));

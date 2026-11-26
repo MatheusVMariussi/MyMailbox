@@ -1,5 +1,5 @@
 import { reverseName } from "@/lib/dns-query";
-import { listZipEntries, openZipEntry, sliceChunks } from "@/lib/import/zip-utils";
+import { listZipEntries, openZipEntry, sliceChunks } from "@/lib/zip/zip-utils";
 
 /**
  * Pure, bounded parsing of DMARC aggregate (rua) and TLS-RPT (RFC 8460) reports. Report mail is attacker-controlled, so every

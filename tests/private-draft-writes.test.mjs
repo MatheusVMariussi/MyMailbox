@@ -14,7 +14,6 @@ const { app, newDatabase } = await loadApp("private-draft-writes", `
 	export { emailQuery } from "./src/lib/jmap/emails.ts";
 	export { cancelScheduledSend } from "./src/lib/email/scheduled.ts";
 	export { updateMessageStatus, updateMessageStatusForUser } from "./src/lib/user.ts";
-	export { importMessagesToMailbox } from "./src/lib/import/service.ts";
 	export * as cancelRoute from "./src/app/api/messages/[messageId]/cancel-schedule/route.ts";
 	export * as drafts from "./src/app/api/drafts/route.ts";
 `, { mocks });
@@ -56,17 +55,6 @@ test("creating a draft over JMAP marks it private", async (t) => {
 	});
 	assert.ok(result.created.c1, JSON.stringify(result));
 	assert.equal(flag(sqlite, result.created.c1.id), 1);
-});
-
-test("importing into Drafts marks the message private, importing into Sent does not", async (t) => {
-	const { env, sqlite } = await setup(t);
-	const raw = (id) => new TextEncoder().encode(`From: delegate@example.com\r\nTo: x@example.net\r\nSubject: Imp ${id}\r\nMessage-ID: <${id}@example.com>\r\nDate: Tue, 2 Feb 2021 10:00:00 +0000\r\n\r\nHello`).buffer;
-	for (const section of ["drafts", "sent"]) {
-		const result = await app.importMessagesToMailbox(env, { userId: "delegate", mailboxId: "mb-delegate", destination: { type: "system", section }, messages: [{ filename: `${section}.eml`, raw: raw(section) }] });
-		assert.equal(result.imported, 1, JSON.stringify(result));
-	}
-	assert.equal(sqlite.prepare("SELECT private_draft AS p FROM messages WHERE subject = 'Imp drafts'").get().p, 1);
-	assert.equal(sqlite.prepare("SELECT private_draft AS p FROM messages WHERE subject = 'Imp sent'").get().p, 0);
 });
 
 test("cancelling a scheduled send makes the message private and tells readers it is gone", async (t) => {

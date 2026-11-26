@@ -39,10 +39,6 @@ export const settingsNavSections: SettingsNavSection[] = [
 				requiresMailboxAccess: true,
 			},
 			{
-				href: "/settings/import",
-				labelKey: "settings.nav.import",
-			},
-			{
 				href: "/settings/export",
 				labelKey: "settings.nav.export",
 			},

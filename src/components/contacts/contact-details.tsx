@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ContactAvatarForm } from "./contact-avatar-form";
-import { ContactImportedDetails } from "./contact-imported-details";
 import { Label } from "@/components/ui/label";
 import type { ContactDetailsRecord, ContactDetailsTriggerProps } from "./contact-details-types";
 import {
@@ -146,7 +145,6 @@ export function ContactDetailsTrigger({
 								<p className="text-sm font-medium text-red-600">{t("contact.blocked")}</p>
 							)}
 						</div>
-						<ContactImportedDetails details={contact?.details} address={address} />
 						{error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 						<Button
 							type="button"

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crc32 as nodeCrc32, deflateRawSync } from "node:zlib";
 
-import { crc32, createZipPartReader, listZipEntries, MAX_ZIP_DIRECTORY_BYTES, MAX_ZIP_ENTRIES, readZipEntryBytes } from "../src/lib/import/zip-utils.ts";
+import { listZipEntries, MAX_ZIP_DIRECTORY_BYTES, MAX_ZIP_ENTRIES, openZipEntry } from "../src/lib/zip/zip-utils.ts";
 
 /** `declared` lets a test lie about the uncompressed size; `mode` sets a unix mode in the external attributes. */
 function buildZip(entries) {
@@ -80,96 +80,22 @@ test("an entry count over the cap is refused (Zip64 record)", async () => {
 	await assert.rejects(() => listZipEntries(new Blob([record, locator, end])), /Not a supported zip file/);
 });
 
-test("readZipEntryBytes returns deflated and stored entries", async () => {
-	const zip = buildZip([{ name: "d.ics", data: Buffer.from("BEGIN:VCALENDAR"), method: 8 }, { name: "s.ics", data: Buffer.from("stored"), method: 0 }]);
+test("openZipEntry streams deflated and stored entries", async () => {
+	const zip = buildZip([{ name: "d.xml", data: Buffer.from("<feedback/>"), method: 8 }, { name: "s.xml", data: Buffer.from("stored"), method: 0 }]);
 	const [deflated, stored] = await listZipEntries(zip);
-	assert.equal(Buffer.from(await readZipEntryBytes(zip, deflated, 1024)).toString(), "BEGIN:VCALENDAR");
-	assert.equal(Buffer.from(await readZipEntryBytes(zip, stored, 1024)).toString(), "stored");
+	assert.equal(await new Response(await openZipEntry(zip, deflated)).text(), "<feedback/>");
+	assert.equal(await new Response(await openZipEntry(zip, stored)).text(), "stored");
 });
 
-test("readZipEntryBytes refuses a declared size over the limit", async () => {
-	const zip = buildZip([{ name: "big.ics", data: Buffer.alloc(2000, 97) }]);
+test("openZipEntry refuses encrypted entries and unsupported methods", async () => {
+	const zip = buildZip([{ name: "x.bin", data: Buffer.from("x"), method: 12 }]);
 	const [entry] = await listZipEntries(zip);
-	await assert.rejects(() => readZipEntryBytes(zip, entry, 1000), /too large/);
-});
-
-test("readZipEntryBytes stops when the data inflates past the declared size", async () => {
-	// The header says 10 bytes; the deflate stream yields 1 MB.
-	const zip = buildZip([{ name: "bomb.ics", data: Buffer.alloc(1_000_000, 97), declared: 10 }]);
-	const [entry] = await listZipEntries(zip);
-	assert.equal(entry.size, 10);
-	await assert.rejects(() => readZipEntryBytes(zip, entry, 1024), /larger than/);
-});
-
-test("readZipEntryBytes rejects data shorter than declared", async () => {
-	const zip = buildZip([{ name: "short.ics", data: Buffer.from("abc"), declared: 50 }]);
-	const [entry] = await listZipEntries(zip);
-	await assert.rejects(() => readZipEntryBytes(zip, entry, 1024), /corrupt/i);
-});
-
-test("crc32 matches the standard check value and can be continued", () => {
-	assert.equal(crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
-	assert.equal(crc32(new Uint8Array(0)), 0);
-	const a = new TextEncoder().encode("1234");
-	const b = new TextEncoder().encode("56789");
-	assert.equal(crc32(b, crc32(a)), 0xcbf43926);
+	await assert.rejects(() => openZipEntry(zip, entry), /unsupported compression method/);
+	await assert.rejects(() => openZipEntry(zip, { ...entry, method: 8, encrypted: true }), /encrypted/);
 });
 
 test("listZipEntries reads the CRC-32 of each entry", async () => {
 	const zip = buildZip([{ name: "a.txt", data: Buffer.from("hello") }]);
 	const [entry] = await listZipEntries(zip);
 	assert.equal(entry.crc32, nodeCrc32(Buffer.from("hello")));
-});
-
-test("readZipEntryBytes rejects data whose CRC-32 differs from the directory", async () => {
-	const zip = buildZip([{ name: "a.ics", data: Buffer.from("hello"), crc: 1234 }]);
-	const [entry] = await listZipEntries(zip);
-	await assert.rejects(() => readZipEntryBytes(zip, entry, 1024), /corrupt/i);
-});
-
-for (const method of [0, 8]) {
-	test(`the part reader returns parts in order and verifies the entry (method ${method})`, async () => {
-		const zip = buildZip([{ name: "f.bin", data: Buffer.from("0123456789"), method }]);
-		const [entry] = await listZipEntries(zip);
-		const reader = createZipPartReader(zip, entry);
-		assert.equal(await (await reader.readPart(0, 4)).text(), "0123");
-		assert.equal(await (await reader.readPart(1, 4)).text(), "4567");
-		assert.equal(await (await reader.readPart(2, 4)).text(), "89");
-		await reader.verify();
-	});
-
-	test(`the part reader can skip stored parts and still verifies the skipped bytes (method ${method})`, async () => {
-		const zip = buildZip([{ name: "f.bin", data: Buffer.from("0123456789"), method }]);
-		const [entry] = await listZipEntries(zip);
-		const reader = createZipPartReader(zip, entry);
-		assert.equal(await (await reader.readPart(2, 4)).text(), "89");
-		await reader.verify();
-		const bad = buildZip([{ name: "f.bin", data: Buffer.from("0123456789"), method, crc: 7 }]);
-		const [badEntry] = await listZipEntries(bad);
-		const badReader = createZipPartReader(bad, badEntry);
-		await badReader.readPart(2, 4);
-		await assert.rejects(() => badReader.verify(), /corrupt/i);
-	});
-}
-
-test("the part reader refuses to go back and stops at an inflated overrun", async () => {
-	const zip = buildZip([{ name: "f.bin", data: Buffer.from("0123456789") }]);
-	const [entry] = await listZipEntries(zip);
-	const reader = createZipPartReader(zip, entry);
-	await reader.readPart(1, 4);
-	await assert.rejects(() => reader.readPart(0, 4), /order/);
-	const bomb = buildZip([{ name: "b.bin", data: Buffer.alloc(1_000_000, 97), declared: 10 }]);
-	const [bombEntry] = await listZipEntries(bomb);
-	const bombReader = createZipPartReader(bomb, bombEntry);
-	assert.equal((await bombReader.readPart(0, 64)).size, 10);
-	await assert.rejects(() => bombReader.verify(), /larger than/);
-	const bombVerify = createZipPartReader(bomb, bombEntry);
-	await assert.rejects(() => bombVerify.verify(), /larger than/);
-});
-
-test("the part reader rejects data shorter than declared", async () => {
-	const zip = buildZip([{ name: "s.bin", data: Buffer.from("abc"), declared: 50 }]);
-	const [entry] = await listZipEntries(zip);
-	await assert.rejects(() => createZipPartReader(zip, entry).readPart(0, 64), /corrupt/i);
-	await assert.rejects(() => createZipPartReader(zip, entry).verify(), /corrupt/i);
 });

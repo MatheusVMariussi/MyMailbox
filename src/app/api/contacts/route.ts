@@ -11,7 +11,7 @@ import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { getPersonalIdentityForAddress, syncPersonalIdentity } from "@/lib/profile/sync";
 import { parseAddress } from "@/lib/utils";
 import type { ContactRequestInput } from "./types";
-import { addressesSeenInMailbox, CONTACTS_LIST_MAX_LIMIT, getContactByEmail, getContactDetailsData, listContacts, parseContactsLimit, saveManualContact, toContactDetails } from "./utils";
+import { addressesSeenInMailbox, CONTACTS_LIST_MAX_LIMIT, getContactByEmail, listContacts, parseContactsLimit, saveManualContact, toContactDetails } from "./utils";
 import { readJsonObject } from "@/lib/http/request";
 
 export async function GET(request: Request) {
@@ -55,9 +55,6 @@ export async function GET(request: Request) {
 	}
 
 	const storedContact = toContactDetails(await getContactByEmail(db, access.mailbox.userId, email));
-	// Phones, addresses, notes and so on from an import: private to the address book's owner. A delegate of a shared
-	// mailbox, even with full access, gets the contact without them. One extra read, single lookup only.
-	const details = storedContact && access.isOwner ? await getContactDetailsData(db, access.mailbox.userId, email) : null;
 	const account = await getPersonalIdentityForAddress(db, access.mailbox.userId, email);
 	const contact = account
 		? {
@@ -71,7 +68,7 @@ export async function GET(request: Request) {
 			}
 		: storedContact;
 	return NextResponse.json({
-		contact: contact ? { ...contact, ...(details ? { details } : {}) } : {
+		contact: contact ?? {
 			email,
 			displayName: null,
 			hasAvatar: false,

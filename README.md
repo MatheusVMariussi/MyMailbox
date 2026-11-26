@@ -23,7 +23,7 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 - **File storage**: Cloudflare R2, Backblaze B2 or AWS S3.
 - **Hosting**: Cloudflare Workers.
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
-- **Import**: Bring in mail from IMAP, Gmail Takeout, `.eml` and `.mbox` files, and Google Calendar events and Google Contacts from Takeout. See [Importing from Google Takeout](docs/import.md).
+- **Export**: Download a mailbox as an `.mbox` file.
 
 Mailflare is available in English and Português (Brasil).
 
@@ -94,7 +94,6 @@ A schema change needs a migration for each database type. See [Databases](docs/d
 - [Databases](docs/databases.md)
 - [Sending and receiving providers](docs/providers.md)
 - [API and integrations](docs/api.md)
-- [Importing from Google Takeout](docs/import.md)
 - [Adding a language](docs/localization.md)
 - [Troubleshooting](docs/troubleshooting.md)
 

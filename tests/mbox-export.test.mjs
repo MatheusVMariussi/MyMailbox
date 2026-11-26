@@ -12,7 +12,6 @@ after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({
 	entryPoints: {
 		exporter: join(root, "src/lib/export/mbox.ts"),
-		importer: join(root, "src/lib/import/mbox.ts"),
 		database: join(root, "tests/helpers/sqlite-database.ts"),
 		migrate: join(root, "tests/helpers/migrate.ts"),
 	},
@@ -29,9 +28,25 @@ await build({
 
 const load = (name) => import(pathToFileURL(join(outDir, `${name}.mjs`)).href);
 const { exportMailboxToMbox } = await load("exporter");
-const { splitMboxBytes, splitMboxMessages } = await load("importer");
 const { SqliteDatabase } = await load("database");
 const { applyMigrations } = await load("migrate");
+
+/** A minimal mboxrd reader: splits on "From " separator lines and drops one ">" from quoted ">*From " lines. */
+function splitMboxMessages(content) {
+	const messages = [];
+	let current = [];
+	const flush = () => {
+		const message = current.join("\n").replace(/\r?\n$/, "").replace(/\n>(>*From )/g, "\n$1");
+		if (message.trim()) messages.push(message);
+		current = [];
+	};
+	for (const line of content.replace(/\r\n/g, "\n").split("\n")) {
+		if (/^From /.test(line)) flush();
+		else current.push(line);
+	}
+	flush();
+	return messages;
+}
 
 async function exportBodies(t, bodies) {
 	const database = new SqliteDatabase(join(outDir, `${crypto.randomUUID()}.sqlite`));
@@ -60,15 +75,7 @@ test("From at the start of a later body line is still escaped", async (t) => {
 	assert.equal(splitMboxMessages(mbox).length, 1);
 });
 
-test("splitting bytes keeps 8-bit bodies exactly as written", () => {
-	const latin1 = Uint8Array.from([...Buffer.from("From a@x Thu\nSubject: s\n\ncaf"), 0xe9, 0x0a, 0x81, 0xff, 0x0a, ...Buffer.from("From b@x Thu\nSubject: t\n\nbody\n")]);
-	const parts = splitMboxBytes(latin1.buffer).map((part) => [...new Uint8Array(part)]);
-	assert.equal(parts.length, 2);
-	assert.deepEqual(parts[0], [...Buffer.from("Subject: s\n\ncaf"), 0xe9, 0x0a, 0x81, 0xff]);
-	assert.deepEqual(parts[1], [...Buffer.from("Subject: t\n\nbody")]);
-});
-
-test("a body line that already starts with >From survives export and import unchanged", async (t) => {
+test("a body line that already starts with >From survives export and reads back unchanged", async (t) => {
 	const body = "Hi,\n>From the archive: quoted line\n>>From deeper\nBye";
 	const [message] = splitMboxMessages(await exportBodies(t, [body]));
 	assert.match(message.replace(/\r\n/g, "\n"), /\n\nHi,\n>From the archive: quoted line\n>>From deeper\nBye$/);

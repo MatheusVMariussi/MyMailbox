@@ -43,7 +43,6 @@ export async function fetchMailboxOptions(force = false): Promise<MailboxOption[
 		.then((data) => {
 			const items = ((data as { mailboxes?: MailboxOption[] }).mailboxes ?? []).map((m) => ({
 				id: m.id,
-				userId: m.userId,
 				domainId: m.domainId,
 				localPart: m.localPart,
 				hostname: m.hostname,
