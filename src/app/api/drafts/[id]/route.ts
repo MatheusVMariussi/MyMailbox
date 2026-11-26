@@ -12,6 +12,7 @@ import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { getDraftSender, userOwnsDraft } from "../utils";
 import { listMessageAttachments } from "@/lib/email/attachments";
 import { deleteMessageWithObjects } from "@/lib/email/message-cleanup";
+import { resolveProjectSafely } from "@/lib/projects/service";
 
 export async function GET(request: Request, { params }: DraftRouteParams) {
 	const { id } = await params;
@@ -52,11 +53,13 @@ export async function PATCH(request: Request, { params }: DraftRouteParams) {
 
 	const text = input.text ?? "";
 	const html = input.html ?? "";
+	const project = await resolveProjectSafely(db, sender.fromAddr);
 	await db
 		.update(messages)
 		.set({
 			mailboxId: sender.mailboxId,
 			fromAddr: sender.fromAddr,
+			projectId: project?.id ?? null,
 			toAddr: input.to ?? "",
 			ccAddr: input.cc || null,
 			bccAddr: input.bcc || null,

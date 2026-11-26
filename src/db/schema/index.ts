@@ -257,6 +257,49 @@ export const labels = sqliteTable(
 	],
 );
 
+/**
+ * Projects: named, colored identities per user. Each owns whole domains or single addresses through
+ * `project_addresses`; a message carries the project of its own address in `messages.project_id`.
+ */
+export const projects = sqliteTable(
+	"projects",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		color: text("color").notNull().default("#4f8cff"),
+		sortOrder: integer("sort_order").notNull().default(0),
+		createdAt: timestamp("created_at")
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(t) => [uniqueIndex("projects_user_name_idx").on(t.userId, t.name)],
+);
+
+/** An address a project owns. An empty local part owns the whole domain; an address belongs to one project at most. */
+export const projectAddresses = sqliteTable(
+	"project_addresses",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => projects.id, { onDelete: "cascade" }),
+		domainId: text("domain_id")
+			.notNull()
+			.references(() => domains.id, { onDelete: "cascade" }),
+		localPart: text("local_part").notNull().default(""),
+		createdAt: timestamp("created_at")
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(t) => [
+		uniqueIndex("project_addresses_address_idx").on(t.domainId, t.localPart),
+		index("project_addresses_project_idx").on(t.projectId),
+	],
+);
+
 export const jmapMailboxRevisions = sqliteTable("jmap_mailbox_revisions", {
 	mailboxId: text("mailbox_id").primaryKey(),
 	revision: integer("revision").notNull().default(0),
@@ -390,6 +433,13 @@ export const messages = sqliteTable(
 		category: text("category", { enum: ["promotions", "primary"] }),
 		/** Lower-cased bare From address, grouped on by Subscriptions. Null when longer than 191 characters, never truncated. */
 		senderAddress: text("sender_address"),
+		/** Lower-cased bare envelope recipient the message was delivered to; inbound only, null on mail stored before 0003_projects. */
+		deliveredTo: text("delivered_to"),
+		/**
+		 * The project of the message's own address (envelope recipient inbound, From otherwise). No foreign key on
+		 * purpose: ON DELETE SET NULL would rewrite every stamped row and fire the per-row message triggers.
+		 */
+		projectId: text("project_id"),
 		createdAt: timestamp("created_at")
 			.notNull()
 			.$defaultFn(() => new Date()),
@@ -410,8 +460,8 @@ export const messages = sqliteTable(
 			desc(t.createdAt),
 			desc(t.id),
 		),
-		// Covers the Promotions count (equality columns first, then the grouped and filtered `read` and `snoozed_until`).
-		index("messages_category_count_idx").on(t.mailboxId, t.category, t.direction, t.status, t.read, t.snoozedUntil),
+		// Covers the Promotions count (equality columns first, then the grouped and filtered `read`, `snoozed_until` and `project_id`).
+		index("messages_category_count_idx").on(t.mailboxId, t.category, t.direction, t.status, t.read, t.snoozedUntil, t.projectId),
 		// Serves the bounded sender re-file (one sender, newest first) and the Subscriptions sender grouping.
 		index("messages_sender_idx").on(t.mailboxId, t.senderAddress, t.createdAt),
 		index("messages_inbox_page_idx").on(
@@ -439,6 +489,22 @@ export const messages = sqliteTable(
 			// The draft filter (user_id = ? OR NOT private_draft) is evaluated from the index too.
 			t.userId,
 			t.privateDraft,
+			t.projectId,
+		),
+		// The unified inbox (every accessible mailbox at once): status first, so a page walks one folder in date
+		// order across mailboxes instead of sorting it; the mailbox, draft and project filters ride the tail.
+		index("messages_unified_page_idx").on(
+			t.status,
+			desc(t.createdAt),
+			desc(t.id),
+			t.mailboxId,
+			t.direction,
+			t.read,
+			t.threadId,
+			t.snoozedUntil,
+			t.userId,
+			t.privateDraft,
+			t.projectId,
 		),
 		// Covering index for the folder-counts GROUP BY: lets the counts
 		// endpoint stream grouped rows straight off the index instead of
@@ -453,6 +519,8 @@ export const messages = sqliteTable(
 			// The draft filter (user_id = ? OR NOT private_draft) is evaluated from the index too.
 			t.userId,
 			t.privateDraft,
+			// Per-project counts group on it.
+			t.projectId,
 		),
 		// Conversation paging partitions by coalesce(thread_id, id) and orders
 		// each partition by created_at desc, so the thread key must precede

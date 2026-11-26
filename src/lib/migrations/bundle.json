@@ -272,6 +272,25 @@
         "CREATE TRIGGER `jmap_message_labels_ai` AFTER INSERT ON `message_labels` BEGIN\n\tINSERT INTO jmap_mailbox_revisions (mailbox_id, revision)\n\tSELECT mailbox_id, 1 FROM messages WHERE id = NEW.message_id AND mailbox_id IS NOT NULL\n\tON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;\nEND;",
         "CREATE TRIGGER `jmap_message_labels_ad` AFTER DELETE ON `message_labels` BEGIN\n\tINSERT INTO jmap_mailbox_revisions (mailbox_id, revision)\n\tSELECT mailbox_id, 1 FROM messages WHERE id = OLD.message_id AND mailbox_id IS NOT NULL\n\tON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;\nEND;"
       ]
+    },
+    {
+      "name": "0003_projects.sql",
+      "statements": [
+        "CREATE TABLE `projects` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`user_id` text NOT NULL,\n\t`name` text NOT NULL,\n\t`color` text DEFAULT '#4f8cff' NOT NULL,\n\t`sort_order` integer DEFAULT 0 NOT NULL,\n\t`created_at` integer NOT NULL,\n\tFOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade\n);",
+        "CREATE UNIQUE INDEX `projects_user_name_idx` ON `projects` (`user_id`,`name`);",
+        "CREATE TABLE `project_addresses` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`project_id` text NOT NULL,\n\t`domain_id` text NOT NULL,\n\t`local_part` text DEFAULT '' NOT NULL,\n\t`created_at` integer NOT NULL,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,\n\tFOREIGN KEY (`domain_id`) REFERENCES `domains`(`id`) ON UPDATE no action ON DELETE cascade\n);",
+        "CREATE UNIQUE INDEX `project_addresses_address_idx` ON `project_addresses` (`domain_id`,`local_part`);",
+        "CREATE INDEX `project_addresses_project_idx` ON `project_addresses` (`project_id`);",
+        "ALTER TABLE `messages` ADD `delivered_to` text;",
+        "ALTER TABLE `messages` ADD `project_id` text;",
+        "CREATE INDEX `messages_unified_page_idx` ON `messages` (`status`,\"created_at\" desc,\"id\" desc,`mailbox_id`,`direction`,`read`,`thread_id`,`snoozed_until`,`user_id`,`private_draft`,`project_id`);",
+        "DROP INDEX `messages_nav_cover_idx`;",
+        "CREATE INDEX `messages_nav_cover_idx` ON `messages` (`mailbox_id`,`status`,\"created_at\" desc,\"id\" desc,`direction`,`read`,`thread_id`,`snoozed_until`,`user_id`,`private_draft`,`project_id`);",
+        "DROP INDEX `messages_counts_cover_idx`;",
+        "CREATE INDEX `messages_counts_cover_idx` ON `messages` (`mailbox_id`,`direction`,`status`,`read`,`starred`,`snoozed_until`,`user_id`,`private_draft`,`project_id`);",
+        "DROP INDEX `messages_category_count_idx`;",
+        "CREATE INDEX `messages_category_count_idx` ON `messages` (`mailbox_id`,`category`,`direction`,`status`,`read`,`snoozed_until`,`project_id`);"
+      ]
     }
   ]
 }

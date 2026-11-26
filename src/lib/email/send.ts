@@ -20,6 +20,7 @@ import { buildTrackingPixelUrl, injectTrackingPixel, resolveTrackingOrigin } fro
 import { getComposePreferences } from "@/lib/compose/preferences";
 import { getMailboxDomainAddresses } from "@/lib/mailboxes/domain-addresses";
 import { assertNoSuppressedRecipients, dropSuppressedRecipients } from "@/lib/deliverability/suppression";
+import { resolveProjectSafely } from "@/lib/projects/service";
 
 export type SendEmailInput = {
 	userId: string;
@@ -126,6 +127,8 @@ export async function sendEmail(
 	const scheduledAt = userScheduledAt ?? (undoSeconds > 0 ? new Date(Date.now() + undoSeconds * 1000) : null);
 	const snippet = buildSnippet(input.text ?? null, input.html ?? null);
 	const toAddr = joinEmailAddressList(to);
+	// Sent mail belongs to the project of its From address.
+	const project = await resolveProjectSafely(db, sender.fromAddr);
 
 	await db.insert(messages).values({
 		id: messageId,
@@ -145,6 +148,7 @@ export async function sendEmail(
 		threadId: input.threadId ?? null,
 		inReplyTo,
 		references: references.length ? references.join(" ") : null,
+		projectId: project?.id ?? null,
 	});
 	try {
 		const stored = await storeMessageAttachments(env, messageId, attachments, { validate: false });
@@ -304,11 +308,13 @@ async function deliverEmail(env: CloudflareEnv, delivery: PreparedDelivery): Pro
 			await setFollowUp(env, { messageId, userId: input.userId, days: input.followUpDays }).catch((error) => console.error("Follow-up reminder skipped", error));
 		}
 
+		const [stamp] = await db.select({ projectId: messages.projectId }).from(messages).where(eq(messages.id, messageId)).limit(1);
 		await dispatchWebhooks(env, input.userId, "message.outbound", {
 			messageId,
 			providerMessageId: response.messageId,
 			to: toAddr,
 			cc: cc.length ? joinEmailAddressList(cc) : undefined,
+			projectId: stamp?.projectId ?? null,
 		});
 		await createAuditLog(env, {
 			actorUserId: input.userId,

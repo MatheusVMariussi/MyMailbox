@@ -19,6 +19,7 @@ import { importFlags, parseReceivedAt, resolveDraftsMailbox } from "./email-impo
 import { filterToSql, mailboxRefCondition, sortToSql } from "./email-query";
 import { getEmailState } from "./state";
 import { loadPromotionModes } from "@/lib/promotions/settings";
+import { resolveProjectSafely } from "@/lib/projects/service";
 import { listAccessibleMailboxIdSet, listJmapMailboxes } from "./access";
 import { deleteUpload, readUpload, storeRawDraftMime } from "./blobs";
 import type { Comparator, EmailAddressObject, Filter, JmapContext, JmapMethodHandler, JmapSetError, MailboxRef } from "./types";
@@ -49,6 +50,7 @@ type DraftRow = {
 /** Insert a draft and return its id. Drafts are outbound mail that has not been sent. */
 async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 	const id = newId("msg");
+	const project = await resolveProjectSafely(ctx.db, row.fromAddr);
 	await ctx.db.insert(messages).values({
 		id,
 		userId: ctx.auth.userId,
@@ -71,6 +73,7 @@ async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 		threadId: row.threadId ?? null,
 		providerMessageId: row.providerMessageId ?? null,
 		rawR2Key: row.rawR2Key ?? null,
+		projectId: project?.id ?? null,
 		...(row.createdAt ? { createdAt: row.createdAt } : {}),
 	});
 	return id;

@@ -11,7 +11,8 @@ import { boundParsedEmail } from "@/lib/email/inbound-limits";
 import { resolveInboundAddress, resolveInboxRuleDestination } from "@/lib/email/routing";
 import { dispatchWebhooks } from "@/lib/email/webhooks";
 import { getMessageContactNames, upsertContactFromAddress } from "@/lib/contacts/service";
-import { getEmailAddress } from "@/lib/email/address";
+import { getEmailAddress, normalizeEmailAddress } from "@/lib/email/address";
+import { resolveProjectSafely } from "@/lib/projects/service";
 import { sendMailboxAutoReply } from "@/lib/email/auto-reply";
 import { isOthersDraft } from "@/lib/email/draft-access";
 import { recordDsnBounces } from "@/lib/deliverability/suppression";
@@ -120,6 +121,9 @@ export async function processInboundMessage(
 	const messageId = await inboundMessageId(payload.rawR2Key);
 	const snippet = buildSnippet(parsed.text, parsed.html);
 	const deliveredAddress = getEmailAddress(payload.to) || `${decision.mailbox.localPart}@${decision.mailbox.hostname}`;
+	// The envelope recipient decides the project: with use_all_domains one mailbox receives on every domain of its owner.
+	const deliveredTo = normalizeEmailAddress(payload.to) || null;
+	const project = await resolveProjectSafely(db, deliveredTo);
 	// Keep the whole To header so reply-all can address everyone; rules and
 	// webhooks still see the envelope recipient the message was delivered to.
 	const toAddr = parsed.toAddr ?? payload.to;
@@ -229,6 +233,8 @@ export async function processInboundMessage(
 			hasUnsubscribe: !!extractUnsubscribeUrlFromRaw(buffer) || !!extractUnsubscribeLinkFromBody(parsed.html, parsed.text),
 			category,
 			senderAddress,
+			deliveredTo,
+			projectId: project?.id ?? null,
 			spamScore: spamAnalysis?.score ?? null,
 			spamVerdict: spamAnalysis?.verdict ?? null,
 			spamSignals: spamAnalysis ? JSON.stringify(spamAnalysis.signals) : null,
@@ -326,6 +332,9 @@ export async function processInboundMessage(
 			spamVerdict: spamAnalysis?.verdict,
 			category,
 			labelIds,
+			deliveredTo,
+			projectId: project?.id ?? null,
+			projectName: project?.name ?? null,
 		});
 	}
 }

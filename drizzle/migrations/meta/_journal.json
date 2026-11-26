@@ -22,6 +22,13 @@
       "when": 1795723301609,
       "tag": "0002_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795723302609,
+      "tag": "0003_projects",
+      "breakpoints": true
     }
   ]
 }

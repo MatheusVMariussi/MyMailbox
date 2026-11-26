@@ -13,6 +13,7 @@ import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import type { DraftPayload } from "./types";
 import { getDraftSender } from "./utils";
+import { resolveProjectSafely } from "@/lib/projects/service";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
 	const draftId = newId("msg");
 	const text = input.text ?? "";
 	const html = input.html ?? "";
+	const project = await resolveProjectSafely(db, sender.fromAddr);
 
 	await db.insert(messages).values({
 		id: draftId,
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
 		inReplyTo: input.inReplyTo || null,
 		references: input.references || null,
 		threadId: input.threadId || null,
+		projectId: project?.id ?? null,
 	});
 
 	const attachments = forwardSourceId ? await copyMessageAttachments(env, forwardSourceId, draftId) : [];

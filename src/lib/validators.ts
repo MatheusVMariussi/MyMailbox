@@ -6,6 +6,9 @@ import { getEmailAddress, splitEmailAddressList } from "@/lib/email/address";
 import { normalizeRecipientLocalPart } from "@/lib/email/recipient-address";
 import { DEFAULT_LABEL_COLOR, LABEL_COLOR_VALUES } from "@/lib/labels/colors";
 import { LABEL_NAME_MAX, normalizeLabelName } from "@/lib/labels/label-utils";
+import { DEFAULT_PROJECT_COLOR, PROJECT_COLOR_VALUES } from "@/lib/projects/colors";
+import { normalizeProjectName, PROJECT_ADDRESSES_MAX, PROJECT_NAME_MAX } from "@/lib/projects/project-utils";
+import { normalizeProjectLocalPart } from "@/lib/projects/resolve-utils";
 import { MAX_FOLLOW_UP_DAYS } from "@/lib/follow-ups/follow-up-utils";
 import { isValidBase64 } from "@/lib/email/base64";
 import { MAIL_TYPE_BULK, MAIL_TYPE_UNSAFE_ACTION } from "@/lib/email/mail-type-rule";
@@ -374,6 +377,39 @@ export const labelUpdateSchema = z.object({
 	name: labelName.optional(),
 	color: z.enum(LABEL_COLOR_VALUES).optional(),
 }).refine((value) => value.name !== undefined || value.color !== undefined, { message: "Nothing to change" });
+
+const projectName = z.string().transform((value, ctx) => {
+	const name = normalizeProjectName(value);
+	if (!name) ctx.addIssue({ code: "custom", message: `A project name is 1 to ${PROJECT_NAME_MAX} characters` });
+	return name ?? "";
+});
+
+export const projectSchema = z.object({
+	name: projectName,
+	color: z.enum(PROJECT_COLOR_VALUES).default(DEFAULT_PROJECT_COLOR),
+});
+
+export const projectUpdateSchema = z.object({
+	name: projectName.optional(),
+	color: z.enum(PROJECT_COLOR_VALUES).optional(),
+	sortOrder: z.number().int().min(0).max(10_000).optional(),
+}).refine((value) => value.name !== undefined || value.color !== undefined || value.sortOrder !== undefined, { message: "Nothing to change" });
+
+const projectLocalPart = z.string().max(200).transform((value, ctx) => {
+	const localPart = normalizeProjectLocalPart(value);
+	if (localPart === null) ctx.addIssue({ code: "custom", message: "Use a single address part without spaces, @ or +, or leave it empty for the whole domain" });
+	return localPart ?? "";
+});
+
+/** The full set of addresses a project owns; an empty local part owns the whole domain. */
+export const projectAddressesSchema = z.object({
+	addresses: z.array(z.object({ domainId: z.string().min(1).max(100), localPart: projectLocalPart.default("") }))
+		.max(PROJECT_ADDRESSES_MAX, `A project owns at most ${PROJECT_ADDRESSES_MAX} addresses`),
+});
+
+export const projectRestampSchema = z.object({
+	cursor: z.string().max(40).nullable().optional(),
+});
 
 /** Proof of identity for changing where password-reset or forwarded mail goes. */
 const recoveryProofFields = {
