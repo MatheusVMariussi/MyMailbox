@@ -192,9 +192,9 @@ Mailbox content authorization goes through `src/lib/mailboxes/access.ts` (`getMa
 
 `messages.status` is a free-text column driving the folder views: `received` (inbox), `sent`, `draft`, `spam`, `trash`, `archived`. Orthogonal to that are `starred`, `snoozedUntil`, and `folderId` (user-created folders in the `folders` table). A "folder" route under `src/app/(dashboard)/` is usually a status filter, not a table. Drafts are private to their author: `draftsVisibleTo` / `isOthersDraft` (`src/lib/email/draft-access.ts`) must gate every reader query. `messages.private_draft` is set when a row is created as a draft (and when a message is moved back to Drafts) and stays set wherever the row goes, so a trashed or filed draft stays private; it is cleared only by a real send or an explicit "sent" (`privateDraftForStatus`); a JMAP folder move is never a send, so `targetFromMailboxIds` keeps a private row off status `sent`. Thread views, conversation counts, Drive attachments and the auto-draft context apply the same predicate, and a backup from before the column derives it on restore like the migration backfill. `messages_nav_cover_idx` and `messages_counts_cover_idx` end with `user_id, private_draft` so the predicate stays on the index (MySQL's 3072-byte key budget drops them). Any select feeding `isOthersDraft` must include `privateDraft` (a missing value counts as private). `draftsVisibleTo` binds one parameter (`DRAFT_FILTER_PARAMS`): size D1 batches as 100 minus the query's fixed parameters, including it.
 
-### Self-update
+### Database migrations
 
-The admin overview dispatches `deploy-update.yml` (constant in `src/app/api/admin/update/utils.ts`) in the installation repo, which merges the upstream default branch and pushes it. It does not migrate, build, or deploy; the connected Cloudflare Git integration deploys the push. The admin update card separately reports and applies pending D1 migrations through the Worker binding.
+The admin overview's database card (`src/components/admin-migrations-card.tsx`) reports and applies pending D1 migrations through the Worker binding via `/api/admin/migrations` (primary admin only).
 
 ## Conventions
 

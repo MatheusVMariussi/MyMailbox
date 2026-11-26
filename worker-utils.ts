@@ -129,7 +129,7 @@ export const INBOUND_SCHEMA_RETRY_DELAY_SECONDS = 300;
 /**
  * After a failed inbound delivery: a missing column or table means the new code is live but its
  * migration is not applied yet, so retry slowly (the queue's max_retries then spans about an
- * hour, long enough for the 5-minute auto-update cron or an admin) instead of burning quick
+ * hour, long enough for an admin to apply the migration) instead of burning quick
  * retries and dropping the mail. Any other error retries every 10 s until the queue's
  * max_retries gives up; that is safe because inbound processing skips an already-stored
  * `rawR2Key`, so a retry never duplicates mail.

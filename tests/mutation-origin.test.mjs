@@ -183,7 +183,7 @@ test("every cookie-authenticated mutation handler resolves its user through the 
 });
 
 test("the admin wrapper counted as a guarded resolver really calls requireUser, and the weak same-origin helper is gone", () => {
-	assert.match(readFileSync(join(api, "admin", "update", "utils.ts"), "utf8"), /export async function authorizeAdminRequest[\s\S]*?requireUser\(env, request\)/);
+	assert.match(readFileSync(join(api, "admin", "migrations", "utils.ts"), "utf8"), /export async function authorizeAdminRequest[\s\S]*?requireUser\(env, request\)/);
 	assert.doesNotMatch(readFileSync(join(root, "src", "lib", "auth", "accounts.ts"), "utf8"), /isSameOrigin\b/);
 	for (const file of walk(api)) assert.doesNotMatch(readFileSync(file, "utf8"), /headers\.get\("Origin"\)\s*!==\s*new URL\(request\.url\)\.origin/, `${file} compares Origin to request.url itself`);
 });

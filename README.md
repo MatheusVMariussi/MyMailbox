@@ -9,21 +9,6 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
-## Screenshots
-
-<table>
-  <tr>
-    <td align="center"><img src="screenshots/1.png" alt="Inbox" width="320"><br>Inbox</td>
-    <td align="center"><img src="screenshots/2.png" alt="Manage domains" width="320"><br>Domains</td>
-    <td align="center"><img src="screenshots/3.png" alt="Manage inboxes" width="320"><br>Mailboxes</td>
-  </tr>
-  <tr>
-    <td align="center"><img src="screenshots/4.png" alt="Calendar" width="320"><br>Calendar</td>
-    <td align="center"><img src="screenshots/5.png" alt="Booking" width="320"><br>Booking</td>
-    <td align="center"><img src="screenshots/6.png" alt="Drive" width="320"><br>Drive</td>
-  </tr>
-</table>
-
 ## Features
 
 ### Apps

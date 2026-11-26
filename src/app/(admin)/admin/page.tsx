@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Bot, Globe2, KeyRound, Mail, Palette, Users } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import type { TranslationKey } from "@/lib/i18n/types";
-import { AdminUpdateCard } from "@/components/admin-update-card";
+import { AdminMigrationsCard } from "@/components/admin-migrations-card";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -114,7 +114,7 @@ export default function AdminSettingsPage() {
 			</div>
 			{user?.isPrimaryAdmin && (
 				<div className="mt-8">
-					<AdminUpdateCard />
+					<AdminMigrationsCard />
 				</div>
 			)}
 		</div>
