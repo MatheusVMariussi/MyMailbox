@@ -21,7 +21,7 @@ const { app, newDatabase } = await loadApp("draft-trash", `
 `, { mocks });
 
 const seed = `${sharedMailboxSeed("full_access")}
-	INSERT INTO folders (id, user_id, mailbox_id, name, created_at) VALUES ('f-1', 'admin', 'mb-team', 'Clients', 1);
+	INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('f-1', 'admin', 'mb-team', 'Clients', 1);
 	INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, subject, text_body, status, private_draft, created_at) VALUES
 		('m-1', 'admin', 'mb-team', 'inbound', 'x@example.net', 'team@example.com', 'Hello', 'visible', 'received', 0, 2),
 		('t-inbound', 'admin', 'mb-team', 'inbound', 'x@example.net', 'team@example.com', 'Old', 'visible', 'trash', 0, 3),

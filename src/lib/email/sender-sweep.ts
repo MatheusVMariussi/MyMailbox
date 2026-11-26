@@ -1,6 +1,7 @@
 import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { messages } from "@/db/schema";
 import { escapeLike, insensitiveLike } from "@/db/sql";
+import { unlabelledCondition } from "@/lib/labels/service";
 
 /**
  * The Subscriptions "Trash all" condition: an exact sender match on the indexed `sender_address`, with a
@@ -16,7 +17,7 @@ export function senderSweepCondition(mailboxId: string, senderAddress: string) {
 			and(isNull(messages.senderAddress), insensitiveLike(messages.fromAddr, escapeLike(senderAddress))),
 		),
 		eq(messages.starred, false),
-		isNull(messages.folderId),
+		unlabelledCondition(),
 		ne(messages.status, "trash"),
 	);
 }

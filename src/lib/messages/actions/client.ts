@@ -32,6 +32,8 @@ import {
 	type MembershipPatch,
 } from "@/lib/messages/membership-store";
 import type { MessageMembershipFields } from "@/lib/messages/list-membership";
+import { applyLabelDelta, invertLabelDelta, isEmptyLabelDelta } from "@/lib/labels/label-utils";
+import type { MessageLabelDelta } from "@/lib/labels/types";
 import { clearMessageListCache, invalidateMessageListRequests, patchMessageFieldsInCaches } from "@/hooks/utils";
 import { clearMessageThreadCache, invalidateMessageThreadRequests } from "@/components/messages/message-thread-cache";
 import { getChangedStateFields, getMessageActionPatch } from "./definitions";
@@ -136,7 +138,9 @@ const MEMBERSHIP_ACTIONS = new Set<ReversibleMessageAction>([
 	"trash",
 	"spam",
 	"inbox",
-	"folder",
+	"move",
+	"label",
+	"unlabel",
 	"snooze",
 	"unsnooze",
 ]);
@@ -148,19 +152,30 @@ function isMembershipAction(action: ReversibleMessageAction): boolean {
 	return MEMBERSHIP_ACTIONS.has(action);
 }
 
-function membershipPatchOf(patch: Partial<MessageStateSnapshot>): MembershipPatch {
+/**
+ * The label set of a known row after (or, for "previous", before) a label delta. Set semantics make
+ * this right whether the remembered row already shows the action or not; an unknown row stays unknown.
+ */
+function knownLabelIdsAfter(id: string, delta: MessageLabelDelta | undefined, direction: "previous" | "applied"): string[] | undefined {
+	if (!delta || isEmptyLabelDelta(delta)) return undefined;
+	return applyLabelDelta(getKnownMembershipRow(id)?.labelIds, direction === "applied" ? delta : invertLabelDelta(delta));
+}
+
+function membershipPatchOf(patch: Partial<MessageStateSnapshot>, labelIds?: string[]): MembershipPatch {
 	const result: MembershipPatch = {};
 	if (patch.status !== undefined) result.status = patch.status;
-	if (patch.folderId !== undefined) result.folderId = patch.folderId;
+	if (labelIds !== undefined) result.labelIds = labelIds;
 	if (patch.snoozedUntil !== undefined) result.snoozedUntil = patch.snoozedUntil;
 	return result;
 }
 
-function membershipStateOf(id: string, state: MessageStateSnapshot): MessageMembershipState {
+function membershipStateOf(record: MessageActionRecord, direction: "previous" | "applied"): MessageMembershipState {
+	const state = record[direction];
+	const labelIds = knownLabelIdsAfter(record.id, record.labels, direction);
 	return {
-		id,
+		id: record.id,
 		status: state.status,
-		folderId: state.folderId,
+		...(labelIds ? { labelIds } : {}),
 		snoozedUntil: state.snoozedUntil,
 		starred: state.starred,
 	};
@@ -169,7 +184,7 @@ function membershipStateOf(id: string, state: MessageStateSnapshot): MessageMemb
 /** Whether undoing this record would move a message between lists. */
 function recordChangesMembership(record: MessageActionRecord): boolean {
 	const changed = getChangedStateFields(record.previous, record.applied);
-	return changed.includes("status") || changed.includes("folderId") || changed.includes("snoozedUntil");
+	return changed.includes("status") || changed.includes("snoozedUntil") || !isEmptyLabelDelta(record.labels);
 }
 
 /** Only the membership fields this action actually changed. */
@@ -186,8 +201,9 @@ function changedMembershipPatches(
 			entry.status = record[direction].status;
 			any = true;
 		}
-		if (changed.has("folderId")) {
-			entry.folderId = record[direction].folderId;
+		const labelIds = knownLabelIdsAfter(record.id, record.labels, direction);
+		if (labelIds) {
+			entry.labelIds = labelIds;
 			any = true;
 		}
 		if (changed.has("snoozedUntil")) {
@@ -214,10 +230,10 @@ function optimisticMembershipPatches(input: MessageActionInput): Array<{ id: str
 		const result = getMessageActionPatch(
 			input.action,
 			input,
-			{ ...row, folderId: row.folderId ?? null, snoozedUntil: row.snoozedUntil ?? null },
+			{ ...row, snoozedUntil: row.snoozedUntil ?? null },
 		);
 		if (!("patch" in result) || !result.patch) continue;
-		const patch = membershipPatchOf(result.patch);
+		const patch = membershipPatchOf(result.patch, result.labels ? applyLabelDelta(row.labelIds, result.labels) : undefined);
 		if (Object.keys(patch).length > 0) entries.push({ id, ...patch });
 	}
 	return entries;
@@ -236,8 +252,7 @@ function capturedMembershipStates(
 	for (const record of records) {
 		const current = captured.get(record.id);
 		if (!current) continue;
-		const changed = new Set(getChangedStateFields(record.previous, record.applied));
-		if (!changed.has("status") && !changed.has("folderId") && !changed.has("snoozedUntil")) continue;
+		if (!recordChangesMembership(record)) continue;
 		states.push({ id: record.id, ...current });
 	}
 	return states;
@@ -390,6 +405,9 @@ function rememberDetailState(records: MessageActionRecord[], direction: "previou
 	for (const record of records) {
 		const patch = Object.fromEntries(getChangedStateFields(record.previous, record.applied)
 			.map((field) => [field, record[direction][field]])) as CachedMessageStatePatch;
+		if (record.labels && !isEmptyLabelDelta(record.labels)) {
+			patch.labelDelta = direction === "applied" ? record.labels : invertLabelDelta(record.labels);
+		}
 		patchCachedMessageState(record.id, patch);
 	}
 }
@@ -429,7 +447,7 @@ export const defaultMessageActionHooks: MessageActionExecutorHooks = {
 			kind: "removed",
 			action: input.action,
 			messageIds: input.messageIds,
-			folderId: input.folderId ?? null,
+			labelId: input.labelId ?? null,
 			snoozedUntil: input.snoozedUntil ?? null,
 			localOnly: true,
 		});
@@ -443,7 +461,7 @@ export const defaultMessageActionHooks: MessageActionExecutorHooks = {
 			rememberDetailState(changed, "applied");
 		}
 		const membership = changed.filter(hasMembershipChange);
-		const states = membership.map((record) => membershipStateOf(record.id, record.applied));
+		const states = membership.map((record) => membershipStateOf(record, "applied"));
 		// Commit before clearing the overlay so an unpruned row cannot flash.
 		removeMembership(states, response.action);
 		updateRemovedRows(states);

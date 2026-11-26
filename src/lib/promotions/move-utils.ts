@@ -25,8 +25,8 @@ export function moveTargetFor(category: string | null | undefined): MoveTarget {
 }
 
 /** Inbox rows carry the chip only in `show` mode: in `separate` they are hidden from Inbox, and off shows nothing new. */
-export function showsPromotionChip(input: { folder: string; folderId?: string; mode: string | undefined; category: string | null | undefined }): boolean {
-	return input.folder === "inbox" && !input.folderId && input.mode === "show" && input.category === "promotions";
+export function showsPromotionChip(input: { folder: string; labelId?: string; mode: string | undefined; category: string | null | undefined }): boolean {
+	return input.folder === "inbox" && !input.labelId && input.mode === "show" && input.category === "promotions";
 }
 
 /** Whether the folder on screen stops listing a message once it moves to `target`. */

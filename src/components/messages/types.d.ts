@@ -12,7 +12,7 @@ export type MessageFolderConfig = {
 	emptyText: string;
 	emptyTextKey?: TranslationKey;
 	hrefPrefix: string;
-	folderId?: string;
+	labelId?: string;
 	icon: LucideIcon;
 	headerIcons?: LucideIcon[];
 	badgeVariant?: "default" | "secondary" | "outline";
@@ -46,7 +46,7 @@ export type MessageListRowActionsProps = {
 	message: Message;
 	/** Folder being listed; archived, spam and trash use a different primary action. */
 	folder: MessageFolder;
-	folderId?: string;
+	labelId?: string;
 	onAction: (action: RowMessageAction) => Promise<void>;
 	/** Tighter rail for the split-view message list. */
 	compact?: boolean;
@@ -81,7 +81,7 @@ export type BulkMessageToolbarProps = {
 	selectedCount: number;
 	hasUnreadSelection: boolean;
 	hideSelectedCount?: boolean;
-	onAction: (action: BulkMessageAction, folderId?: string) => void;
+	onAction: (action: BulkMessageAction, labelId?: string) => void;
 	onClearSelection: () => void;
 	pending: boolean;
 	/** Folder being listed; archived, spam and trash offer a way back instead of the same move. */

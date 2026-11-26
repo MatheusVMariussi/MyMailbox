@@ -51,10 +51,10 @@ test("folder counts group straight off the counts index", async (t) => {
 test("the counts grouping with the draft filter is covered by the counts index", async (t) => {
 	const { db, sqlite } = await newDatabase(t, sharedMailboxSeed("read_only"));
 	const { sql, params } = db
-		.select({ mailboxId: app.messages.mailboxId, folderId: app.messages.folderId, direction: app.messages.direction, status: app.messages.status, read: app.messages.read, starred: app.messages.starred, snoozedUntil: app.messages.snoozedUntil, total: count() })
+		.select({ mailboxId: app.messages.mailboxId, direction: app.messages.direction, status: app.messages.status, read: app.messages.read, starred: app.messages.starred, snoozedUntil: app.messages.snoozedUntil, total: count() })
 		.from(app.messages)
 		.where(and(eq(app.messages.mailboxId, "mb-team"), app.draftsVisibleTo("delegate")))
-		.groupBy(app.messages.mailboxId, app.messages.folderId, app.messages.direction, app.messages.status, app.messages.read, app.messages.starred, app.messages.snoozedUntil)
+		.groupBy(app.messages.mailboxId, app.messages.direction, app.messages.status, app.messages.read, app.messages.starred, app.messages.snoozedUntil)
 		.toSQL();
 	const plan = sqlite.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...params).map((row) => row.detail).join(" | ");
 	console.log("counts plan (without the scheduled subquery):", plan);

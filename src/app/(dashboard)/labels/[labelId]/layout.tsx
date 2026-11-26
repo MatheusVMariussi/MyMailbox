@@ -2,15 +2,15 @@
 
 import { useParams } from "next/navigation";
 import { MessageSplitLayout } from "@/components/messages/message-split-layout";
-import { useCustomFolderConfig } from "@/components/messages/use-custom-folder-config";
+import { useLabelConfig } from "@/components/messages/use-label-config";
 
-export default function CustomFolderLayout({
+export default function LabelLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
-	const params = useParams<{ folderId: string }>();
-	const config = useCustomFolderConfig(params.folderId);
+	const params = useParams<{ labelId: string }>();
+	const config = useLabelConfig(params.labelId);
 
 	return <MessageSplitLayout config={config}>{children}</MessageSplitLayout>;
 }

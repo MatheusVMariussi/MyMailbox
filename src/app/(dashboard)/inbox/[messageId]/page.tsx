@@ -190,14 +190,14 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
           read: cachedMessage.read,
           starred: cachedMessage.starred,
           status: cachedMessage.status,
-          folderId: cachedMessage.folderId,
+          labelIds: cachedMessage.labelIds,
           snoozedUntil: cachedMessage.snoozedUntil,
         };
         if (
           current.message.read === next.read
           && current.message.starred === next.starred
           && current.message.status === next.status
-          && current.message.folderId === next.folderId
+          && current.message.labelIds === next.labelIds
           && current.message.snoozedUntil === next.snoozedUntil
         ) return current;
         return { ...current, message: { ...current.message, ...next } };

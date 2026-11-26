@@ -110,7 +110,7 @@ test("unread flips move the counts of the folders the row is listed in", () => {
 	assert.deepEqual(u.unreadDeltas({ folder: "promotions", mode: "show", category: "promotions" }, -1), { promotionsUnreadDelta: -1, inboxUnreadDelta: -1 });
 	assert.deepEqual(u.unreadDeltas({ folder: "promotions", mode: "separate", category: "promotions" }, -2), { promotionsUnreadDelta: -2 });
 	assert.equal(u.unreadDeltas({ folder: "promotions", mode: "off" }, -1), null);
-	assert.equal(u.unreadDeltas({ folder: "inbox", folderId: "f1" }, -1), null);
+	assert.equal(u.unreadDeltas({ folder: "inbox", labelId: "f1" }, -1), null);
 	assert.equal(u.unreadDeltas({ folder: "archived" }, -1), null);
 	assert.equal(u.unreadDeltas({ folder: "inbox" }, 0), null);
 });

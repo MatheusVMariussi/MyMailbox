@@ -1,6 +1,6 @@
 import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
 import type { CalendarEvent, CalendarEventTimes, EventGroup, EventResizeEdge } from "./types";
-import type { FolderColor } from "@/lib/folders/types";
+import type { LabelColor } from "@/lib/labels/types";
 import type { CalendarRepeat } from "@/lib/calendar/types";
 import { parseCalendarRepeatDays, parseExcludedOccurrences } from "@/lib/calendar/recurrence";
 import { dateFromZonedFields, formatUserDate, getDisplayLocale, formatUserDateTimeLocal, getUserTimeZone, parseUserDateTimeLocal, zonedDateFields } from "@/lib/time/utils";
@@ -15,7 +15,7 @@ export const WEEKDAY_OPTIONS = [
   { value: 6, label: "Sat" },
 ] as const;
 
-export const EVENT_COLOR_CLASSES: Record<FolderColor, string> = {
+export const EVENT_COLOR_CLASSES: Record<LabelColor, string> = {
   "#2563eb": "bg-blue-600 text-white",
   "#7c3aed": "bg-violet-600 text-white",
   "#db2777": "bg-pink-600 text-white",
@@ -26,7 +26,7 @@ export const EVENT_COLOR_CLASSES: Record<FolderColor, string> = {
   "#0d9488": "bg-teal-600 text-white",
 };
 
-export const PAST_EVENT_COLOR_CLASSES: Record<FolderColor, string> = {
+export const PAST_EVENT_COLOR_CLASSES: Record<LabelColor, string> = {
   "#2563eb": "bg-blue-200 text-blue-900",
   "#7c3aed": "bg-violet-200 text-violet-900",
   "#db2777": "bg-pink-200 text-pink-900",

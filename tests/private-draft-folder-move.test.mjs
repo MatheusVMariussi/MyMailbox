@@ -10,7 +10,7 @@ const { app, newDatabase } = await loadApp("private-draft-folder-move", `
 `);
 const seed = `${sharedMailboxSeed("read_only")}
 	UPDATE mailbox_access SET permission = 'full_access' WHERE user_id = 'author';
-	INSERT INTO folders (id, user_id, mailbox_id, name, created_at) VALUES ('f1','admin','mb-team','F1',1),('f2','admin','mb-team','F2',1);
+	INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('f1','admin','mb-team','F1',1),('f2','admin','mb-team','F2',1);
 	INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, subject, text_body, status, private_draft, created_at) VALUES
 		('d-trash','author','mb-team','outbound','team@example.com','x@y.z','secret one','unsent','trash',1,2),
 		('d-live','author','mb-team','outbound','team@example.com','x@y.z','secret two','unsent','draft',1,3),

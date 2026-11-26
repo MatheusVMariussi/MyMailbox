@@ -1,6 +1,7 @@
 import { eq, and, asc, desc } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
-import { domains, folders, mailboxAliases, mailboxes, routingRules } from "@/db/schema";
+import { domains, mailboxAliases, mailboxes, routingRules } from "@/db/schema";
+import { loadLabels } from "@/lib/labels/service";
 import { getEmailAddress } from "@/lib/email/address";
 import { getMailboxDomainAddresses } from "@/lib/mailboxes/domain-addresses";
 import { isBulkMail, type MailHeaders } from "@/lib/email/bulk-mail";
@@ -9,7 +10,6 @@ import { normalizeRecipientLocalPart, parseRecipientAddress } from "@/lib/email/
 
 export type ResolvedMailbox = {
 	mailboxId: string;
-	folderId: string | null;
 	userId: string;
 	domainId: string;
 	localPart: string;
@@ -28,9 +28,10 @@ export type RoutingDecision = {
 	ruleId?: string;
 };
 
+/** Where mailbox rules put a delivered message: a status, plus the labels of every matching store rule. */
 export type InboxRuleDestination = {
-	status: "received" | "spam" | "trash";
-	folderId: string | null;
+	status: "received" | "archived" | "spam" | "trash";
+	labelIds: string[];
 };
 
 type RuleRow = typeof routingRules.$inferSelect;
@@ -248,7 +249,6 @@ function toResolvedMailbox(
 ): ResolvedMailbox {
 	return {
 		mailboxId: mailbox.id,
-		folderId: null,
 		userId: mailbox.userId,
 		domainId,
 		localPart: mailbox.localPart,
@@ -338,21 +338,25 @@ export async function resolveInboxRuleDestination(
 		)
 		.orderBy(desc(routingRules.priority), asc(routingRules.createdAt));
 
+	// Gmail-style filters: the first matching spam or trash rule is terminal (and such mail gets no labels);
+	// otherwise every matching store rule adds its label, and any of them may skip the inbox.
+	const labelIds: string[] = [];
+	let skipInbox = false;
 	for (const rule of rules) {
 		if (rule.action === "forward") continue;
 		if (!matchesRule(rule, input)) continue;
-
-		if (rule.action === "spam" || rule.action === "trash") {
-			return { status: rule.action, folderId: null };
-		}
-
-		if (!rule.folderId) continue;
-		const folderId = await getRuleFolderId(db, rule.folderId, input.mailboxId);
-		if (!folderId) continue;
-		return { status: "received", folderId };
+		if (rule.action === "spam" || rule.action === "trash") return { status: rule.action, labelIds: [] };
+		if (rule.action !== "store") continue;
+		if (rule.labelId && !labelIds.includes(rule.labelId)) labelIds.push(rule.labelId);
+		if (rule.skipInbox) skipInbox = true;
 	}
 
-	return { status: "received", folderId: null };
+	// A rule's label is only used while it still belongs to this mailbox.
+	const known = labelIds.length ? await loadLabels(db, labelIds) : new Map();
+	return {
+		status: skipInbox ? "archived" : "received",
+		labelIds: labelIds.filter((id) => known.get(id)?.mailboxId === input.mailboxId),
+	};
 }
 
 type MatchableRule = {
@@ -428,17 +432,4 @@ function getRuleFieldValues(field: string | null | undefined, input: RuleMatchIn
 	if (field === "sender") return [input.fromAddress];
 	if (field === "recipient") return [input.toAddress];
 	return [input.fromAddress, input.toAddress];
-}
-
-async function getRuleFolderId(
-	db: AppDatabase,
-	folderId: string,
-	mailboxId: string,
-): Promise<string | null> {
-	const [folder] = await db
-		.select({ id: folders.id })
-		.from(folders)
-		.where(and(eq(folders.id, folderId), eq(folders.mailboxId, mailboxId)))
-		.limit(1);
-	return folder?.id ?? null;
 }

@@ -5,7 +5,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
-import { useMailboxFolders } from "./use-mailbox-folders";
+import { useMailboxLabels } from "./use-mailbox-labels";
 import { Tooltip } from "@/components/ui/tooltip";
 import { supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
@@ -44,7 +44,7 @@ export function BulkMessageToolbar({
 		{ value: "trash", label: t("navigation.trash"), Icon: Trash2, hidden: folder === "trash" },
 	].filter((option) => !option.hidden);
 	const { selectedMailbox } = useSelectedMailbox();
-	const folders = useMailboxFolders(selectedMailbox?.id);
+	const folders = useMailboxLabels(selectedMailbox?.id);
 	return (
 		<div className="flex min-w-0 items-center gap-2 text-neutral-600 w-full">
 			{!hideSelectedCount && (
@@ -105,9 +105,9 @@ export function BulkMessageToolbar({
 						{folders.length > 0 && (
 							<>
 								<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
-								<DropdownMenu.Label className={menuLabelClass}>{t("navigation.folders")}</DropdownMenu.Label>
+								<DropdownMenu.Label className={menuLabelClass}>{t("navigation.labels")}</DropdownMenu.Label>
 								{folders.map((item) => (
-									<DropdownMenu.Item key={item.id} className={menuItemClass} onSelect={() => onAction("folder", item.id)}>
+									<DropdownMenu.Item key={item.id} className={menuItemClass} onSelect={() => onAction("move", item.id)}>
 										<Folder className="h-4 w-4 shrink-0" style={{ color: item.color }} />
 										<span className="truncate">{item.name}</span>
 									</DropdownMenu.Item>

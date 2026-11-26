@@ -1,8 +1,8 @@
 import type { TranslationKey } from "@/lib/i18n/types";
-import type { FolderColor } from "./types";
+import type { LabelColor } from "./types";
 
-/** Translation keys for the names of the shared folder/event colors. */
-export const folderColorKeys = {
+/** Translation keys for the names of the shared label/event colors. */
+export const labelColorKeys = {
 	"#2563eb": "color.blue",
 	"#7c3aed": "color.purple",
 	"#db2777": "color.pink",
@@ -11,4 +11,4 @@ export const folderColorKeys = {
 	"#d97706": "color.amber",
 	"#16a34a": "color.green",
 	"#0d9488": "color.teal",
-} satisfies Record<FolderColor, TranslationKey>;
+} satisfies Record<LabelColor, TranslationKey>;

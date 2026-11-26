@@ -6,14 +6,13 @@ import { chunk, MAX_REFILE_ROWS, REFILE_CHUNK_SIZE, refileCutoff, type RefileTar
 
 type Db = ReturnType<typeof getDb>;
 
-/** Rows of one sender that a move to `target` would still change. Only unfiled received mail: Trash, Spam, Sent and filed mail keep their category. */
+/** Rows of one sender that a move to `target` would still change. Only received mail: Trash, Spam, Sent and archived mail keep their category (labels do not matter). */
 function stillToMove(mailboxId: string, senderAddress: string, target: RefileTarget) {
 	return and(
 		eq(messages.mailboxId, mailboxId),
 		eq(messages.senderAddress, senderAddress),
 		eq(messages.direction, "inbound"),
 		eq(messages.status, "received"),
-		isNull(messages.folderId),
 		// `primary` counts as Inbox, so moving to Promotions changes null and primary rows, and moving to Inbox changes only promotions.
 		target === "promotions" ? or(isNull(messages.category), ne(messages.category, "promotions")) : eq(messages.category, "promotions"),
 	)!;

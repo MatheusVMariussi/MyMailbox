@@ -1,10 +1,8 @@
 "use client";
 
-import type { FormEvent } from "react";
 import { useLanguage } from "./language-provider";
-import { folderColorKeys } from "@/lib/folders/color-keys";
 import type { TranslationKey } from "@/lib/i18n/types";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import {
   Archive,
@@ -12,9 +10,9 @@ import {
   CalendarClock,
   Clock,
   FileText,
-  Folder,
   Inbox,
   MailPlus,
+  MoreVertical,
   Plus,
   Send,
   ShieldAlert,
@@ -23,35 +21,18 @@ import {
   Trash2,
 } from "@/components/icons";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useMessageCounts } from "@/hooks/use-message-counts";
 import { hasActivePromotions } from "@/lib/promotions/ui-utils";
-import { AUTH_SESSION_CHANGED_EVENT, authFetch } from "@/lib/auth/client";
-import { getMailboxFolders, invalidateFolderCache } from "@/lib/folders/client";
-import {
-  DEFAULT_FOLDER_COLOR,
-  FOLDER_COLOR_OPTIONS,
-} from "@/lib/folders/colors";
-import type { FolderColor } from "@/lib/folders/types";
-import { cn } from "@/lib/utils";
 import { NavItem } from "./components-nav";
 import type { NavLink } from "./components-nav-types";
-import type { CustomFolder } from "./dashboard-nav-types";
+import type { NavLabel } from "./dashboard-nav-types";
 import {
   getFolderNavCount,
-  moveMessagesToCustomFolder,
+  moveMessagesToLabel,
   moveMessagesToSystemFolder,
 } from "./dashboard-nav-utils";
+import { LabelDialog } from "./labels/label-dialog";
+import { useMailboxLabels } from "./messages/use-mailbox-labels";
 import { NavSectionHeader, useSectionOpen } from "./nav-section-header";
 import { ReorderableList } from "./reorderable-list";
 import { readStorage, writeStorage } from "./reorderable-list-utils";
@@ -83,9 +64,9 @@ const links = [
 
 // Drafts, Archived, Spam, Trash and Subscriptions start tucked under "More...".
 const MORE_LINK_HREFS = ["/drafts", "/archived", "/spam", "/trash", "/subscriptions"];
-const MAX_VISIBLE_FOLDERS = 3;
+const MAX_VISIBLE_LABELS = 3;
 const MORE_OPEN_KEY = "mymailbox:nav:more-open";
-const FOLDERS_OPEN_KEY = "mymailbox:nav:folders-open";
+const LABELS_OPEN_KEY = "mymailbox:nav:labels-open";
 
 const subscribeNothing = () => () => {};
 const hydratedOnClient = () => true;
@@ -112,24 +93,15 @@ export function DashboardNav({ className }: { className?: string }) {
   // Storage is read after hydration so the server and first client render agree.
   const hydrated = useSyncExternalStore(subscribeNothing, hydratedOnClient, hydratedOnServer);
   const [moreOpenChoice, setMoreOpen] = useState<boolean | null>(null);
-  const [foldersOpenChoice, setFoldersOpen] = useState<boolean | null>(null);
+  const [labelsOpenChoice, setLabelsOpen] = useState<boolean | null>(null);
   const moreOpen = moreOpenChoice ?? (hydrated && readStorage(MORE_OPEN_KEY, false));
-  const foldersOpen = foldersOpenChoice ?? (hydrated && readStorage(FOLDERS_OPEN_KEY, false));
-  const [foldersSectionOpen, toggleFoldersSection] = useSectionOpen("mymailbox:nav:folders-section-open");
+  const labelsOpen = labelsOpenChoice ?? (hydrated && readStorage(LABELS_OPEN_KEY, false));
+  const [labelsSectionOpen, toggleLabelsSection] = useSectionOpen("mymailbox:nav:labels-section-open");
   const { selectedMailbox, isLoading } = useSelectedMailbox();
   const { counts } = useMessageCounts(selectedMailbox?.id, !isLoading);
-  const [folders, setFolders] = useState<CustomFolder[]>([]);
-  const [foldersMailboxId, setFoldersMailboxId] = useState(selectedMailbox?.id);
-  if (foldersMailboxId !== selectedMailbox?.id) {
-    setFoldersMailboxId(selectedMailbox?.id);
-    if (!selectedMailbox?.id) setFolders([]);
-  }
-  const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderColor, setNewFolderColor] =
-    useState<FolderColor>(DEFAULT_FOLDER_COLOR);
-  const [addingFolder, setAddingFolder] = useState(false);
-  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [folderError, setFolderError] = useState<string | null>(null);
+  const labels = useMailboxLabels(selectedMailbox?.id);
+  // The dialog is keyed by what it edits, so opening it again starts from that label's current values.
+  const [dialog, setDialog] = useState<{ key: number; label: NavLabel | null } | null>(null);
   const promotionsOn = hasActivePromotions(counts.promotionModes);
   const linksWithCounts: NavLink[] = links.filter((link) => (link.href !== "/scheduled" || counts.folders.scheduled.total > 0) && (link.href !== "/promotions" || promotionsOn) && (link.href !== "/subscriptions" || promotionsOn)).map(({ labelKey, ...rest }): NavLink => {
     const link = { ...rest, label: t(labelKey) };
@@ -181,20 +153,14 @@ export function DashboardNav({ className }: { className?: string }) {
     return link;
   });
 
-  useEffect(() => {
-    const reset = () => setFolders([]);
-    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, reset);
-    return () => window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, reset);
-  }, []);
-
   function toggleMore() {
     writeStorage(MORE_OPEN_KEY, !moreOpen);
     setMoreOpen(!moreOpen);
   }
 
-  function toggleFolders() {
-    writeStorage(FOLDERS_OPEN_KEY, !foldersOpen);
-    setFoldersOpen(!foldersOpen);
+  function toggleLabels() {
+    writeStorage(LABELS_OPEN_KEY, !labelsOpen);
+    setLabelsOpen(!labelsOpen);
   }
 
   const isActiveHref = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -203,60 +169,7 @@ export function DashboardNav({ className }: { className?: string }) {
   const moreLinks = linksWithCounts.filter((link) => MORE_LINK_HREFS.includes(link.href!));
   // The icon rail has no room for text toggles. When collapsed, the page you are on stays listed on its own.
   const showAllMoreLinks = minimal || moreOpen;
-  const foldersOverflow = !minimal && folders.length > MAX_VISIBLE_FOLDERS;
-
-  useEffect(() => {
-    if (!selectedMailbox?.id) return;
-
-    let cancelled = false;
-    getMailboxFolders<{ folders?: CustomFolder[] }>(selectedMailbox.id)
-      .then((data) => {
-        if (!cancelled) setFolders(data.folders ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setFolders([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedMailbox?.id]);
-
-  async function createFolder(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedMailbox?.id || !newFolderName.trim()) return;
-
-    setAddingFolder(true);
-    setFolderError(null);
-    try {
-      const response = await authFetch("/api/folders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mailboxId: selectedMailbox.id,
-          name: newFolderName,
-          color: newFolderColor,
-        }),
-      });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
-        setFolderError(typeof body?.error === "string" ? body.error : t("navigation.createFolderFailed"));
-        return;
-      }
-      const folder = (await response.json()) as CustomFolder;
-      invalidateFolderCache();
-      setFolders((items) =>
-        [...items, folder].sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      setNewFolderName("");
-      setNewFolderColor(DEFAULT_FOLDER_COLOR);
-      setFolderDialogOpen(false);
-    } catch {
-      setFolderError(t("auth.serverUnreachable"));
-    } finally {
-      setAddingFolder(false);
-    }
-  }
+  const labelsOverflow = !minimal && labels.length > MAX_VISIBLE_LABELS;
 
   return (
     <SidebarScaffold className={className} header={<SidebarHeader href="/inbox" />} footer={<SidebarFooter />}>
@@ -277,113 +190,79 @@ export function DashboardNav({ className }: { className?: string }) {
       />
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       {!minimal && (
-        <NavSectionHeader label={t("navigation.folders")} open={foldersSectionOpen} onToggle={toggleFoldersSection}>
+        <NavSectionHeader label={t("navigation.labels")} open={labelsSectionOpen} onToggle={toggleLabelsSection}>
           {selectedMailbox && (
-            <Dialog open={folderDialogOpen} onOpenChange={(open) => { setFolderDialogOpen(open); if (!open) setFolderError(null); }}>
-              <DialogTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"
-                  aria-label={t("navigation.createFolder")}
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("navigation.createFolder")}</DialogTitle>
-                  <DialogDescription>
-                    {t("navigation.folderDescription")}
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={createFolder} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="folderName">{t("navigation.folderName")}</Label>
-                    <Input
-                      id="folderName"
-                      value={newFolderName}
-                      onChange={(event) => setNewFolderName(event.target.value)}
-                      placeholder={t("navigation.folderExample")}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("navigation.color")}</Label>
-                    <div
-                      className="flex flex-wrap gap-2"
-                      role="radiogroup"
-                      aria-label={t("navigation.folderColor")}
-                    >
-                      {FOLDER_COLOR_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={newFolderColor === option.value}
-                          aria-label={t(folderColorKeys[option.value])}
-                          title={t(folderColorKeys[option.value])}
-                          onClick={() => setNewFolderColor(option.value)}
-                          className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${
-                            newFolderColor === option.value
-                              ? "border-neutral-900 ring-2 ring-neutral-300 ring-offset-2"
-                              : "border-transparent"
-                          }`}
-                          style={{ backgroundColor: option.value }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {folderError && <p role="alert" className="text-sm text-red-600">{folderError}</p>}
-                  <Button
-                    type="submit"
-                    disabled={addingFolder || !newFolderName.trim()}
-                  >
-                    {addingFolder ? t("navigation.creating") : t("navigation.createFolder")}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <button
+              type="button"
+              onClick={() => setDialog({ key: Date.now(), label: null })}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"
+              aria-label={t("labels.create")}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           )}
         </NavSectionHeader>
       )}
-      
-      {!minimal && foldersSectionOpen && folders.length === 0 && (
+      {selectedMailbox && dialog && (
+        <LabelDialog
+          key={dialog.key}
+          open
+          onOpenChange={(open) => { if (!open) setDialog(null); }}
+          mailboxId={selectedMailbox.id}
+          label={dialog.label}
+        />
+      )}
+      {!minimal && labelsSectionOpen && labels.length === 0 && (
         <div className="px-4 py-1.5 text-xs text-neutral-500">
-          {t("navigation.noFolders")}
+          {t("navigation.noLabels")}
         </div>
       )}
-      {(minimal || foldersSectionOpen) && <ReorderableList
-        storageKey="mymailbox:nav:layout:folders"
+      {(minimal || labelsSectionOpen) && <ReorderableList
+        storageKey="mymailbox:nav:layout:labels"
         enabled={!minimal}
         lists={[{
-          id: "folders",
+          id: "labels",
           visibleIds: (ordered) => {
-            if (!foldersOverflow || foldersOpen) return ordered;
-            const first = ordered.slice(0, MAX_VISIBLE_FOLDERS);
-            const active = ordered.slice(MAX_VISIBLE_FOLDERS).find((id) => isActiveHref(`/folders/${id}`));
+            if (!labelsOverflow || labelsOpen) return ordered;
+            const first = ordered.slice(0, MAX_VISIBLE_LABELS);
+            const active = ordered.slice(MAX_VISIBLE_LABELS).find((id) => isActiveHref(`/labels/${id}`));
             return active ? [...first, active] : first;
           },
-          items: folders.map((folder) => ({
-            id: folder.id,
+          items: labels.map((label) => ({
+            id: label.id,
             node: (
-              <NavItem
-                wrap
-                link={{
-                  href: `/folders/${folder.id}`,
-                  label: folder.name,
-                  icon: Folder,
-                  preloadMessages: true,
-                  iconColor: folder.color,
-                  count: counts.customFolders[folder.id]?.unread,
-                  onMessageDrop: (messageIds: string[]) =>
-                    void moveMessagesToCustomFolder(messageIds, folder.id),
-                }}
-              />
+              <div className="group/label relative" data-label-id={label.id}>
+                <NavItem
+                  wrap
+                  link={{
+                    href: `/labels/${label.id}`,
+                    label: label.name,
+                    icon: Tag,
+                    preloadMessages: true,
+                    iconColor: label.color,
+                    count: counts.labels?.[label.id]?.unread,
+                    // Dropping mail on a label is "Move to": the label, and out of the inbox.
+                    onMessageDrop: (messageIds: string[]) =>
+                      void moveMessagesToLabel(messageIds, label.id),
+                  }}
+                />
+                {!minimal && (
+                  <button
+                    type="button"
+                    onClick={() => setDialog({ key: Date.now(), label })}
+                    className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded-md text-neutral-500 opacity-0 transition-opacity hover:bg-neutral-200 hover:text-neutral-800 focus-visible:opacity-100 group-hover/label:opacity-100 max-md:opacity-100"
+                    aria-label={t("labels.options", { name: label.name })}
+                    title={t("labels.edit")}
+                  >
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             ),
           })),
         }]}
       />}
-      {foldersSectionOpen && foldersOverflow && <NavToggle expanded={foldersOpen} onClick={toggleFolders} />}
+      {labelsSectionOpen && labelsOverflow && <NavToggle expanded={labelsOpen} onClick={toggleLabels} />}
     </SidebarScaffold>
   );
 }

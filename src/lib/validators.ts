@@ -4,7 +4,8 @@ import { isPublicHttpsUrl, PUBLIC_HTTPS_URL_MESSAGE } from "@/lib/security/publi
 import { isValidHostname, normalizeHostname } from "@/lib/domains/utils";
 import { getEmailAddress, splitEmailAddressList } from "@/lib/email/address";
 import { normalizeRecipientLocalPart } from "@/lib/email/recipient-address";
-import { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES } from "@/lib/folders/colors";
+import { DEFAULT_LABEL_COLOR, LABEL_COLOR_VALUES } from "@/lib/labels/colors";
+import { LABEL_NAME_MAX, normalizeLabelName } from "@/lib/labels/label-utils";
 import { MAX_FOLLOW_UP_DAYS } from "@/lib/follow-ups/follow-up-utils";
 import { isValidBase64 } from "@/lib/email/base64";
 import { MAIL_TYPE_BULK, MAIL_TYPE_UNSAFE_ACTION } from "@/lib/email/mail-type-rule";
@@ -357,11 +358,22 @@ export const updateMailboxSchema = z.object({
 	useAllDomains: z.boolean().optional(),
 });
 
-export const folderSchema = z.object({
-	mailboxId: z.string().min(1),
-	name: z.string().trim().min(1).max(80),
-	color: z.enum(FOLDER_COLOR_VALUES).default(DEFAULT_FOLDER_COLOR),
+const labelName = z.string().transform((value, ctx) => {
+	const name = normalizeLabelName(value);
+	if (!name) ctx.addIssue({ code: "custom", message: `A label name is 1 to ${LABEL_NAME_MAX} characters` });
+	return name ?? "";
 });
+
+export const labelSchema = z.object({
+	mailboxId: z.string().min(1),
+	name: labelName,
+	color: z.enum(LABEL_COLOR_VALUES).default(DEFAULT_LABEL_COLOR),
+});
+
+export const labelUpdateSchema = z.object({
+	name: labelName.optional(),
+	color: z.enum(LABEL_COLOR_VALUES).optional(),
+}).refine((value) => value.name !== undefined || value.color !== undefined, { message: "Nothing to change" });
 
 /** Proof of identity for changing where password-reset or forwarded mail goes. */
 const recoveryProofFields = {
@@ -450,8 +462,11 @@ export const routingRuleSchema = z.object({
 	matchValue: z.string().trim().min(1).max(500),
 	action: z.enum(["store", "forward", "reject", "spam", "trash"]).optional(),
 	mailboxId: z.string().min(1),
-	folderId: z.string().optional(),
+	labelId: z.string().optional(),
+	/** `label:<id>`, `archive` (skip the inbox only), `spam`, `trash` or `forward`. */
 	destination: z.string().min(1).optional(),
+	/** With a label destination: also archive matching mail. */
+	skipInbox: z.boolean().optional(),
 	forwardTo: z.string().trim().email().optional(),
 	keepCopy: z.boolean().optional(),
 	priority: z.number().int().default(0),

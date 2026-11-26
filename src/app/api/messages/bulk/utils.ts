@@ -7,7 +7,9 @@ const allowedBulkActions = new Set<BulkMessageAction>([
 	"read",
 	"unread",
 	"inbox",
-	"folder",
+	"move",
+	"label",
+	"unlabel",
 	"delete",
 ]);
 
@@ -20,7 +22,6 @@ export function getStatusForBulkAction(action: BulkMessageAction): string | null
 	if (action === "trash") return "trash";
 	if (action === "spam") return "spam";
 	if (action === "inbox") return "received";
-	if (action === "folder") return "received";
 	return null;
 }
 
@@ -32,7 +33,7 @@ export function getReadValueForBulkAction(action: BulkMessageAction): boolean | 
 
 /**
  * Permanent deletion is only offered for mail the user already threw away, so a
- * stray "delete" can never destroy something still in the inbox, a folder or Sent.
+ * stray "delete" can never destroy something still in the inbox, Archive or Sent.
  */
 export function isPermanentlyDeletableStatus(status: string | null | undefined): status is PermanentDeleteFolder {
 	return status === "trash" || status === "spam";
@@ -42,7 +43,7 @@ export function isPermanentDeleteFolder(folder: unknown): folder is PermanentDel
 	return folder === "trash" || folder === "spam";
 }
 
-/** Moving into a folder only applies to mail already in that folder's mailbox, and never to drafts (they stay private to their author). */
-export function canMoveToFolder(message: { mailboxId: string | null; status?: string | null }, folderMailboxId: string): boolean {
-	return message.mailboxId === folderMailboxId && message.status !== "draft";
+/** Label actions run through the reversible action service, which owns their per-message rules. */
+export function isLabelBulkAction(action: BulkMessageAction): action is "move" | "label" | "unlabel" {
+	return action === "move" || action === "label" || action === "unlabel";
 }

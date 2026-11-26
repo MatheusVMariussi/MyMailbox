@@ -66,8 +66,8 @@ await build({
 				clearMembershipForTests, hasMembershipOverlay,
 			};
 
-			export function Harness({ folder = "inbox", folderId = null, offset = 0 }) {
-				const list = useMessages(folder, "mailbox-1", { limit: 25, offset }, true, folderId);
+			export function Harness({ folder = "inbox", labelId = null, offset = 0 }) {
+				const list = useMessages(folder, "mailbox-1", { limit: 25, offset }, true, labelId);
 				return React.createElement(
 					"div",
 					null,
@@ -115,7 +115,6 @@ function message(id, extra = {}) {
 		id,
 		userId: "user-1",
 		mailboxId: "mailbox-1",
-		folderId: null,
 		direction: "inbound",
 		providerMessageId: null,
 		fromAddr: "sender@example.net",
@@ -140,7 +139,6 @@ function state(overrides = {}) {
 		status: "received",
 		read: false,
 		starred: false,
-		folderId: null,
 		snoozedUntil: null,
 		...overrides,
 	};
@@ -150,7 +148,7 @@ function record(id, previous, applied) {
 	return { id, mailboxId: "mailbox-1", previous: state(previous), applied: state(applied) };
 }
 
-const archived = (id) => record(id, {}, { status: "archived", folderId: null });
+const archived = (id) => record(id, {}, { status: "archived" });
 
 function applyResponse(action, applied, skipped = []) {
 	return { ok: true, action, applied, skipped, undoToken: "token" };

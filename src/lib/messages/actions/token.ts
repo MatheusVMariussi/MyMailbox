@@ -1,8 +1,9 @@
 import { getServerSecret } from "@/lib/security/server-secret";
 import type { MessageUndoTokenPayload } from "./types";
 
-// v2 binds the token to the session user and a single-use claim nonce.
-const TOKEN_VERSION = 2;
+// v2 bound the token to the session user and a single-use claim nonce; v3 drops the folder from the
+// snapshots and carries label deltas, so a v2 token (made before labels) is refused.
+const TOKEN_VERSION = 3;
 export const MAX_UNDO_AGE_MS = 10 * 60_000;
 const CLOCK_SKEW_MS = 60_000;
 

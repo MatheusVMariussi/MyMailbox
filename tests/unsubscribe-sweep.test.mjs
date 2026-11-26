@@ -34,9 +34,10 @@ const { senderTrashCondition, render } = await import(pathToFileURL(join(outDir,
 
 function matches(sender, rows) {
 	const db = new DatabaseSync(":memory:");
-	db.exec('CREATE TABLE messages (id TEXT, mailbox_id TEXT, direction TEXT, from_addr TEXT, starred INTEGER, folder_id TEXT, status TEXT)');
+	db.exec('CREATE TABLE messages (id TEXT, mailbox_id TEXT, direction TEXT, from_addr TEXT, starred INTEGER, status TEXT); CREATE TABLE message_labels (message_id TEXT, label_id TEXT)');
 	rows.forEach(([id, from, extra = {}]) => {
-		db.prepare("INSERT INTO messages VALUES (?, 'mbx', ?, ?, 0, NULL, ?)").run(id, extra.direction ?? "inbound", from, extra.status ?? "received");
+		db.prepare("INSERT INTO messages VALUES (?, 'mbx', ?, ?, 0, ?)").run(id, extra.direction ?? "inbound", from, extra.status ?? "received");
+		if (extra.labelled) db.prepare("INSERT INTO message_labels VALUES (?, 'l1')").run(id);
 	});
 	const query = render(senderTrashCondition("mbx", sender));
 	return db.prepare(`SELECT id FROM messages WHERE ${query.sql}`).all(...query.params).map((row) => row.id).sort();
@@ -51,6 +52,7 @@ test("only the exact sender address matches, bare or inside a display name", () 
 		["e", '"x sale@shop.com" <other@elsewhere.com>'],
 		["f", "sale@shop.com", { direction: "outbound" }],
 		["g", "sale@shop.com", { status: "trash" }],
+		["h", "sale@shop.com", { labelled: true }],
 	];
 	assert.deepEqual(matches("sale@shop.com", rows), ["a", "b"]);
 });

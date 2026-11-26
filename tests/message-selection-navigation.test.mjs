@@ -176,7 +176,6 @@ function message(id, read = false) {
 		id,
 		userId: "user-1",
 		mailboxId: "mailbox-1",
-		folderId: null,
 		direction: "inbound",
 		providerMessageId: null,
 		fromAddr: "sender@example.net",

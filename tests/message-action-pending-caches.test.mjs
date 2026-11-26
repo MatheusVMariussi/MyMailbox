@@ -78,7 +78,6 @@ const state = (overrides = {}) => ({
 	status: "received",
 	read: false,
 	starred: false,
-	folderId: null,
 	snoozedUntil: null,
 	...overrides,
 });

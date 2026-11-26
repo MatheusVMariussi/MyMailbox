@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 		return NextResponse.json(await applyMessageActionForUser(env, user, {
 			action: payload.action,
 			messageIds: payload.messageIds,
-			folderId: payload.folderId,
+			labelId: payload.labelId,
 			snoozedUntil: payload.snoozedUntil,
 		}));
 	} catch (error) {

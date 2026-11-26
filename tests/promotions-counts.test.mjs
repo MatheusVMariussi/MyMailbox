@@ -24,7 +24,7 @@ await build({
 });
 const { activePromotionModes, applyPromotionCounts, buildMessageCounts, createEmptyFolderCounts } = await import(pathToFileURL(join(temp, "entry.mjs")).href);
 
-const inboxRow = (mailboxId, read, total) => ({ mailboxId, folderId: null, direction: "inbound", status: "received", read, starred: false, snoozedUntil: null, total });
+const inboxRow = (mailboxId, read, total) => ({ mailboxId, direction: "inbound", status: "received", read, starred: false, snoozedUntil: null, total });
 
 test("every folder count starts with a promotions entry at zero", () => {
 	assert.deepEqual(createEmptyFolderCounts().promotions, { total: 0, unread: 0 });

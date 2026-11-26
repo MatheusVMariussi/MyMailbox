@@ -1,4 +1,5 @@
 import { and, eq, isNotNull } from "drizzle-orm";
+import { addMessageLabels } from "@/lib/labels/service";
 import { getDb } from "@/db";
 import { messages, outboundJobs, users } from "@/db/schema";
 import { newId } from "@/lib/ids";
@@ -162,10 +163,11 @@ export async function processInboundMessage(
 			fingerprint: spamAnalysis?.fingerprint ?? "",
 		};
 	}
-	const status = destination.status === "received" && spamAnalysis?.verdict === "spam"
+	// The spam verdict overrides a store rule (labels or skip-inbox); spam and trash get no labels.
+	const status = (destination.status === "received" || destination.status === "archived") && spamAnalysis?.verdict === "spam"
 		? "spam"
 		: destination.status;
-	const folderId = status === "spam" ? null : destination.folderId;
+	const ruleLabelIds = status === "spam" || status === "trash" ? [] : destination.labelIds;
 	// A contact the database cannot hold (e.g. an over-long address) must not lose the mail.
 	const contact = await upsertContactFromAddress(env, {
 		userId: decision.mailbox.userId,
@@ -207,7 +209,6 @@ export async function processInboundMessage(
 			id: messageId,
 			userId: decision.mailbox.userId,
 			mailboxId: decision.mailbox.mailboxId,
-			folderId,
 			direction: "inbound",
 			providerMessageId: parsed.messageId,
 			fromAddr,
@@ -258,6 +259,16 @@ export async function processInboundMessage(
 		throw error;
 	}
 
+	// Rule labels are added once the message is stored; a failure keeps the mail, just unlabelled.
+	let labelIds: string[] = [];
+	if (ruleLabelIds.length > 0) {
+		try {
+			labelIds = (await addMessageLabels(db, ruleLabelIds.map((labelId) => ({ messageId, labelId })))).map((pair) => pair.labelId);
+		} catch (error) {
+			console.error(`Rule labels failed for ${messageId}`, error);
+		}
+	}
+
 	// A returned message is still delivered to the mailbox; recording its failed recipients is best effort.
 	try {
 		await recordDsnBounces(env, { mailboxId: decision.mailbox.mailboxId, raw: buffer });
@@ -280,7 +291,8 @@ export async function processInboundMessage(
 		}
 	}
 
-	if (status === "spam" || status === "trash") {
+	// Mail a rule archived skipped the inbox on purpose, so it is not announced either.
+	if (status === "spam" || status === "trash" || status === "archived") {
 		console.info(`No notification for ${messageId}: filed as ${status}`);
 	} else {
 		const notificationUserIds = await getMailboxNotificationUserIds(
@@ -313,6 +325,7 @@ export async function processInboundMessage(
 			spamScore: spamAnalysis?.score,
 			spamVerdict: spamAnalysis?.verdict,
 			category,
+			labelIds,
 		});
 	}
 }

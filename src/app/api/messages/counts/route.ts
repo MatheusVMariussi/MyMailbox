@@ -10,6 +10,7 @@ import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { activePromotionModes, applyPromotionCounts, buildMessageCounts } from "./utils";
 import { loadPromotionModes } from "@/lib/promotions/settings";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
+import { countLabelMessages } from "@/lib/labels/service";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -46,7 +47,6 @@ export async function GET(request: Request) {
 	const rows = await db
 		.select({
 			mailboxId: messages.mailboxId,
-			folderId: messages.folderId,
 			direction: messages.direction,
 			status: messages.status,
 			read: messages.read,
@@ -59,7 +59,6 @@ export async function GET(request: Request) {
 		.where(and(...conditions))
 		.groupBy(
 			messages.mailboxId,
-			messages.folderId,
 			messages.direction,
 			messages.status,
 			messages.read,
@@ -69,6 +68,7 @@ export async function GET(request: Request) {
 
 	const counts = buildMessageCounts(rows);
 	counts.folders.scheduled.total = rows.reduce((total, row) => total + (Number(row.scheduledTotal) || 0), 0);
+	counts.labels = await countLabelMessages(db, mailboxIds, user.id);
 
 	// Promotions get their own query, and only for mailboxes that opted in, so the grouped query above is unchanged.
 	const modes = await loadPromotionModes(db, mailboxIds);
@@ -82,7 +82,6 @@ export async function GET(request: Request) {
 				inArray(messages.mailboxId, activeIds),
 				eq(messages.direction, "inbound"),
 				eq(messages.status, "received"),
-				isNull(messages.folderId),
 				eq(messages.category, "promotions"),
 				or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date())),
 			))

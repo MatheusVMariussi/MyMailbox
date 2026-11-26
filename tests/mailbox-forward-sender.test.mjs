@@ -51,15 +51,15 @@ async function fixture(t, rule) {
 			VALUES ('one', 'admin', 'one.test', 'zone-one', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at)
 			VALUES ('box', 'admin', 'one', 'me', 1);
-		INSERT INTO folders (id, user_id, mailbox_id, name, created_at)
+		INSERT INTO labels (id, user_id, mailbox_id, name, created_at)
 			VALUES ('alerts', 'admin', 'box', 'Alerts', 1);
 	`);
 	database.db.prepare(`
-		INSERT INTO routing_rules (id, user_id, domain_id, scope, mailbox_id, folder_id, pattern, match_field, match_operator,
+		INSERT INTO routing_rules (id, user_id, domain_id, scope, mailbox_id, label_id, pattern, match_field, match_operator,
 			match_value, action, forward_to, keep_copy, enabled, priority, created_at)
 		VALUES (?, 'admin', 'one', 'mailbox', 'box', ?, ?, ?, ?, ?, ?, ?, 0, 1, 10, 1)
 	`).run(
-		"rule", rule.folderId ?? null, rule.value, rule.field ?? "email", rule.operator ?? "exact",
+		"rule", rule.labelId ?? null, rule.value, rule.field ?? "email", rule.operator ?? "exact",
 		rule.value, rule.action ?? "forward", rule.action && rule.action !== "forward" ? null : "elsewhere@other.test",
 	);
 	const env = { DB: database };
@@ -103,15 +103,15 @@ test("without a From header the forward rule falls back to the envelope sender o
 	assert.equal(decision?.action, "store");
 });
 
-test("the same condition matches for a forward rule and a folder rule", async (t) => {
+test("the same condition matches for a forward rule and a label rule", async (t) => {
 	const condition = { value: "jobalerts-noreply@example-jobs.test" };
 	const forwardDb = await fixture(t, condition);
 	const forward = await resolveInboundAddress(forwardDb, "me@one.test", ENVELOPE, {
 		mailboxForwards: { subject: "New jobs for you", from: HEADER_FROM },
 	});
 
-	const folderDb = await fixture(t, { ...condition, action: "store", folderId: "alerts" });
-	const folder = await resolveInboxRuleDestination(folderDb, {
+	const labelDb = await fixture(t, { ...condition, action: "store", labelId: "alerts" });
+	const labelled = await resolveInboxRuleDestination(labelDb, {
 		mailboxId: "box",
 		toAddress: "me@one.test",
 		fromAddress: HEADER_FROM,
@@ -119,5 +119,5 @@ test("the same condition matches for a forward rule and a folder rule", async (t
 	});
 
 	assert.equal(forward?.action, "forward");
-	assert.equal(folder.folderId, "alerts");
+	assert.deepEqual(labelled.labelIds, ["alerts"]);
 });

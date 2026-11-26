@@ -1,3 +1,4 @@
+import { isEmptyLabelDelta } from "@/lib/labels/label-utils";
 import { getChangedStateFields, recordHasChanges } from "./definitions";
 import { getConversationLockKeys, type KnownMessageFields } from "@/lib/messages/field-store";
 import type { MessageMembershipFields } from "@/lib/messages/list-membership";
@@ -153,6 +154,6 @@ export function getChangedRecords(records: MessageActionRecord[]): MessageAction
 }
 
 export function hasMembershipChange(record: MessageActionRecord): boolean {
-	return getChangedStateFields(record.previous, record.applied)
-		.some((field) => field === "status" || field === "folderId" || field === "snoozedUntil");
+	return !isEmptyLabelDelta(record.labels) || getChangedStateFields(record.previous, record.applied)
+		.some((field) => field === "status" || field === "snoozedUntil");
 }

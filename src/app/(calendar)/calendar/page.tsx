@@ -17,11 +17,11 @@ import { formatUserDate, getUserTimeZone, parseUserDateTimeLocal } from "@/lib/t
 import { normalizeCalendarColor } from "@/lib/calendar/colors";
 import { REMINDER_MINUTE_OPTIONS } from "@/lib/calendar/reminder-utils";
 import { DEFAULT_REPEAT_DAYS, parseCalendarRepeatDays } from "@/lib/calendar/recurrence";
-import { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_OPTIONS } from "@/lib/folders/colors";
+import { DEFAULT_LABEL_COLOR, LABEL_COLOR_OPTIONS } from "@/lib/labels/colors";
 import type { TranslationKey } from "@/lib/i18n/types";
 import type { CalendarRepeat } from "@/lib/calendar/types";
 import { useLanguage } from "@/components/language-provider";
-import { folderColorKeys } from "@/lib/folders/color-keys";
+import { labelColorKeys } from "@/lib/labels/color-keys";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { useSidebar } from "@/components/sidebar-state";
 import { UpcomingSidebar } from "../upcoming-sidebar";
@@ -81,7 +81,7 @@ export default function CalendarPage() {
   const dragOffsetPixels = useRef(0);
   const resizeSession = useRef<EventResizeSession | null>(null);
   const [title, setTitle] = useState("");
-  const [color, setColor] = useState<string>(DEFAULT_FOLDER_COLOR);
+  const [color, setColor] = useState<string>(DEFAULT_LABEL_COLOR);
   const [repeat, setRepeat] = useState<CalendarRepeat>("none");
   const [repeatDays, setRepeatDays] = useState<number[]>(DEFAULT_REPEAT_DAYS);
   const [repeatInterval, setRepeatInterval] = useState(1);
@@ -216,7 +216,7 @@ export default function CalendarPage() {
     const start = startAt ? new Date(startAt) : defaultCalendarStart(day);
     setEditing(null);
     setTitle("");
-    setColor(DEFAULT_FOLDER_COLOR);
+    setColor(DEFAULT_LABEL_COLOR);
     setRepeat("none");
     setRepeatDays(DEFAULT_REPEAT_DAYS);
     setRepeatInterval(1);
@@ -772,8 +772,8 @@ export default function CalendarPage() {
               <div className="grid grid-cols-[24px_minmax(0,1fr)] items-center gap-3">
                 <Palette aria-hidden="true" className="h-5 w-5 text-neutral-600" />
                 <div role="radiogroup" aria-label={t("calendar.eventColor")} className="flex flex-wrap items-center gap-1.5 px-2">
-                  {FOLDER_COLOR_OPTIONS.map((option) => (
-                    <button key={option.value} type="button" role="radio" aria-label={t(folderColorKeys[option.value])} title={t(folderColorKeys[option.value])} aria-checked={color === option.value} onClick={() => setColor(option.value)}
+                  {LABEL_COLOR_OPTIONS.map((option) => (
+                    <button key={option.value} type="button" role="radio" aria-label={t(labelColorKeys[option.value])} title={t(labelColorKeys[option.value])} aria-checked={color === option.value} onClick={() => setColor(option.value)}
                       className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${color === option.value ? "border-neutral-900 ring-2 ring-neutral-300 ring-offset-2" : "border-transparent"}`}
                       style={{ backgroundColor: option.value }} />
                   ))}

@@ -27,3 +27,8 @@ export function isMissingColumnError(error: unknown): boolean {
 export function isUniqueConstraintError(error: unknown): boolean {
 	return errorChainMatches(error, /UNIQUE constraint failed/i);
 }
+
+/** A `message_labels` row naming a label of another mailbox (the `message_labels_same_mailbox_bi` trigger). */
+export function isLabelMailboxMismatchError(error: unknown): boolean {
+	return errorChainMatches(error, /label-mailbox-mismatch/);
+}

@@ -1,4 +1,4 @@
-export type RuleFolder = {
+export type RuleLabel = {
 	id: string;
 	name: string;
 };
@@ -10,7 +10,9 @@ export type InboxRule = {
 	matchOperator: "contains" | "exact";
 	matchValue: string;
 	action: "store" | "forward" | "reject" | "spam" | "trash";
-	folderId: string | null;
+	labelId: string | null;
+	/** A matching store rule also archives the message. */
+	skipInbox: boolean;
 	forwardTo: string | null;
 	keepCopy: boolean;
 	priority: number;
@@ -22,6 +24,7 @@ export type InboxRuleInput = {
 	matchOperator: "contains" | "exact";
 	matchValue: string;
 	destination: string;
+	skipInbox?: boolean;
 	forwardTo?: string;
 	keepCopy?: boolean;
 	priority: number;
@@ -34,7 +37,7 @@ export type InboxRulesResponse = {
 	error?: string;
 };
 
-export type RuleFoldersResponse = {
-	folders: RuleFolder[];
+export type RuleLabelsResponse = {
+	labels: RuleLabel[];
 	error?: string;
 };

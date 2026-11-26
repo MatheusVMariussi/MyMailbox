@@ -7,6 +7,7 @@ import type { ThreadUnreadTarget } from "@/lib/messages/field-store";
 import { registerMessageRefresh } from "./message-refresh";
 import { getRestoredRowsForList, rememberRemovedRow, updateRemovedRows, type RestoredRow } from "@/lib/messages/membership-store";
 import { getListMembershipKey, messageMatchesFolder, type MessageMembershipFields } from "@/lib/messages/list-membership";
+import { applyLabelDelta } from "@/lib/labels/label-utils";
 import {
 	clearMessageCountsCache,
 	clearMessageListCache,
@@ -126,7 +127,7 @@ function messageListReducer(state: MessageListState, action: MessageListAction):
 function membershipFieldsOf(message: Message): MessageMembershipFields {
 	return {
 		status: message.status,
-		folderId: message.folderId ?? null,
+		...(message.labelIds ? { labelIds: message.labelIds } : {}),
 		snoozedUntil: message.snoozedUntil ?? null,
 		starred: message.starred,
 	};
@@ -151,7 +152,7 @@ function targetMembership(
 	if (DIRECTION_DEPENDENT_ACTIONS.has(detail.action) && message.threadMessageIds?.length) return null;
 	const result = getMessageActionPatch(
 		detail.action,
-		{ folderId: detail.folderId, snoozedUntil: detail.snoozedUntil },
+		{ labelId: detail.labelId, snoozedUntil: detail.snoozedUntil },
 		{
 			id,
 			mailboxId: message.mailboxId,
@@ -159,11 +160,14 @@ function targetMembership(
 			status: message.status,
 			read: message.read,
 			starred: message.starred,
-			folderId: message.folderId ?? null,
+			labelIds: message.labelIds,
 			snoozedUntil: message.snoozedUntil ?? null,
 		},
 	);
-	if ("patch" in result && result.patch) return { ...membershipFieldsOf(message), ...result.patch };
+	if ("patch" in result && result.patch) {
+		const labelIds = result.labels ? applyLabelDelta(message.labelIds, result.labels) : undefined;
+		return { ...membershipFieldsOf(message), ...result.patch, ...(labelIds ? { labelIds } : {}) };
+	}
 	return null;
 }
 
@@ -171,7 +175,7 @@ function getRemovedMessageIds(
 	detail: MessagesChangedDetail,
 	messages: Message[],
 	folder: MessageFolder,
-	folderId: string | null | undefined,
+	labelId: string | null | undefined,
 	now: number,
 ): Set<string> {
 	const affected = new Set(detail.messageIds ?? []);
@@ -186,7 +190,7 @@ function getRemovedMessageIds(
 				removed.add(id);
 				continue;
 			}
-			if (target && !messageMatchesFolder(target, folder, folderId, now)) removed.add(id);
+			if (target && !messageMatchesFolder(target, folder, labelId, now)) removed.add(id);
 		}
 	}
 	return removed;
@@ -197,11 +201,11 @@ export function useMessages(
 	mailboxId?: string | null,
 	filters?: MessageFilterOptions,
 	enabled = true,
-	folderId?: string | null,
+	labelId?: string | null,
 ) {
 	// A folder switch remounts this hook, so paint the cached page immediately.
 	const [initialPage] = useState(() => (
-		enabled ? peekMessageList(getMessageQueryParams(folder, mailboxId, filters, folderId)) : undefined
+		enabled ? peekMessageList(getMessageQueryParams(folder, mailboxId, filters, labelId)) : undefined
 	));
 	const [list, dispatch] = useReducer(messageListReducer, {
 		messages: initialPage?.messages ?? [],
@@ -225,12 +229,12 @@ export function useMessages(
 		let cancelled = false;
 		let refreshTimer: number | null = null;
 		let requestNumber = 0;
-		const listKey = getListMembershipKey(getMessageQueryParams(folder, mailboxId, filters, folderId));
+		const listKey = getListMembershipKey(getMessageQueryParams(folder, mailboxId, filters, labelId));
 		async function loadMessages(force = false, showLoading = false) {
 			const currentRequest = ++requestNumber;
 			if (showLoading) setIsLoading(true);
 			try {
-				const params = getMessageQueryParams(folder, mailboxId, filters, folderId);
+				const params = getMessageQueryParams(folder, mailboxId, filters, labelId);
 				const data = await fetchMessageList(params, force);
 				if (!cancelled && currentRequest === requestNumber) {
 					dispatch({
@@ -246,7 +250,7 @@ export function useMessages(
 			}
 		}
 
-		void loadMessages(false, !peekMessageList(getMessageQueryParams(folder, mailboxId, filters, folderId))).catch(() => undefined);
+		void loadMessages(false, !peekMessageList(getMessageQueryParams(folder, mailboxId, filters, labelId))).catch(() => undefined);
 		const unregisterRefresh = registerMessageRefresh(() => loadMessages());
 		function patchReadState(event: Event) {
 			const detail = (event as CustomEvent<{
@@ -317,7 +321,7 @@ export function useMessages(
 		function patchRemovedState(event: Event) {
 			const detail = (event as CustomEvent<MessagesChangedDetail>).detail;
 			if (detail?.kind !== "removed" || !detail.messageIds?.length) return;
-			const ids = getRemovedMessageIds(detail, listRef.current.messages, folder, folderId, Date.now());
+			const ids = getRemovedMessageIds(detail, listRef.current.messages, folder, labelId, Date.now());
 			if (ids.size === 0) {
 				// The optimistic prune already removed the row; the committed state
 				// still has to update its tombstone for an exact rollback.
@@ -386,7 +390,7 @@ export function useMessages(
 			unsubscribePending();
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 		};
-	}, [enabled, filters?.group, filters?.limit, filters?.offset, filters?.query, filters?.read, filters?.title, folder, folderId, mailboxId]);
+	}, [enabled, filters?.group, filters?.limit, filters?.offset, filters?.query, filters?.read, filters?.title, folder, labelId, mailboxId]);
 
 	return { messages: list.messages, unreadCount, isLoading, total: list.total, limit: list.limit, offset: list.offset, updateMessages };
 }

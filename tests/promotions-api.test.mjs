@@ -82,7 +82,7 @@ test("category=promotions lists only promotions of mailboxes that turned it on, 
 	assert.deepEqual(ids(await list(`${INBOX}&category=promotions&mailboxId=b`)), ["b-promo"]);
 	assert.equal((await list("direction=inbound&category=promotions")).status, 400);
 	assert.equal((await list(`${INBOX}&category=social`)).status, 400);
-	assert.equal((await list(`${INBOX}&category=promotions&folderId=f`)).status, 400);
+	assert.equal((await list(`${INBOX}&category=promotions&labelId=f`)).status, 400);
 });
 
 test("category=promotions is empty for mailboxes whose mode is off", async (t) => {

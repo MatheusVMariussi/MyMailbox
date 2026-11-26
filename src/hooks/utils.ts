@@ -36,12 +36,14 @@ export function getMessageQueryParams(
 	folder: MessageFolder,
 	mailboxId?: string | null,
 	filters?: MessageFilterOptions,
-	folderId?: string | null,
+	labelId?: string | null,
 ) {
 	const params = new URLSearchParams();
 	params.set("timeZone", getUserTimeZone());
 
-	if (folder === "inbox") {
+	// A label view lists every direction and status (but Trash and Spam), so it sets no folder filter.
+	if (labelId) params.set("labelId", labelId);
+	else if (folder === "inbox") {
 		params.set("direction", "inbound");
 		params.set("status", "received");
 	}
@@ -50,29 +52,20 @@ export function getMessageQueryParams(
 		params.set("status", "received");
 		params.set("category", "promotions");
 	}
-	if (folder === "starred") params.set("starred", "true");
-	if (folder === "snoozed") params.set("snoozed", "true");
-
-	if (folder === "sent") {
+	else if (folder === "starred") params.set("starred", "true");
+	else if (folder === "snoozed") params.set("snoozed", "true");
+	else if (folder === "sent") {
 		params.set("direction", "outbound");
 		params.set("status", "sent");
-	}
-
-	if (folder === "scheduled") {
+	} else if (folder === "scheduled") {
 		params.set("direction", "outbound");
 		params.set("scheduled", "true");
-	}
-
-	if (folder === "drafts") {
+	} else if (folder === "drafts") {
 		params.set("direction", "outbound");
 		params.set("status", "draft");
-	}
-
-	if (folder === "archived" || folder === "trash" || folder === "spam") {
+	} else if (folder === "archived" || folder === "trash" || folder === "spam") {
 		params.set("status", folder);
 	}
-
-	if (folderId) params.set("folderId", folderId);
 	if (mailboxId) params.set("mailboxId", mailboxId);
 	const searchFilters = filters?.query ? parseMessageSearchQuery(filters.query) : null;
 	const parsedFilters = searchFilters

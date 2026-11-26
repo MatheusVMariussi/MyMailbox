@@ -7,15 +7,15 @@ import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 
 const project = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(project, "node_modules", "folder-client-test-"));
+const directory = mkdtempSync(join(project, "node_modules", "label-client-test-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
-	entryPoints: [join(project, "src/lib/folders/client.ts")],
+	entryPoints: [join(project, "src/lib/labels/client.ts")],
 	outfile: join(directory, "client.mjs"), bundle: true, platform: "node", format: "esm", logLevel: "silent",
 	plugins: [{ name: "mock-auth", setup(builder) {
 		builder.onResolve({ filter: /^@\/lib\/auth\/client$/ }, () => ({ path: "auth", namespace: "mock" }));
 		builder.onLoad({ filter: /.*/, namespace: "mock" }, () => ({
-			contents: `export const AUTH_SESSION_CHANGED_EVENT = "auth-changed"; export function getClientSessionToken(){return globalThis.sessionToken ?? null;} export function authFetch(...args){return globalThis.folderFetch(...args);}`,
+			contents: `export const AUTH_SESSION_CHANGED_EVENT = "auth-changed"; export function getClientSessionToken(){return globalThis.sessionToken ?? null;} export function authFetch(...args){return globalThis.labelFetch(...args);}`,
 			loader: "js",
 		}));
 	} }],
@@ -26,12 +26,12 @@ let dom;
 let now;
 let originalNow;
 
-function response(folders = []) { return { ok: true, json: async () => ({ folders }) }; }
+function response(labels = []) { return { ok: true, json: async () => ({ labels }) }; }
 async function setup() {
 	dom = new JSDOM("<!doctype html>");
 	globalThis.window = dom.window;
 	globalThis.sessionToken = "account-a";
-	globalThis.folderFetch = async (_url, options) => { assert.equal(options.cache, "no-store"); return response([{ id: "f1" }]); };
+	globalThis.labelFetch = async (_url, options) => { assert.equal(options.cache, "no-store"); return response([{ id: "f1" }]); };
 	originalNow = Date.now;
 	now = 1_000;
 	Date.now = () => now;
@@ -42,18 +42,18 @@ function cleanup() {
 	dom.window.close();
 	delete globalThis.window;
 	delete globalThis.sessionToken;
-	delete globalThis.folderFetch;
+	delete globalThis.labelFetch;
 }
 
 test("concurrent callers share one no-store fetch and successful data hits the short cache", async () => {
 	await setup();
 	try {
 		let calls = 0;
-		globalThis.folderFetch = async () => { calls++; await Promise.resolve(); return response([{ id: "f1" }]); };
-		const [a, b] = await Promise.all([client.getMailboxFolders("mb1"), client.getMailboxFolders("mb1")]);
+		globalThis.labelFetch = async () => { calls++; await Promise.resolve(); return response([{ id: "f1" }]); };
+		const [a, b] = await Promise.all([client.getMailboxLabels("mb1"), client.getMailboxLabels("mb1")]);
 		assert.deepEqual(a, b);
 		assert.equal(calls, 1);
-		await client.getMailboxFolders("mb1");
+		await client.getMailboxLabels("mb1");
 		assert.equal(calls, 1);
 	} finally { cleanup(); }
 });
@@ -62,10 +62,10 @@ test("cache expires after 15 seconds", async () => {
 	await setup();
 	try {
 		let calls = 0;
-		globalThis.folderFetch = async () => { calls++; return response(); };
-		await client.getMailboxFolders("mb1");
+		globalThis.labelFetch = async () => { calls++; return response(); };
+		await client.getMailboxLabels("mb1");
 		now += 15_001;
-		await client.getMailboxFolders("mb1");
+		await client.getMailboxLabels("mb1");
 		assert.equal(calls, 2);
 	} finally { cleanup(); }
 });
@@ -74,9 +74,9 @@ test("cache evicts its oldest entry after 32 mailbox entries", async () => {
 	await setup();
 	try {
 		let calls = 0;
-		globalThis.folderFetch = async () => { calls++; return response(); };
-		for (let index = 0; index < 33; index++) await client.getMailboxFolders(`mb${index}`);
-		await client.getMailboxFolders("mb0");
+		globalThis.labelFetch = async () => { calls++; return response(); };
+		for (let index = 0; index < 33; index++) await client.getMailboxLabels(`mb${index}`);
+		await client.getMailboxLabels("mb0");
 		assert.equal(calls, 34);
 	} finally { cleanup(); }
 });
@@ -85,70 +85,70 @@ test("session and event invalidation reject stale responses without disturbing a
 	await setup();
 	try {
 		let resolveOld;
-		globalThis.folderFetch = () => new Promise(resolve => { resolveOld = resolve; });
-		const old = client.getMailboxFolders("mb1");
+		globalThis.labelFetch = () => new Promise(resolve => { resolveOld = resolve; });
+		const old = client.getMailboxLabels("mb1");
 		await Promise.resolve();
 		globalThis.sessionToken = "account-b";
 		window.dispatchEvent(new window.Event("auth-changed"));
 		let resolveNew;
-		globalThis.folderFetch = () => new Promise(resolve => { resolveNew = resolve; });
-		const fresh = client.getMailboxFolders("mb1");
+		globalThis.labelFetch = () => new Promise(resolve => { resolveNew = resolve; });
+		const fresh = client.getMailboxLabels("mb1");
 		await Promise.resolve();
 		resolveOld(response([{ id: "old" }]));
 		await assert.rejects(old, /invalidated/);
 		resolveNew(response([{ id: "new" }]));
-		assert.deepEqual((await fresh).folders, [{ id: "new" }]);
-		assert.deepEqual((await client.getMailboxFolders("mb1")).folders, [{ id: "new" }]);
+		assert.deepEqual((await fresh).labels, [{ id: "new" }]);
+		assert.deepEqual((await client.getMailboxLabels("mb1")).labels, [{ id: "new" }]);
 	} finally { cleanup(); }
 });
 
-test("messages and folders events invalidate in-flight and cached data", async () => {
+test("messages and labels events invalidate in-flight and cached data", async () => {
 	await setup();
 	try {
 		let calls = 0;
-		globalThis.folderFetch = async () => { calls++; return response([{ id: String(calls) }]); };
-		await client.getMailboxFolders("mb1");
+		globalThis.labelFetch = async () => { calls++; return response([{ id: String(calls) }]); };
+		await client.getMailboxLabels("mb1");
 		window.dispatchEvent(new window.Event("mymailbox:messages-changed"));
-		await client.getMailboxFolders("mb1");
-		window.dispatchEvent(new window.Event("mymailbox:folders-changed"));
-		await client.getMailboxFolders("mb1");
+		await client.getMailboxLabels("mb1");
+		window.dispatchEvent(new window.Event("mymailbox:labels-changed"));
+		await client.getMailboxLabels("mb1");
 		assert.equal(calls, 3);
 	} finally { cleanup(); }
 });
 
-test("pending callers receive fresh folders after a messages event", async () => {
+test("pending callers receive fresh labels after a messages event", async () => {
 	await setup();
 	try {
 		const resolvers = [];
-		globalThis.folderFetch = () => new Promise(resolve => { resolvers.push(resolve); });
-		const first = client.getMailboxFolders("mb1");
-		const second = client.getMailboxFolders("mb1");
+		globalThis.labelFetch = () => new Promise(resolve => { resolvers.push(resolve); });
+		const first = client.getMailboxLabels("mb1");
+		const second = client.getMailboxLabels("mb1");
 		assert.equal(resolvers.length, 1);
 		window.dispatchEvent(new window.Event("mymailbox:messages-changed"));
 		resolvers[0](response([{ id: "stale" }]));
 		await new Promise(resolve => setImmediate(resolve));
 		assert.equal(resolvers.length, 2);
 		resolvers[1](response([{ id: "fresh" }]));
-		assert.deepEqual((await first).folders, [{ id: "fresh" }]);
-		assert.deepEqual((await second).folders, [{ id: "fresh" }]);
+		assert.deepEqual((await first).labels, [{ id: "fresh" }]);
+		assert.deepEqual((await second).labels, [{ id: "fresh" }]);
 		assert.equal(resolvers.length, 2);
 	} finally { cleanup(); }
 });
 
-for (const invalidation of ["mymailbox:folders-changed", "explicit invalidation"]) {
+for (const invalidation of ["mymailbox:labels-changed", "explicit invalidation"]) {
 	test(`pending caller retries after ${invalidation}`, async () => {
 		await setup();
 		try {
 			const resolvers = [];
-			globalThis.folderFetch = () => new Promise(resolve => { resolvers.push(resolve); });
-			const pending = client.getMailboxFolders("mb1");
-			if (invalidation === "explicit invalidation") client.invalidateFolderCache();
+			globalThis.labelFetch = () => new Promise(resolve => { resolvers.push(resolve); });
+			const pending = client.getMailboxLabels("mb1");
+			if (invalidation === "explicit invalidation") client.invalidateLabelCache();
 			else window.dispatchEvent(new window.Event(invalidation));
 			resolvers[0](response([{ id: "stale" }]));
 			await new Promise(resolve => setImmediate(resolve));
 			assert.equal(resolvers.length, 2);
 			resolvers[1](response([{ id: "fresh" }]));
-			assert.deepEqual((await pending).folders, [{ id: "fresh" }]);
+			assert.deepEqual((await pending).labels, [{ id: "fresh" }]);
 		} finally { cleanup(); }
 	});
 }
@@ -157,18 +157,18 @@ test("a stale caller joins the replacement request without overwriting it", asyn
 	await setup();
 	try {
 		const resolvers = [];
-		globalThis.folderFetch = () => new Promise(resolve => { resolvers.push(resolve); });
-		const staleCaller = client.getMailboxFolders("mb1");
+		globalThis.labelFetch = () => new Promise(resolve => { resolvers.push(resolve); });
+		const staleCaller = client.getMailboxLabels("mb1");
 		window.dispatchEvent(new window.Event("mymailbox:messages-changed"));
-		const freshCaller = client.getMailboxFolders("mb1");
+		const freshCaller = client.getMailboxLabels("mb1");
 		assert.equal(resolvers.length, 2);
 		resolvers[0](response([{ id: "stale" }]));
 		await new Promise(resolve => setImmediate(resolve));
 		assert.equal(resolvers.length, 2);
 		resolvers[1](response([{ id: "fresh" }]));
-		assert.deepEqual((await staleCaller).folders, [{ id: "fresh" }]);
-		assert.deepEqual((await freshCaller).folders, [{ id: "fresh" }]);
-		assert.deepEqual((await client.getMailboxFolders("mb1")).folders, [{ id: "fresh" }]);
+		assert.deepEqual((await staleCaller).labels, [{ id: "fresh" }]);
+		assert.deepEqual((await freshCaller).labels, [{ id: "fresh" }]);
+		assert.deepEqual((await client.getMailboxLabels("mb1")).labels, [{ id: "fresh" }]);
 	} finally { cleanup(); }
 });
 
@@ -176,8 +176,8 @@ test("session event rejects an old request even when its token has not changed y
 	await setup();
 	try {
 		let resolveOld;
-		globalThis.folderFetch = () => new Promise(resolve => { resolveOld = resolve; });
-		const old = client.getMailboxFolders("mb1");
+		globalThis.labelFetch = () => new Promise(resolve => { resolveOld = resolve; });
+		const old = client.getMailboxLabels("mb1");
 		window.dispatchEvent(new window.Event("auth-changed"));
 		resolveOld(response([{ id: "old" }]));
 		await assert.rejects(old, /invalidated/);
@@ -188,15 +188,15 @@ test("continuous invalidation has a bounded retry count", async () => {
 	await setup();
 	try {
 		let calls = 0;
-		globalThis.folderFetch = async () => ({
+		globalThis.labelFetch = async () => ({
 			ok: true,
 			json: async () => {
 				calls++;
 				window.dispatchEvent(new window.Event("mymailbox:messages-changed"));
-				return { folders: [{ id: String(calls) }] };
+				return { labels: [{ id: String(calls) }] };
 			},
 		});
-		await assert.rejects(client.getMailboxFolders("mb1"), /invalidated/);
+		await assert.rejects(client.getMailboxLabels("mb1"), /invalidated/);
 		assert.equal(calls, 9);
 	} finally { cleanup(); }
 });
@@ -205,12 +205,12 @@ test("failed responses are not cached and explicit mutation invalidation clears 
 	await setup();
 	try {
 		let calls = 0;
-		globalThis.folderFetch = async () => { calls++; return calls === 1 ? { ok: false, json: async () => ({ error: "failed" }) } : response(); };
-		await assert.rejects(client.getMailboxFolders("mb1"), /failed/);
-		await client.getMailboxFolders("mb1");
+		globalThis.labelFetch = async () => { calls++; return calls === 1 ? { ok: false, json: async () => ({ error: "failed" }) } : response(); };
+		await assert.rejects(client.getMailboxLabels("mb1"), /failed/);
+		await client.getMailboxLabels("mb1");
 		assert.equal(calls, 2);
-		client.invalidateFolderCache();
-		await client.getMailboxFolders("mb1");
+		client.invalidateLabelCache();
+		await client.getMailboxLabels("mb1");
 		assert.equal(calls, 3);
 	} finally { cleanup(); }
 });

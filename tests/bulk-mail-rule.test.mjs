@@ -104,7 +104,7 @@ test("mail_type rules refuse actions that lose mail: reject and forward without 
 	assert.deepEqual(codes(m.routingRuleSchema.safeParse({ ...mailbox, destination: "forward", forwardTo: "a@b.test" })), [UNSAFE]);
 	assert.deepEqual(codes(m.routingRuleSchema.safeParse({ ...mailbox, action: "reject", destination: "trash" })), [UNSAFE]);
 	assert.deepEqual(codes(m.routingRuleSchema.safeParse({ ...mailbox, action: "forward", forwardTo: "a@b.test" })), [UNSAFE]);
-	for (const destination of ["trash", "spam", "folder:f1"]) assert.equal(m.routingRuleSchema.safeParse({ ...mailbox, destination }).success, true, destination);
+	for (const destination of ["trash", "spam", "archive", "label:f1"]) assert.equal(m.routingRuleSchema.safeParse({ ...mailbox, destination }).success, true, destination);
 	assert.equal(m.routingRuleSchema.safeParse({ ...mailbox, destination: "forward", forwardTo: "a@b.test", keepCopy: true }).success, true);
 	assert.equal(m.routingRuleSchema.safeParse({ mailboxId: "m", matchField: "email", matchValue: "x", destination: "forward", forwardTo: "a@b.test" }).success, true);
 });
@@ -112,7 +112,7 @@ test("mail_type rules refuse actions that lose mail: reject and forward without 
 test("the rule API error maps to the translatable code", () => {
 	const flat = m.routingRuleSchema.safeParse({ mailboxId: "m", matchField: "mail_type", matchValue: "bulk", destination: "forward", forwardTo: "a@b.test" }).error.flatten();
 	assert.equal(m.ruleErrorMessage(flat, "fallback"), m.MAIL_TYPE_UNSAFE_ACTION);
-	assert.equal(m.ruleErrorMessage("Folder not found", "fallback"), "Folder not found");
+	assert.equal(m.ruleErrorMessage("Label not found", "fallback"), "Label not found");
 	assert.equal(m.ruleErrorMessage({ formErrors: [], fieldErrors: { matchValue: ["Required"] } }, "fallback"), "fallback");
 });
 
@@ -124,13 +124,13 @@ async function fixture(t, rule) {
 		INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES ('admin', 'owner@one.test', 'hash', 'Owner', 'admin', 1, 1);
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('one', 'admin', 'one.test', 'zone-one', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at) VALUES ('box', 'admin', 'one', 'me', 1);
-		INSERT INTO folders (id, user_id, mailbox_id, name, created_at) VALUES ('promos', 'admin', 'box', 'Promotions', 1);
+		INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('promos', 'admin', 'box', 'Promotions', 1);
 	`);
 	database.db.prepare(`
-		INSERT INTO routing_rules (id, user_id, domain_id, scope, mailbox_id, folder_id, pattern, match_field, match_operator,
+		INSERT INTO routing_rules (id, user_id, domain_id, scope, mailbox_id, label_id, pattern, match_field, match_operator,
 			match_value, action, forward_to, keep_copy, reject_reason, enabled, priority, created_at)
 		VALUES ('rule', 'admin', 'one', ?, ?, ?, 'bulk', 'mail_type', 'contains', 'bulk', ?, ?, 0, 'no promos', 1, 10, 1)
-	`).run(rule.scope, rule.scope === "mailbox" ? "box" : null, rule.folderId ?? null, rule.action, rule.forwardTo ?? null);
+	`).run(rule.scope, rule.scope === "mailbox" ? "box" : null, rule.labelId ?? null, rule.action, rule.forwardTo ?? null);
 	const env = { DB: database };
 	globalThis.__testEnv = env;
 	t.after(() => { delete globalThis.__testEnv; });
@@ -140,10 +140,10 @@ async function fixture(t, rule) {
 const NEWSLETTER = { "list-unsubscribe": "<https://x.test/u>" };
 const input = (headers) => ({ mailboxId: "box", toAddress: "me@one.test", fromAddress: "news@x.test", subject: "Sale", headers });
 
-test("mailbox rule files newsletters into a folder, spam or trash", async (t) => {
-	const folderDb = await fixture(t, { scope: "mailbox", action: "store", folderId: "promos" });
-	assert.deepEqual(await m.resolveInboxRuleDestination(folderDb, input(NEWSLETTER)), { status: "received", folderId: "promos" });
-	assert.deepEqual(await m.resolveInboxRuleDestination(folderDb, input({ subject: "Lunch" })), { status: "received", folderId: null });
+test("mailbox rule labels newsletters, and leaves other mail alone", async (t) => {
+	const labelDb = await fixture(t, { scope: "mailbox", action: "store", labelId: "promos" });
+	assert.deepEqual(await m.resolveInboxRuleDestination(labelDb, input(NEWSLETTER)), { status: "received", labelIds: ["promos"] });
+	assert.deepEqual(await m.resolveInboxRuleDestination(labelDb, input({ subject: "Lunch" })), { status: "received", labelIds: [] });
 });
 
 test("mailbox trash rule", async (t) => {

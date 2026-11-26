@@ -32,7 +32,7 @@ export type MessagesChangedDetail = {
 	 * mounted row can derive its own target; committed events carry `states`.
 	 */
 	action?: ReversibleMessageAction | "delete";
-	folderId?: string | null;
+	labelId?: string | null;
 	snoozedUntil?: string | null;
 	/** Applied state per message, only after the server confirmed the change. */
 	states?: MessageMembershipState[];

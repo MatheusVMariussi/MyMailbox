@@ -1,6 +1,7 @@
 export type RuleTarget = {
 	action: "store" | "forward" | "spam" | "trash";
-	folderId: string | null;
+	labelId: string | null;
+	skipInbox: boolean;
 	forwardTo: string | null;
 	keepCopy: boolean;
 };

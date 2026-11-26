@@ -20,7 +20,7 @@ export async function applySpamFeedback(env: CloudflareEnv, user: SessionUser, m
 	const [previous] = await db.select().from(spamFeedback).where(eq(spamFeedback.messageId, messageId)).limit(1);
 	const status = classification === "spam" ? "spam" : "received";
 	if (previous?.classification === classification) {
-		await db.update(messages).set({ status, folderId: null }).where(eq(messages.id, messageId));
+		await db.update(messages).set({ status }).where(eq(messages.id, messageId));
 		return true;
 	}
 
@@ -72,7 +72,7 @@ export async function applySpamFeedback(env: CloudflareEnv, user: SessionUser, m
 		target: spamFeedback.messageId,
 		set: { actorUserId: user.id, classification, updatedAt: now },
 	}));
-	statements.push(db.update(messages).set({ status, folderId: null }).where(eq(messages.id, messageId)));
+	statements.push(db.update(messages).set({ status }).where(eq(messages.id, messageId)));
 	await db.batch(statements as never);
 	await createAuditLog(env, {
 		actorUserId: user.id,

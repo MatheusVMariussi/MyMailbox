@@ -32,7 +32,7 @@ const { messageMatchesFolder, getListMembershipContext, getEmptyPageOffset } = a
 function state(overrides = {}) {
 	return {
 		status: "received",
-		folderId: null,
+		labelIds: [],
 		snoozedUntil: null,
 		starred: false,
 		read: false,
@@ -42,31 +42,37 @@ function state(overrides = {}) {
 
 const NOW = Date.parse("2026-11-14T12:00:00.000Z");
 
-test("Starred ignores status, folder and snooze changes", () => {
+test("Starred ignores status, label and snooze changes", () => {
 	assert.equal(messageMatchesFolder(state({ starred: true }), "starred", null, NOW), true);
-	assert.equal(messageMatchesFolder(state({ starred: true, status: "archived", folderId: "f1", snoozedUntil: "2026-11-14T13:00:00.000Z" }), "starred", null, NOW), true);
+	assert.equal(messageMatchesFolder(state({ starred: true, status: "archived", labelIds: ["f1"], snoozedUntil: "2026-11-14T13:00:00.000Z" }), "starred", null, NOW), true);
 	assert.equal(messageMatchesFolder(state({ starred: false }), "starred", null, NOW), false);
 });
 
-test("inbox excludes custom folders and active snoozes", () => {
+test("inbox keeps labelled mail and excludes active snoozes", () => {
 	assert.equal(messageMatchesFolder(state(), "inbox", null, NOW), true);
-	assert.equal(messageMatchesFolder(state({ folderId: "f1" }), "inbox", null, NOW), false);
+	assert.equal(messageMatchesFolder(state({ labelIds: ["f1", "f2"] }), "inbox", null, NOW), true);
 	assert.equal(messageMatchesFolder(state({ snoozedUntil: "2026-11-14T13:00:00.000Z" }), "inbox", null, NOW), false);
 	assert.equal(messageMatchesFolder(state({ snoozedUntil: "2026-11-14T11:00:00.000Z" }), "inbox", null, NOW), true);
 	assert.equal(messageMatchesFolder(state({ status: "archived" }), "inbox", null, NOW), false);
 });
 
-test("Snoozed requires a future time, received status and no folder", () => {
+test("Snoozed requires a future time and received status, labels or not", () => {
 	assert.equal(messageMatchesFolder(state({ snoozedUntil: "2026-11-14T13:00:00.000Z" }), "snoozed", null, NOW), true);
 	assert.equal(messageMatchesFolder(state({ snoozedUntil: "2026-11-14T11:00:00.000Z" }), "snoozed", null, NOW), false);
-	assert.equal(messageMatchesFolder(state({ snoozedUntil: "2026-11-14T13:00:00.000Z", folderId: "f1" }), "snoozed", null, NOW), false);
+	assert.equal(messageMatchesFolder(state({ snoozedUntil: "2026-11-14T13:00:00.000Z", labelIds: ["f1"] }), "snoozed", null, NOW), true);
 	assert.equal(messageMatchesFolder(state({ snoozedUntil: "2026-11-14T13:00:00.000Z", status: "trash" }), "snoozed", null, NOW), false);
 });
 
-test("custom folders ignore snooze and only keep their own assignment", () => {
-	assert.equal(messageMatchesFolder(state({ folderId: "f1", snoozedUntil: "2026-11-14T13:00:00.000Z" }), "inbox", "f1", NOW), true);
-	assert.equal(messageMatchesFolder(state({ folderId: "f2" }), "inbox", "f1", NOW), false);
-	assert.equal(messageMatchesFolder(state({ folderId: null, status: "archived" }), "inbox", "f1", NOW), false);
+test("a label view keeps every message with the label, any status but Trash and Spam", () => {
+	assert.equal(messageMatchesFolder(state({ labelIds: ["f1"], snoozedUntil: "2026-11-14T13:00:00.000Z" }), "inbox", "f1", NOW), true);
+	for (const status of ["received", "archived", "sent", "queued", "draft"]) {
+		assert.equal(messageMatchesFolder(state({ labelIds: ["f2", "f1"], status }), "inbox", "f1", NOW), true, status);
+	}
+	assert.equal(messageMatchesFolder(state({ labelIds: ["f2"] }), "inbox", "f1", NOW), false);
+	assert.equal(messageMatchesFolder(state({ labelIds: [], status: "archived" }), "inbox", "f1", NOW), false);
+	for (const status of ["trash", "spam"]) assert.equal(messageMatchesFolder(state({ labelIds: ["f1"], status }), "inbox", "f1", NOW), false, status);
+	// A row whose labels are unknown keeps its place until the server says otherwise.
+	assert.equal(messageMatchesFolder({ status: "archived", snoozedUntil: null, starred: false }, "inbox", "f1", NOW), true);
 });
 
 test("status folders track their own status", () => {
@@ -81,7 +87,7 @@ test("status folders track their own status", () => {
 
 test("list keys resolve to the same query the server received", () => {
 	assert.deepEqual(getListMembershipContext(new URLSearchParams({ direction: "inbound", status: "received" })), { folder: "inbox" });
-	assert.deepEqual(getListMembershipContext("status=received&folderId=f1"), { folder: "inbox", folderId: "f1" });
+	assert.deepEqual(getListMembershipContext("labelId=f1"), { folder: "inbox", labelId: "f1" });
 	assert.deepEqual(getListMembershipContext("starred=true"), { folder: "starred" });
 	assert.deepEqual(getListMembershipContext("snoozed=true"), { folder: "snoozed" });
 	assert.deepEqual(getListMembershipContext("direction=outbound&status=sent"), { folder: "sent" });
@@ -100,12 +106,12 @@ test("an emptied page waits for backfill unless it is out of range", () => {
 	assert.equal(getEmptyPageOffset(50, 0, 25), 0);
 });
 
-test("promotions holds received, unfiled, unsnoozed mail whose category is promotions", () => {
+test("promotions holds received, unsnoozed mail whose category is promotions, labelled or not", () => {
 	const promo = state({ category: "promotions" });
 	assert.equal(messageMatchesFolder(promo, "promotions", null, NOW), true);
 	assert.equal(messageMatchesFolder(state(), "promotions", null, NOW), false);
 	assert.equal(messageMatchesFolder(state({ category: null }), "promotions", null, NOW), false);
-	assert.equal(messageMatchesFolder({ ...promo, folderId: "f1" }, "promotions", null, NOW), false);
+	assert.equal(messageMatchesFolder({ ...promo, labelIds: ["f1"] }, "promotions", null, NOW), true);
 	assert.equal(messageMatchesFolder({ ...promo, status: "trash" }, "promotions", null, NOW), false);
 	assert.equal(messageMatchesFolder({ ...promo, snoozedUntil: "2026-11-14T13:00:00.000Z" }, "promotions", null, NOW), false);
 	// Inbox membership does not depend on the category (the mailbox mode is unknown here).

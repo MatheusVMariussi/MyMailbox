@@ -10,6 +10,7 @@ import { buildSearchConditions } from "@/lib/search/conditions";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { getRequestTimeZone } from "@/lib/time/utils";
 import { parseLimit } from "@/lib/api/query-params";
+import { loadMessageLabelIds } from "@/lib/labels/service";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -62,6 +63,8 @@ export async function GET(request: Request) {
 		.where(and(...conditions))
 		.orderBy(desc(messages.createdAt))
 		.limit(limit);
+	const labelIds = await loadMessageLabelIds(db, rows.map((row) => row.id));
 
-	return NextResponse.json({ messages: rows });
+	// `folder_id` is a dead column since labels replaced folders; each row lists its label ids instead.
+	return NextResponse.json({ messages: rows.map(({ folderId: _folderId, ...row }) => ({ ...row, labelIds: labelIds.get(row.id) ?? [] })) });
 }

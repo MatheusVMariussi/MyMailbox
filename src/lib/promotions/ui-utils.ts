@@ -41,7 +41,7 @@ export function getModeErrorKey(status: number): TranslationKey {
 	return "settings.promotions.saveFailed";
 }
 
-export type UnreadDeltaContext = { folder: string; folderId?: string; mode?: PromotionModeValue; category?: string | null };
+export type UnreadDeltaContext = { folder: string; labelId?: string; mode?: PromotionModeValue; category?: string | null };
 export type UnreadDeltas = { inboxUnreadDelta?: number; promotionsUnreadDelta?: number };
 
 /**
@@ -51,7 +51,7 @@ export type UnreadDeltas = { inboxUnreadDelta?: number; promotionsUnreadDelta?: 
  * `null` when no count moves.
  */
 export function unreadDeltas(context: UnreadDeltaContext, flip: number): UnreadDeltas | null {
-	if (!flip || context.folderId) return null;
+	if (!flip || context.labelId) return null;
 	const on = !!context.mode && context.mode !== "off";
 	if (context.folder === "inbox") {
 		return { inboxUnreadDelta: flip, ...(on && context.category === "promotions" ? { promotionsUnreadDelta: flip } : {}) };

@@ -7,7 +7,8 @@ export function getMessageFolder(row: MessageCountRow): CountableFolder {
 	if (row.status === "trash") return "trash";
 	if (row.status === "spam") return "spam";
 	if (row.status === "archived") return "archived";
-	if (row.direction === "inbound" && row.status === "received" && !row.folderId) return "inbox";
+	// Labels never take mail out of the inbox.
+	if (row.direction === "inbound" && row.status === "received") return "inbox";
 	if (row.direction === "outbound" && row.status === "sent") return "sent";
 	if (row.direction === "outbound" && row.status === "draft") return "drafts";
 	return null;
@@ -30,7 +31,6 @@ export function createEmptyFolderCounts(): MessageCounts["folders"] {
 
 export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 	const folders = createEmptyFolderCounts();
-	const customFolders: MessageCounts["customFolders"] = {};
 	const mailboxMap = new Map<string, { mailboxId: string; total: number; unread: number; inbox: number }>();
 
 	for (const row of rows) {
@@ -44,13 +44,6 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 		if (folder) {
 			folders[folder].total += weight;
 			if (unread) folders[folder].unread += weight;
-		}
-
-		if (row.folderId) {
-			const folderCount = customFolders[row.folderId] ?? { total: 0, unread: 0 };
-			folderCount.total += weight;
-			if (unread) folderCount.unread += weight;
-			customFolders[row.folderId] = folderCount;
 		}
 
 		if (!row.mailboxId) continue;
@@ -69,13 +62,13 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 
 	return {
 		folders,
-		customFolders,
+		labels: {},
 		mailboxes: Array.from(mailboxMap.values()),
 	};
 }
 
 /**
- * Adds the promotions folder from its own grouped rows (received, unfiled, unsnoozed, category promotions, only
+ * Adds the promotions folder from its own grouped rows (received, unsnoozed, category promotions, only
  * for mailboxes whose mode is `show` or `separate`). Mailboxes in `separate` mode lose those rows from Inbox.
  */
 export function applyPromotionCounts(

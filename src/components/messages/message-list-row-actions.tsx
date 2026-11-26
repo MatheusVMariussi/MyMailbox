@@ -24,7 +24,7 @@ type PrimaryAction = {
 	disabled?: boolean;
 };
 
-function MessageListRowActionsComponent({ message, folder = "inbox", folderId, onAction, compact = false, active = false, onSnoozeChange, promotionTarget, onPromotionMove }: MessageListRowActionsProps) {
+function MessageListRowActionsComponent({ message, folder = "inbox", labelId, onAction, compact = false, active = false, onSnoozeChange, promotionTarget, onPromotionMove }: MessageListRowActionsProps) {
 	const { t } = useLanguage();
 	const [snoozeOpen, setSnoozeOpen] = useState(false);
 	const [snoozedUntil, setSnoozedUntil] = useState("");
@@ -37,7 +37,7 @@ function MessageListRowActionsComponent({ message, folder = "inbox", folderId, o
 	// The row leaves these folders through a state change, so offering the same
 	// move as a secondary action would be a no-op or a misleading duplicate.
 	const canMarkRead = folder !== "spam" && folder !== "trash";
-	const canSnooze = folder === "inbox" && !folderId;
+	const canSnooze = folder === "inbox" && !labelId;
 	const canArchive = folder === "snoozed";
 	const canTrash = folder !== "spam" && folder !== "trash";
 	const canDeleteForever = folder === "spam" || folder === "trash";

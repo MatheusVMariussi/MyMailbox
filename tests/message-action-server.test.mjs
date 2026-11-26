@@ -60,7 +60,6 @@ const state = (overrides = {}) => ({
 	status: "received",
 	read: false,
 	starred: false,
-	folderId: null,
 	snoozedUntil: null,
 	...overrides,
 });
@@ -72,28 +71,26 @@ const target = (overrides = {}) => ({
 	status: "received",
 	read: false,
 	starred: false,
-	folderId: null,
 	snoozedUntil: null,
 	...overrides,
 });
 
-test("token v2 carries the user and nonce and rejects old or tampered payloads", async () => {
+test("token v3 carries the user, nonce and label deltas and rejects old or tampered payloads", async () => {
 	const payload = {
-		v: 2,
+		v: 3,
 		issuedAt: Date.now(),
 		action: "read",
 		userId: "user-1",
 		nonce: "nonce-1",
-		records: [record(state(), state({ read: true }))],
+		records: [record(state(), state({ read: true })), { ...record(state(), state()), labels: { added: ["l1"], removed: [] } }],
 	};
 	const token = await m.signUndoToken("secret", payload);
 	assert.deepEqual(await m.verifyUndoToken("secret", token), payload);
 	assert.equal(await m.verifyUndoToken("other-secret", token), null);
 	assert.equal(await m.verifyUndoToken("secret", `${token.slice(0, -2)}xx`), null);
 	assert.equal(await m.verifyUndoToken("secret", token, payload.issuedAt + 11 * 60_000), null);
-	// Tokens from the previous format are not accepted.
-	const oldToken = await m.signUndoToken("secret", { ...payload, v: 1 });
-	assert.equal(await m.verifyUndoToken("secret", oldToken), null);
+	// Tokens from the previous formats (v2 snapshots carried a folder) are not accepted.
+	for (const v of [1, 2]) assert.equal(await m.verifyUndoToken("secret", await m.signUndoToken("secret", { ...payload, v })), null);
 });
 
 test("a claim nonce is single-use across users and can be released for a retry", async () => {
@@ -116,27 +113,24 @@ test("expired claims are pruned opportunistically so a nonce can be reused after
 	assert.equal(await m.claimMessageActionUndoToken({}, { nonce: "expired-nonce", userId: "u1", expiresAt: future }), "claimed");
 });
 
-test("undo plans restore only changed fields and ignore removed folders for read-only undo", () => {
-	const archivePrevious = state({ status: "received", folderId: "folder-1" });
-	const archiveApplied = state({ status: "archived", folderId: null });
+test("undo plans restore only changed fields, and a read undo needs no label", () => {
 	const plan = m.planUndoRecord(
-		record(archivePrevious, archiveApplied),
-		target({ status: "archived", folderId: null }),
+		record(state({ status: "received" }), state({ status: "archived" })),
+		target({ status: "archived" }),
 		{ canRead: true, canManage: true },
-		"mb1",
+		new Map(),
 	);
-	assert.deepEqual(plan.patch, { status: "received", folderId: "folder-1" });
-	assert.deepEqual(plan.fields, ["status", "folderId"]);
+	assert.deepEqual(plan.patch, { status: "received" });
+	assert.deepEqual(plan.fields, ["status"]);
 
-	const readPrevious = state({ folderId: "removed-folder" });
-	const readApplied = state({ folderId: "removed-folder", read: true });
 	const readPlan = m.planUndoRecord(
-		record(readPrevious, readApplied),
-		target({ folderId: "removed-folder", read: true }),
-		{ canRead: true, canManage: true },
-		undefined,
+		record(state(), state({ read: true })),
+		target({ read: true, labelIds: ["removed-label"] }),
+		{ canRead: true, canManage: false },
+		new Map(),
 	);
 	assert.deepEqual(readPlan.patch, { read: false });
+	assert.equal(readPlan.labels, undefined);
 });
 
 test("the migrations carry the undo-claim table", async () => {

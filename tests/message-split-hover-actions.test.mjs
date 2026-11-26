@@ -177,7 +177,7 @@ function message(overrides = {}) {
 		id: "m1",
 		userId: "user-1",
 		mailboxId: "mailbox-1",
-		folderId: null,
+		labelIds: [],
 		direction: "inbound",
 		providerMessageId: null,
 		fromAddr: "sender@example.net",
@@ -304,9 +304,9 @@ test("folder views make the action that leaves the folder primary", async (t) =>
 	assert.equal(container.querySelector('button[aria-label="common.markRead"]'), null, "read is not relevant in trash");
 	await act(async () => button(container, "common.restore").click());
 
-	await rerender({ ...props, folder: "inbox", folderId: "folder-1" });
-	assert.ok(button(container, "common.archive"), "custom folders archive the message out of the folder");
-	assert.equal([...container.querySelectorAll('[data-testid="action-menu-items"] button')].some((item) => item.textContent.includes("common.snooze")), false, "custom folders do not offer snooze");
+	await rerender({ ...props, folder: "inbox", labelId: "label-1" });
+	assert.ok(button(container, "common.archive"), "label views archive the message out of the inbox");
+	assert.equal([...container.querySelectorAll('[data-testid="action-menu-items"] button')].some((item) => item.textContent.includes("common.snooze")), false, "label views do not offer snooze");
 	await act(async () => button(container, "common.archive").click());
 
 	assert.deepEqual(actions, ["inbox", "inbox", "inbox", "archive"]);
@@ -472,7 +472,7 @@ export function useMessageCounts() {
   return {
     counts: {
       folders: { inbox: { total: 2, unread: 2 }, snoozed: { total: 1, unread: 0 }, starred: { total: 1, unread: 1 } },
-      customFolders: {},
+      labels: {},
       mailboxes: [],
     },
   };
@@ -588,7 +588,7 @@ function listMessage(id, overrides = {}) {
 		id,
 		userId: "user-1",
 		mailboxId: "mailbox-1",
-		folderId: null,
+		labelIds: [],
 		direction: "inbound",
 		providerMessageId: null,
 		fromAddr: "sender@example.net",
@@ -732,10 +732,10 @@ test("the compact list exposes actions only beside an open desktop reader", asyn
 		assert.ok(rowActions(folder.container, "m1"), `${config.folder} rows get the action that leaves the folder`);
 	}
 
-	const customConfig = { ...inboxFolderConfig, folderId: "folder-1", hrefPrefix: "/folders/folder-1", title: "Projects" };
-	const custom = await renderFolderPage({ config: customConfig, selectedMessageId: "m1" });
-	t.after(custom.cleanup);
-	assert.ok(rowActions(custom.container, "m1"), "custom folders get the action that leaves the folder");
+	const labelConfig = { ...inboxFolderConfig, labelId: "label-1", hrefPrefix: "/labels/label-1", title: "Projects" };
+	const labelled = await renderFolderPage({ config: labelConfig, selectedMessageId: "m1" });
+	t.after(labelled.cleanup);
+	assert.ok(rowActions(labelled.container, "m1"), "label views get row actions");
 
 	const sent = await renderFolderPage({
 		config: sentFolderConfig,
@@ -802,14 +802,15 @@ test("restoring or unarchiving the open message returns to its list", async (t) 
 	});
 	assert.deepEqual(globalThis.__pushedPaths, ["/trash"], "deleting forever also closes the open message");
 
-	const customConfig = { ...inboxFolderConfig, folderId: "folder-1", hrefPrefix: "/folders/folder-1", title: "Projects" };
-	const custom = await renderFolderPage({ config: customConfig, selectedMessageId: "m1" });
-	t.after(custom.cleanup);
+	// A label view keeps a message that returns to the inbox: it still carries the label.
+	const labelConfig = { ...inboxFolderConfig, labelId: "label-1", hrefPrefix: "/labels/label-1", title: "Projects" };
+	const labelled = await renderFolderPage({ config: labelConfig, selectedMessageId: "m1", messages: [listMessage("m1", { labelIds: ["label-1"] })] });
+	t.after(labelled.cleanup);
 	await act(async () => {
-		custom.container.querySelector('[data-message-id="m1"] [aria-label="stub-inbox"]').click();
+		labelled.container.querySelector('[data-message-id="m1"] [aria-label="stub-inbox"]').click();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 	});
-	assert.deepEqual(globalThis.__pushedPaths, ["/folders/folder-1"]);
+	assert.deepEqual(globalThis.__pushedPaths, [], "the label view keeps the open message");
 });
 
 test("removing the open message from the folder returns to its list", async (t) => {
@@ -931,12 +932,12 @@ test("snooze changes close the reader only when the row leaves snoozed or inbox"
 	await act(async () => rowActions(snoozed.container, "m1").querySelector('[aria-label="stub-unsnooze"]').click());
 	assert.deepEqual(globalThis.__pushedPaths, ["/snoozed"]);
 
-	const custom = await renderFolderPage({
-		config: { ...inboxFolderConfig, folderId: "folder-1", hrefPrefix: "/folders/folder-1" },
+	const labelled = await renderFolderPage({
+		config: { ...inboxFolderConfig, labelId: "label-1", hrefPrefix: "/labels/label-1" },
 		selectedMessageId: "m1",
-		messages: [listMessage("m1", { folderId: "folder-1" })],
+		messages: [listMessage("m1", { labelIds: ["label-1"] })],
 	});
-	t.after(custom.cleanup);
-	await act(async () => rowActions(custom.container, "m1").querySelector('[aria-label="stub-snooze"]').click());
-	assert.deepEqual(globalThis.__pushedPaths, [], "a custom folder keeps a snoozed row visible");
+	t.after(labelled.cleanup);
+	await act(async () => rowActions(labelled.container, "m1").querySelector('[aria-label="stub-snooze"]').click());
+	assert.deepEqual(globalThis.__pushedPaths, [], "a label view keeps a snoozed row visible");
 });

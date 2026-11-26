@@ -172,9 +172,9 @@ test("Trash all moves at most 500 recent rows in chunks under 100 parameters, re
 	add("star", { starred: 1 });
 	add("old", { age: 120 });
 	add("other", { sender: "other@acme.com" });
-	database.db.exec("INSERT INTO folders (id, user_id, mailbox_id, name, created_at) VALUES ('f', 'u', 'a', 'F', 1)");
+	database.db.exec("INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('f', 'u', 'a', 'F', 1)");
 	add("filed");
-	database.db.exec("UPDATE messages SET folder_id = 'f' WHERE id = 'filed'");
+	database.db.exec("INSERT INTO message_labels (message_id, label_id) VALUES ('filed', 'f')");
 	const events = [];
 	const prepare = database.prepare.bind(database);
 	database.prepare = (sql) => {

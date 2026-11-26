@@ -5,7 +5,7 @@ export function getFolderNavCount(folder: MessageFolder, counts: MessageCounts["
 	return counts[folder].unread;
 }
 
-async function moveMessages(payload: { messageIds: string[]; action: "archive" | "spam" | "trash" | "folder"; folderId?: string }) {
+async function moveMessages(payload: { messageIds: string[]; action: "archive" | "spam" | "trash" | "move"; labelId?: string }) {
 	await performMessageAction(payload);
 }
 
@@ -13,6 +13,7 @@ export function moveMessagesToSystemFolder(messageIds: string[], action: "archiv
 	return moveMessages({ messageIds, action });
 }
 
-export function moveMessagesToCustomFolder(messageIds: string[], folderId: string) {
-	return moveMessages({ messageIds, action: "folder", folderId });
+/** Dropping mail on a label means "Move to": add the label and take inbox mail out of the inbox. */
+export function moveMessagesToLabel(messageIds: string[], labelId: string) {
+	return moveMessages({ messageIds, action: "move", labelId });
 }

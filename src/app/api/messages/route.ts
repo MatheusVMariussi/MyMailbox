@@ -21,6 +21,7 @@ import { summarizeNotesForRows } from "@/lib/notes/service";
 import { parseLimit, parseOffset } from "@/lib/api/query-params";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { categoryScopeCondition } from "@/lib/promotions/settings";
+import { hasLabelCondition, labelViewStatusCondition, loadMessageLabelIds } from "@/lib/labels/service";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 	const url = new URL(request.url);
 	const direction = url.searchParams.get("direction");
 	const mailboxId = url.searchParams.get("mailboxId");
-	const folderId = url.searchParams.get("folderId");
+	const labelId = url.searchParams.get("labelId");
 	const status = url.searchParams.get("status");
 	const query = url.searchParams.get("q")?.trim();
 	const title = url.searchParams.get("title")?.trim();
@@ -47,8 +48,8 @@ export async function GET(request: Request) {
 	// that matches the filter. Drafts are never grouped.
 	const groupByThread = url.searchParams.get("group") === "thread" && status !== "draft";
 
-	if (category && (category !== "promotions" || status !== "received" || folderId)) {
-		return NextResponse.json({ error: "category=promotions needs status=received and no folderId" }, { status: 400 });
+	if (category && (category !== "promotions" || status !== "received" || labelId)) {
+		return NextResponse.json({ error: "category=promotions needs status=received and no labelId" }, { status: 400 });
 	}
 
 	const db = getDb(env);
@@ -76,8 +77,9 @@ export async function GET(request: Request) {
 	if (direction === "inbound" || direction === "outbound") {
 		conditions.push(eq(messages.direction, direction));
 	}
-	if (folderId) {
-		conditions.push(eq(messages.folderId, folderId));
+	if (labelId) {
+		// A label view: the label, any direction, nothing in Trash or Spam.
+		conditions.push(hasLabelCondition(labelId), labelViewStatusCondition);
 	}
 	if (status) {
 		conditions.push(eq(messages.status, status));
@@ -86,8 +88,8 @@ export async function GET(request: Request) {
 	if (status !== "template") {
 		conditions.push(ne(messages.status, "template"));
 	}
-	if (status === "received" && !folderId) {
-		conditions.push(isNull(messages.folderId));
+	if (status === "received" && !labelId) {
+		// The inbox: received and not snoozed. Labels never take mail out of it.
 		conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
 		// Promotions is its own view, only for mailboxes that turned it on; the Inbox hides what `separate` mailboxes moved there.
 		const hidden = await categoryScopeCondition(db, mailboxId ? [mailboxId] : accessibleMailboxIds, category ? "promotions" : "inbox");
@@ -98,7 +100,6 @@ export async function GET(request: Request) {
 	}
 	if (snoozed === "true") {
 		conditions.push(eq(messages.status, "received"));
-		conditions.push(isNull(messages.folderId));
 		conditions.push(gt(messages.snoozedUntil, new Date()));
 	}
 	if (scheduled === "true") {
@@ -177,7 +178,7 @@ export async function GET(request: Request) {
 			? inArray(messages.mailboxId, accessibleMailboxIds)
 			: eq(messages.userId, user.id);
 	// These enrichments depend only on the selected page, not on each other.
-	const [countRows, jobs, openCounts, noteSummaries, contactMaps] = await Promise.all([
+	const [countRows, jobs, openCounts, noteSummaries, contactMaps, labelIdsByMessage] = await Promise.all([
 		threadIds.length > 0
 			? selectInBatches(threadIds, (batch) => db
 				.select({
@@ -209,6 +210,7 @@ export async function GET(request: Request) {
 				),
 			] as const),
 		),
+		loadMessageLabelIds(db, rows.map((row) => row.id)),
 	]);
 	const threadCounts = new Map<string, { total: number; unread: number }>();
 	for (const row of countRows) {
@@ -246,6 +248,7 @@ export async function GET(request: Request) {
 				(message.direction === "outbound" ? accountName : null) ??
 				getPartyDisplayName(message.fromAddr, contactMap?.get(normalizeEmailAddress(message.fromAddr))),
 			toContactName: getPartyDisplayName(firstTo, contactMap?.get(normalizeEmailAddress(firstTo))),
+			labelIds: labelIdsByMessage.get(message.id) ?? [],
 			threadCount: threadStats?.total || 1,
 			threadUnread: (groupByThread ? folderUnread : threadStats?.unread) || 0,
 			...(groupByThread

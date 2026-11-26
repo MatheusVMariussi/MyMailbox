@@ -1,7 +1,10 @@
 import { and, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
 import { getDb } from "@/db";
-import { folders, messages } from "@/db/schema";
+import { messages } from "@/db/schema";
+import { isEmptyLabelDelta } from "@/lib/labels/label-utils";
+import { addMessageLabels, getLabel, loadLabels, loadMessageLabelIds, removeMessageLabels } from "@/lib/labels/service";
+import type { LabelPair, LabelRecord, MessageLabelDelta } from "@/lib/labels/types";
 import type { SessionUser } from "@/lib/auth/types";
 import { isOthersDraft } from "@/lib/email/draft-access";
 import { createAuditLogs } from "@/lib/mailboxes/audit";
@@ -45,7 +48,7 @@ export class MessageActionError extends Error {
 	}
 }
 
-type LoadedTarget = MessageActionTarget & { mailboxId: string | null; userId: string | null; privateDraft: boolean };
+type LoadedTarget = MessageActionTarget & { mailboxId: string | null; userId: string | null; privateDraft: boolean; labelIds: string[] };
 
 type PlannedUpdate = {
 	id: string;
@@ -65,20 +68,20 @@ function selectTargetChunk(db: AppDatabase, chunk: string[]) {
 		status: messages.status,
 		read: messages.read,
 		starred: messages.starred,
-		folderId: messages.folderId,
 		snoozedUntil: messages.snoozedUntil,
 	}).from(messages).where(inArray(messages.id, chunk));
 }
 
-async function loadTargets(db: AppDatabase, ids: string[]): Promise<LoadedTarget[]> {
+async function loadTargets(db: AppDatabase, ids: string[], withLabels = false): Promise<LoadedTarget[]> {
 	const chunks: string[][] = [];
 	for (let index = 0; index < ids.length; index += MESSAGE_ID_CHUNK) chunks.push(ids.slice(index, index + MESSAGE_ID_CHUNK));
-	const rows: LoadedTarget[] = [];
+	const rows: Array<Omit<LoadedTarget, "labelIds">> = [];
 	for (let index = 0; index < chunks.length; index += MESSAGE_QUERY_CONCURRENCY) {
 		const batch = await Promise.all(chunks.slice(index, index + MESSAGE_QUERY_CONCURRENCY).map((chunk) => selectTargetChunk(db, chunk)));
 		rows.push(...batch.flat());
 	}
-	return rows;
+	const labelIds = withLabels ? await loadMessageLabelIds(db, rows.map((row) => row.id)) : new Map<string, string[]>();
+	return rows.map((row) => ({ ...row, labelIds: labelIds.get(row.id) ?? [] }));
 }
 
 async function loadAccessMap(
@@ -121,7 +124,6 @@ function stateCondition(field: keyof MessageStateSnapshot, expected: MessageStat
 	if (field === "status") return eq(messages.status, expected as string);
 	if (field === "read") return eq(messages.read, expected as boolean);
 	if (field === "starred") return eq(messages.starred, expected as boolean);
-	if (field === "folderId") return expected === null ? isNull(messages.folderId) : eq(messages.folderId, expected as string);
 	return expected === null ? isNull(messages.snoozedUntil) : eq(messages.snoozedUntil, new Date(expected as string));
 }
 
@@ -240,18 +242,50 @@ async function runPlannedUpdates(
 	return { applied, skipped };
 }
 
-async function loadActionFolder(
+const LABEL_ACTIONS = new Set(["move", "label", "unlabel"]);
+
+async function loadActionLabel(
 	db: AppDatabase,
 	user: SessionUser,
-	folderId: string | null | undefined,
-) {
-	if (!folderId) throw new MessageActionError("Folder is required");
-	const [folder] = await db.select({ id: folders.id, mailboxId: folders.mailboxId }).from(folders).where(eq(folders.id, folderId)).limit(1);
-	if (!folder) throw new MessageActionError("Folder not found", 404);
-	const access = await getMailboxAccessLevel(db, user, folder.mailboxId);
-	if (!access?.canManage) throw new MessageActionError("Folder not found", 404);
-	return folder;
+	labelId: string | null | undefined,
+): Promise<LabelRecord> {
+	if (!labelId) throw new MessageActionError("Label is required");
+	const label = await getLabel(db, labelId);
+	if (!label) throw new MessageActionError("Label not found", 404);
+	const access = await getMailboxAccessLevel(db, user, label.mailboxId);
+	if (!access?.canManage) throw new MessageActionError("Label not found", 404);
+	return label;
 }
+
+type LabelChanges = { added: Map<string, string[]>; removed: Map<string, string[]> };
+
+function byMessage(pairs: LabelPair[]): Map<string, string[]> {
+	const result = new Map<string, string[]>();
+	for (const pair of pairs) result.set(pair.messageId, [...(result.get(pair.messageId) ?? []), pair.labelId]);
+	return result;
+}
+
+/** Applies label deltas and reports the pairs that really changed, per message. */
+async function applyLabelDeltas(db: AppDatabase, entries: Array<{ id: string; labels: MessageLabelDelta }>): Promise<LabelChanges> {
+	const add = entries.flatMap((entry) => entry.labels.added.map((labelId) => ({ messageId: entry.id, labelId })));
+	const remove = entries.flatMap((entry) => entry.labels.removed.map((labelId) => ({ messageId: entry.id, labelId })));
+	const added = add.length ? await addMessageLabels(db, add) : [];
+	const removed = remove.length ? await removeMessageLabels(db, remove) : [];
+	return { added: byMessage(added), removed: byMessage(removed) };
+}
+
+function labelChangesOf(changes: LabelChanges, id: string): MessageLabelDelta | undefined {
+	const delta = { added: changes.added.get(id) ?? [], removed: changes.removed.get(id) ?? [] };
+	return isEmptyLabelDelta(delta) ? undefined : delta;
+}
+
+function auditActionFor(action: string): string {
+	if (action === "read" || action === "unread") return "email.read";
+	if (action === "label" || action === "unlabel") return "email.label";
+	return "email.delete";
+}
+
+type ApplyEntry = { plan: PlannedUpdate | null; record: MessageActionRecord; labels?: MessageLabelDelta };
 
 /** Applies one explicit action and returns the exact before/after state of every message it changed. */
 export async function applyMessageActionForUser(
@@ -264,14 +298,14 @@ export async function applyMessageActionForUser(
 	const ids = normalizeMessageIds(input);
 	const snoozedUntil = action === "snooze" ? validateSnoozeTime(input.snoozedUntil) : undefined;
 	const db = getDb(env);
-	const folder = action === "folder" ? await loadActionFolder(db, user, input.folderId) : null;
-	const rows = await loadTargets(db, ids);
+	const label = LABEL_ACTIONS.has(action) ? await loadActionLabel(db, user, input.labelId) : null;
+	const rows = await loadTargets(db, ids, !!label);
 	if (rows.length === 0) throw new MessageActionError("No accessible messages", 404);
 
 	const accessByMailbox = await loadAccessMap(db, user, rows);
 	const applied: MessageActionRecord[] = [];
 	const skipped: MessageActionSkipped[] = [];
-	const plans: Array<{ plan: PlannedUpdate; record: MessageActionRecord }> = [];
+	const entries: ApplyEntry[] = [];
 	const seen = new Set<string>();
 
 	for (const row of rows) {
@@ -287,12 +321,13 @@ export async function applyMessageActionForUser(
 			skipped.push({ id: row.id, reason: "forbidden" });
 			continue;
 		}
-		if (action === "folder" && folder && row.mailboxId !== folder.mailboxId) {
+		// A label belongs to one mailbox: it never applies to mail of another.
+		if (label && row.mailboxId !== label.mailboxId) {
 			skipped.push({ id: row.id, reason: "not_applicable" });
 			continue;
 		}
 
-		const result = getMessageActionPatch(action, { folderId: input.folderId, snoozedUntil }, row);
+		const result = getMessageActionPatch(action, { labelId: label?.id, snoozedUntil }, row);
 		if (!result.patch) {
 			skipped.push({ id: row.id, reason: result.reason });
 			continue;
@@ -302,7 +337,7 @@ export async function applyMessageActionForUser(
 		const fields = Object.keys(result.patch) as MessageStateField[];
 		const changedFields = getChangedStateFields(previous, next);
 		const trainingAction = action === "spam" || (action === "inbox" && row.status === "spam");
-		if (changedFields.length === 0 && !trainingAction) continue;
+		if (changedFields.length === 0 && isEmptyLabelDelta(result.labels) && !trainingAction) continue;
 
 		if (trainingAction) {
 			try {
@@ -316,9 +351,9 @@ export async function applyMessageActionForUser(
 				skipped.push({ id: row.id, reason: "failed" });
 				continue;
 			}
-			// Spam feedback writes status/folder itself and is not undoable.
+			// Spam feedback writes the status itself and is not undoable.
 			if (action === "inbox") {
-				const remaining = fields.filter((field) => field !== "status" && field !== "folderId");
+				const remaining = fields.filter((field) => field !== "status");
 				if (remaining.length > 0) {
 					try {
 						const updated = await db.update(messages)
@@ -341,17 +376,30 @@ export async function applyMessageActionForUser(
 			continue;
 		}
 
-		plans.push({
-			plan: { id: row.id, fields, condition: previous, values: next },
-			record: { id: row.id, mailboxId: row.mailboxId, previous, applied: next },
+		entries.push({
+			plan: changedFields.length > 0 ? { id: row.id, fields, condition: previous, values: next } : null,
+			record: { id: row.id, mailboxId: row.mailboxId, previous, applied: changedFields.length > 0 ? next : previous },
+			labels: isEmptyLabelDelta(result.labels) ? undefined : result.labels,
 		});
 	}
 
-	const updates = await runPlannedUpdates(db, plans.map((entry) => entry.plan));
-	for (const entry of plans) {
-		if (updates.applied.has(entry.plan.id)) applied.push(entry.record);
-	}
+	const updates = await runPlannedUpdates(db, entries.flatMap((entry) => entry.plan ? [entry.plan] : []));
 	skipped.push(...updates.skipped);
+	// Labels follow a status change only when it committed, so a stale move adds nothing.
+	const committed = entries.filter((entry) => !entry.plan || updates.applied.has(entry.plan.id));
+	const labelled = committed.flatMap((entry) => entry.labels ? [{ id: entry.record.id, labels: entry.labels }] : []);
+	let labelChanges: LabelChanges = { added: new Map(), removed: new Map() };
+	try {
+		labelChanges = await applyLabelDeltas(db, labelled);
+	} catch (error) {
+		console.error("Message label update failed", error);
+		for (const entry of committed) if (!entry.plan && entry.labels) skipped.push({ id: entry.record.id, reason: "failed" });
+	}
+	for (const entry of committed) {
+		const labels = labelChangesOf(labelChanges, entry.record.id);
+		const record = labels ? { ...entry.record, labels } : entry.record;
+		if (recordHasChanges(record)) applied.push(record);
+	}
 	for (const missing of ids.filter((id) => !seen.has(id))) {
 		skipped.push({ id: missing, reason: "not_found" });
 	}
@@ -372,14 +420,14 @@ export async function applyMessageActionForUser(
 		await createAuditLogs(env, auditRecords.map((record) => ({
 			actorUserId: user.id,
 			messageId: record.id,
-			action: action === "read" || action === "unread" ? "email.read" : "email.delete",
-			metadata: { messageAction: action },
+			action: auditActionFor(action),
+			metadata: { messageAction: action, ...(label ? { labelId: label.id } : {}) },
 		})));
 	}
 
 	const undoToken = !hasTrainingRecord && changedRecords.length > 0
 		? await signUndoTokenForEnv(env, {
-			v: 2,
+			v: 3,
 			issuedAt: Date.now(),
 			action,
 			userId: user.id,
@@ -440,16 +488,12 @@ async function performUndoMessageAction(
 	const rows = await loadTargets(db, ids);
 	const byId = new Map(rows.map((row) => [row.id, row]));
 	const accessByMailbox = await loadAccessMap(db, user, rows);
-	const folderIds = [...new Set(records.map((record) => record.previous.folderId).filter((id): id is string => !!id))];
-	const folderMailboxes = new Map<string, string>();
-	for (let index = 0; index < folderIds.length; index += MESSAGE_ID_CHUNK) {
-		const chunk = folderIds.slice(index, index + MESSAGE_ID_CHUNK);
-		const folderRows = await db.select({ id: folders.id, mailboxId: folders.mailboxId }).from(folders).where(inArray(folders.id, chunk));
-		for (const folder of folderRows) folderMailboxes.set(folder.id, folder.mailboxId);
-	}
+	// Labels the action removed come back only while they exist, in the message's own mailbox.
+	const removedLabelIds = records.flatMap((record) => (Array.isArray(record.labels?.removed) ? record.labels.removed : []));
+	const labelMailboxes = new Map([...(await loadLabels(db, removedLabelIds)).values()].map((label) => [label.id, label.mailboxId]));
 
 	const skipped: MessageActionSkipped[] = [];
-	const plans: Array<{ plan: PlannedUpdate; record: MessageActionRecord }> = [];
+	const plans: Array<{ plan: PlannedUpdate | null; record: MessageActionRecord; labels?: MessageLabelDelta }> = [];
 
 	for (const record of records) {
 		const current = byId.get(record.id);
@@ -462,23 +506,32 @@ async function performUndoMessageAction(
 			record,
 			current,
 			{ canRead: !!access?.canRead, canManage: !!access?.canManage },
-			record.previous.folderId ? folderMailboxes.get(record.previous.folderId) : null,
+			labelMailboxes,
 		);
 		if (!("patch" in plan)) {
 			skipped.push({ id: plan.id, reason: plan.reason });
 			continue;
 		}
 		plans.push({
-			plan: { id: record.id, fields: plan.fields, condition: record.applied, values: plan.patch },
+			plan: plan.fields.length > 0 ? { id: record.id, fields: plan.fields, condition: record.applied, values: plan.patch } : null,
 			record,
+			labels: plan.labels,
 		});
 	}
 
-	const updates = await runPlannedUpdates(db, plans.map((entry) => entry.plan));
+	const updates = await runPlannedUpdates(db, plans.flatMap((entry) => entry.plan ? [entry.plan] : []));
 	skipped.push(...updates.skipped);
-	const restored = plans
-		.filter((entry) => updates.applied.has(entry.plan.id))
-		.map((entry) => entry.record.id);
+	// A stale status keeps its labels too: the undo of that message is skipped as a whole.
+	const committed = plans.filter((entry) => !entry.plan || updates.applied.has(entry.plan.id));
+	try {
+		await applyLabelDeltas(db, committed.flatMap((entry) => entry.labels ? [{ id: entry.record.id, labels: entry.labels }] : []));
+	} catch (error) {
+		console.error("Message label undo failed", error);
+		const failed = committed.filter((entry) => !entry.plan && entry.labels);
+		for (const entry of failed) skipped.push({ id: entry.record.id, reason: "failed" });
+		committed.splice(0, committed.length, ...committed.filter((entry) => !failed.includes(entry)));
+	}
+	const restored = committed.map((entry) => entry.record.id);
 	progress.restored += restored.length;
 
 	if (restored.length === 0 && skipped.some((item) => item.reason === "failed")) {
@@ -494,7 +547,7 @@ async function performUndoMessageAction(
 					actorUserId: user.id,
 					messageId: record.id,
 					action: getChangedStateFields(record.previous, record.applied).every((field) => field === "read" || field === "starred")
-						? "email.read"
+						? (isEmptyLabelDelta(record.labels) ? "email.read" : "email.label")
 						: "email.delete",
 					metadata: { undoOf: payload.action },
 				})));

@@ -47,8 +47,8 @@ await build({
 
 			export { clearMessageListCache, clearKnownMessageFieldsForTests };
 
-			export function Harness({ folder = "inbox", folderId = null, offset = 0 }) {
-				const list = useMessages(folder, "mailbox-1", { limit: 25, offset }, true, folderId);
+			export function Harness({ folder = "inbox", labelId = null, offset = 0 }) {
+				const list = useMessages(folder, "mailbox-1", { limit: 25, offset }, true, labelId);
 				return React.createElement(
 					"div",
 					null,
@@ -103,7 +103,7 @@ function message(id, extra = {}) {
 		id,
 		userId: "user-1",
 		mailboxId: "mailbox-1",
-		folderId: null,
+		labelIds: [],
 		direction: "inbound",
 		providerMessageId: null,
 		fromAddr: "sender@example.net",
@@ -129,7 +129,6 @@ function memberState(id, extra = {}) {
 		status: "received",
 		read: false,
 		starred: false,
-		folderId: null,
 		snoozedUntil: null,
 		...extra,
 	};
@@ -149,7 +148,7 @@ function total(container) {
 	return container.querySelector('[data-testid="total"]').textContent;
 }
 
-async function render({ folder = "inbox", folderId = null, offset = 0 } = {}) {
+async function render({ folder = "inbox", labelId = null, offset = 0 } = {}) {
 	clearMessageListCache();
 	clearKnownMessageFieldsForTests();
 	pending = [];
@@ -157,7 +156,7 @@ async function render({ folder = "inbox", folderId = null, offset = 0 } = {}) {
 	document.body.appendChild(container);
 	const reactRoot = createRoot(container);
 	await act(async () => {
-		reactRoot.render(createElement(Harness, { folder, folderId, offset }));
+		reactRoot.render(createElement(Harness, { folder, labelId, offset }));
 	});
 	return {
 		container,
@@ -302,10 +301,10 @@ test("Starred keeps a moved row but drops a permanently deleted one", async (t) 
 	assert.equal(total(view.container), "0");
 });
 
-test("a custom folder keeps snoozed rows and loses assigned ones", async (t) => {
-	const view = await render({ folder: "inbox", folderId: "f1" });
+test("a label view keeps snoozed and archived rows and loses trashed ones", async (t) => {
+	const view = await render({ folder: "inbox", labelId: "f1" });
 	t.after(view.cleanup);
-	await resolveNext({ messages: [message("m1", { folderId: "f1" })], total: 1, limit: 25, offset: 0 });
+	await resolveNext({ messages: [message("m1", { labelIds: ["f1"] })], total: 1, limit: 25, offset: 0 });
 
 	await act(async () => {
 		window.dispatchEvent(event({ action: "snooze", messageIds: ["m1"], snoozedUntil: "2030-01-01T10:00:00.000Z" }));
@@ -315,23 +314,49 @@ test("a custom folder keeps snoozed rows and loses assigned ones", async (t) => 
 	await act(async () => {
 		window.dispatchEvent(event({ action: "archive", messageIds: ["m1"] }));
 	});
+	assert.deepEqual(ids(view.container), ["m1"]);
+
+	await act(async () => {
+		window.dispatchEvent(event({ action: "trash", messageIds: ["m1"] }));
+	});
 	assert.deepEqual(ids(view.container), []);
 });
 
-test("a custom folder keeps a row on a same-folder move and drops a real one", async (t) => {
-	const view = await render({ folder: "inbox", folderId: "f1" });
+test("a label view keeps a row on another move or label and drops it when the label goes", async (t) => {
+	const view = await render({ folder: "inbox", labelId: "f1" });
 	t.after(view.cleanup);
-	await resolveNext({ messages: [message("m1", { folderId: "f1" })], total: 1, limit: 25, offset: 0 });
+	await resolveNext({ messages: [message("m1", { labelIds: ["f1"] })], total: 1, limit: 25, offset: 0 });
 
 	await act(async () => {
-		window.dispatchEvent(event({ action: "folder", messageIds: ["m1"], folderId: "f1" }));
+		window.dispatchEvent(event({ action: "move", messageIds: ["m1"], labelId: "f2" }));
 	});
 	assert.deepEqual(ids(view.container), ["m1"]);
 
 	await act(async () => {
-		window.dispatchEvent(event({ action: "folder", messageIds: ["m1"], folderId: "f2" }));
+		window.dispatchEvent(event({ action: "unlabel", messageIds: ["m1"], labelId: "f2" }));
+	});
+	assert.deepEqual(ids(view.container), ["m1"]);
+
+	await act(async () => {
+		window.dispatchEvent(event({ action: "unlabel", messageIds: ["m1"], labelId: "f1" }));
 	});
 	assert.deepEqual(ids(view.container), []);
+});
+
+test("the inbox keeps a row that gets a label and loses one that is moved", async (t) => {
+	const view = await render({ folder: "inbox" });
+	t.after(view.cleanup);
+	await resolveNext({ messages: [message("m1"), message("m2")], total: 2, limit: 25, offset: 0 });
+
+	await act(async () => {
+		window.dispatchEvent(event({ action: "label", messageIds: ["m1"], labelId: "f1" }));
+	});
+	assert.deepEqual(ids(view.container), ["m1", "m2"]);
+
+	await act(async () => {
+		window.dispatchEvent(event({ action: "move", messageIds: ["m2"], labelId: "f1" }));
+	});
+	assert.deepEqual(ids(view.container), ["m1"]);
 });
 
 test("Snoozed keeps a resnoozed row and drops an unsnoozed one", async (t) => {

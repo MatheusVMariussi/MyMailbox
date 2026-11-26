@@ -60,7 +60,6 @@ const state = (overrides = {}) => ({
 	status: "received",
 	read: false,
 	starred: false,
-	folderId: null,
 	snoozedUntil: null,
 	...overrides,
 });
@@ -80,71 +79,98 @@ const target = (overrides = {}) => ({
 	status: "received",
 	read: false,
 	starred: false,
-	folderId: null,
 	snoozedUntil: null,
+	labelIds: [],
 	...overrides,
 });
 
-test("actions write only their reversible fields", () => {
-	assert.deepEqual(m.getMessageActionPatch("archive", {}, target()).patch, { status: "archived", folderId: null });
-	assert.deepEqual(m.getMessageActionPatch("trash", {}, target()).patch, { status: "trash", folderId: null });
-	assert.deepEqual(m.getMessageActionPatch("inbox", {}, target()).patch, { status: "received", folderId: null, snoozedUntil: null });
-	assert.deepEqual(m.getMessageActionPatch("folder", { folderId: "f1" }, target()).patch, { status: "received", folderId: "f1" });
+test("actions write only their reversible fields, and status changes keep labels", () => {
+	const labelled = target({ labelIds: ["f1"] });
+	assert.deepEqual(m.getMessageActionPatch("archive", {}, labelled), { patch: { status: "archived" } });
+	assert.deepEqual(m.getMessageActionPatch("trash", {}, labelled), { patch: { status: "trash" } });
+	assert.deepEqual(m.getMessageActionPatch("inbox", {}, labelled), { patch: { status: "received", snoozedUntil: null } });
 	assert.deepEqual(m.getMessageActionPatch("read", {}, target()).patch, { read: true });
 	assert.deepEqual(m.getMessageActionPatch("star", {}, target()).patch, { starred: true });
 	assert.equal(m.getMessageActionPatch("spam", {}, target({ direction: "outbound" })).reason, "not_applicable");
 	assert.equal(m.getMessageActionPatch("snooze", { snoozedUntil: "2000-01-01T00:00:00.000Z" }, target()).reason, "invalid_target");
-	assert.equal(m.getMessageActionPatch("folder", {}, target()).reason, "invalid_target");
+	for (const action of ["move", "label", "unlabel"]) assert.equal(m.getMessageActionPatch(action, {}, target()).reason, "invalid_target", action);
 });
 
-test("only fields the action changed are marked for undo", () => {
+test("label adds and removes one label and never touches the status", () => {
+	assert.deepEqual(m.getMessageActionPatch("label", { labelId: "f1" }, target()), { patch: {}, labels: { added: ["f1"], removed: [] } });
+	assert.deepEqual(m.getMessageActionPatch("label", { labelId: "f1" }, target({ labelIds: ["f1"] })), { patch: {}, labels: { added: [], removed: [] } });
+	assert.deepEqual(m.getMessageActionPatch("unlabel", { labelId: "f1" }, target({ labelIds: ["f1", "f2"] })), { patch: {}, labels: { added: [], removed: ["f1"] } });
+	assert.deepEqual(m.getMessageActionPatch("label", { labelId: "f1" }, target({ direction: "outbound", status: "sent" })), { patch: {}, labels: { added: ["f1"], removed: [] } });
+	assert.equal(m.getMessageActionPatch("label", { labelId: "f1" }, target({ status: "draft" })).reason, "not_applicable");
+});
+
+test("move adds the label and takes mail out of the inbox, but a sent message stays sent", () => {
+	assert.deepEqual(m.getMessageActionPatch("move", { labelId: "f1" }, target()), { patch: { status: "archived" }, labels: { added: ["f1"], removed: [] } });
+	assert.deepEqual(m.getMessageActionPatch("move", { labelId: "f1" }, target({ status: "archived" })), { patch: {}, labels: { added: ["f1"], removed: [] } });
+	assert.deepEqual(m.getMessageActionPatch("move", { labelId: "f1" }, target({ direction: "outbound", status: "sent" })), { patch: {}, labels: { added: ["f1"], removed: [] } });
+	// Out of Trash or Spam too, since a label view never lists those.
+	assert.deepEqual(m.getMessageActionPatch("move", { labelId: "f1" }, target({ status: "trash" })).patch, { status: "archived" });
+	assert.deepEqual(m.getMessageActionPatch("move", { labelId: "f1" }, target({ direction: "outbound", status: "trash" })).patch, { status: "sent" });
+	assert.deepEqual(m.getMessageActionPatch("move", { labelId: "f1" }, target({ direction: "outbound", status: "trash", privateDraft: true })).patch, { status: "archived" });
+});
+
+test("only fields the action changed are marked for undo, and label deltas count as changes", () => {
 	const previous = state({ read: true });
-	const applied = state({ read: true, status: "archived", folderId: "f1" });
-	assert.deepEqual(m.getChangedStateFields(previous, applied), ["status", "folderId"]);
+	const applied = state({ read: true, status: "archived" });
+	assert.deepEqual(m.getChangedStateFields(previous, applied), ["status"]);
 	assert.equal(m.recordHasChanges({ previous, applied }), true);
 	assert.equal(m.recordHasChanges({ previous, applied: previous }), false);
+	assert.equal(m.recordHasChanges({ previous, applied: previous, labels: { added: ["f1"], removed: [] } }), true);
+	assert.equal(m.recordHasChanges({ previous, applied: previous, labels: { added: [], removed: [] } }), false);
+	assert.equal(m.hasMembershipChange(record(previous, previous, { labels: { added: [], removed: ["f1"] } })), true);
 });
 
 test("undo restores read with read access and status with manage access", () => {
 	const previous = state();
 	const applied = state({ read: true });
-	const readPlan = m.planUndoRecord(record(previous, applied), target({ read: true }), { canRead: true, canManage: false }, null);
+	const readPlan = m.planUndoRecord(record(previous, applied), target({ read: true }), { canRead: true, canManage: false }, new Map());
 	assert.deepEqual(readPlan.patch, { read: false });
 	assert.deepEqual(readPlan.fields, ["read"]);
 
-	const archivePrevious = state({ status: "received", folderId: "f1" });
-	const archiveApplied = state({ status: "archived", folderId: null });
-	const archiveCurrent = target({ status: "archived", folderId: null });
-	const forbidden = m.planUndoRecord(record(archivePrevious, archiveApplied), archiveCurrent, { canRead: true, canManage: false }, "mb1");
+	const archivePrevious = state({ status: "received" });
+	const archiveApplied = state({ status: "archived" });
+	const archiveCurrent = target({ status: "archived" });
+	const forbidden = m.planUndoRecord(record(archivePrevious, archiveApplied), archiveCurrent, { canRead: true, canManage: false }, new Map());
 	assert.equal(forbidden.reason, "forbidden");
-	const allowed = m.planUndoRecord(record(archivePrevious, archiveApplied), archiveCurrent, { canRead: true, canManage: true }, "mb1");
-	assert.deepEqual(allowed.patch, { status: "received", folderId: "f1" });
+	const allowed = m.planUndoRecord(record(archivePrevious, archiveApplied), archiveCurrent, { canRead: true, canManage: true }, new Map());
+	assert.deepEqual(allowed.patch, { status: "received" });
+	assert.equal(allowed.labels, undefined);
 });
 
-test("undo rejects a foreign folder, a foreign mailbox and malformed snapshots", () => {
-	const previous = state({ status: "archived", folderId: "foreign" });
+test("a label undo reverts exactly its pairs and needs manage access", () => {
+	const same = state();
+	const moved = record(same, state({ status: "archived" }), { labels: { added: ["f1"], removed: [] } });
+	const current = target({ status: "archived", labelIds: ["f1", "f9"] });
+	assert.equal(m.planUndoRecord(moved, current, { canRead: true, canManage: false }, new Map()).reason, "forbidden");
+	const plan = m.planUndoRecord(moved, current, { canRead: true, canManage: true }, new Map());
+	assert.deepEqual({ patch: plan.patch, labels: plan.labels }, { patch: { status: "received" }, labels: { added: [], removed: ["f1"] } });
+
+	// An unlabel comes back only while the label still exists in the message's own mailbox.
+	const unlabelled = record(same, same, { labels: { added: [], removed: ["f1", "gone", "foreign"] } });
+	const labelMailboxes = new Map([["f1", "mb1"], ["foreign", "mb2"]]);
+	assert.deepEqual(m.planUndoRecord(unlabelled, target(), { canRead: true, canManage: true }, labelMailboxes).labels, { added: ["f1"], removed: [] });
+	assert.equal(m.planUndoRecord(record(same, same, { labels: { added: "f1" } }), target(), { canRead: true, canManage: true }, new Map()).reason, "invalid_target");
+});
+
+test("undo rejects a foreign mailbox and malformed snapshots", () => {
+	const previous = state({ status: "archived" });
 	const applied = state();
-	assert.equal(m.planUndoRecord(record(previous, applied), target(), { canRead: true, canManage: true }, "other-mailbox").reason, "invalid_target");
-	assert.equal(m.planUndoRecord(record(previous, applied, { mailboxId: "other" }), target(), { canRead: true, canManage: true }, "mb1").reason, "forbidden");
-	assert.equal(m.planUndoRecord(record(state({ status: "hacked" }), applied), target(), { canRead: true, canManage: true }, null).reason, "invalid_target");
-});
-
-test("a read undo ignores a folder that was removed after the read action", () => {
-	const recordWithFolder = record(
-		state({ status: "received", folderId: "deleted-folder" }),
-		state({ status: "received", folderId: "deleted-folder", read: true }),
-	);
-	const plan = m.planUndoRecord(recordWithFolder, target({ read: true, folderId: "deleted-folder" }), { canRead: true, canManage: true }, undefined);
-	assert.deepEqual(plan.patch, { read: false });
+	assert.equal(m.planUndoRecord(record(previous, applied, { mailboxId: "other" }), target(), { canRead: true, canManage: true }, new Map()).reason, "forbidden");
+	assert.equal(m.planUndoRecord(record(state({ status: "hacked" }), applied), target(), { canRead: true, canManage: true }, new Map()).reason, "invalid_target");
 });
 
 test("undo is skipped when a later action changed the same field", () => {
 	const previous = state();
 	const applied = state({ status: "archived" });
-	assert.equal(m.planUndoRecord(record(previous, applied), target({ status: "trash" }), { canRead: true, canManage: true }, null).reason, "stale");
+	assert.equal(m.planUndoRecord(record(previous, applied), target({ status: "trash" }), { canRead: true, canManage: true }, new Map()).reason, "stale");
 	// A different field changed later does not block restoring the action's field.
 	const starredLater = target({ status: "archived", starred: true });
-	assert.deepEqual(m.planUndoRecord(record(previous, applied), starredLater, { canRead: true, canManage: true }, null).patch, { status: "received" });
+	assert.deepEqual(m.planUndoRecord(record(previous, applied), starredLater, { canRead: true, canManage: true }, new Map()).patch, { status: "received" });
 });
 
 test("a mixed undo restores eligible messages and reports the rest", () => {
@@ -167,7 +193,7 @@ test("a mixed undo restores eligible messages and reports the rest", () => {
 			skipped.push(item.id);
 			continue;
 		}
-		const plan = m.planUndoRecord(item, now, { canRead: true, canManage: true }, null);
+		const plan = m.planUndoRecord(item, now, { canRead: true, canManage: true }, new Map());
 		if (plan.patch) restored.push(item.id);
 		else skipped.push(plan.reason);
 	}
@@ -177,7 +203,7 @@ test("a mixed undo restores eligible messages and reports the rest", () => {
 
 test("signed undo tokens carry the exact server records and reject tampering or expiry", async () => {
 	const payload = {
-		v: 2,
+		v: 3,
 		issuedAt: Date.now(),
 		action: "archive",
 		userId: "user-1",

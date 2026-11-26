@@ -60,7 +60,7 @@ test("rows older than the window are left, counted as remaining, and a second ca
 	assert.deepEqual((await prefer({ mailboxId: "a", senderAddress: "news@acme.com", category: "promotions" })).body, { category: "promotions", changed: 0, remainingOlder: 5 });
 });
 
-test("only that sender's received, unfiled inbound rows in that mailbox change", async (t) => {
+test("only that sender's received inbound rows in that mailbox change, labelled or not", async (t) => {
 	const { database, add } = await fixture(t);
 	add("hit", {});
 	add("other-sender", { sender: "other@acme.com" });
@@ -69,11 +69,13 @@ test("only that sender's received, unfiled inbound rows in that mailbox change",
 	add("trash", { status: "trash" });
 	add("spam", { status: "spam" });
 	add("null-sender", { sender: null });
-	database.db.exec("INSERT INTO folders (id, user_id, mailbox_id, name, created_at) VALUES ('f', 'u', 'a', 'F', 1)");
-	add("filed", {});
-	database.db.exec("UPDATE messages SET folder_id = 'f' WHERE id = 'filed'");
-	assert.equal((await prefer({ mailboxId: "a", senderAddress: "news@acme.com", category: "promotions" })).body.changed, 1);
-	assert.deepEqual(Object.entries(categories(database)).filter(([, category]) => category).map(([id]) => id), ["hit"]);
+	database.db.exec("INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('f', 'u', 'a', 'F', 1)");
+	// A label never takes mail out of the inbox, so a labelled inbox row is re-filed; moved (archived) mail is not.
+	add("labelled", {});
+	add("filed", { status: "archived" });
+	database.db.exec("INSERT INTO message_labels (message_id, label_id) VALUES ('labelled', 'f'), ('filed', 'f')");
+	assert.equal((await prefer({ mailboxId: "a", senderAddress: "news@acme.com", category: "promotions" })).body.changed, 2);
+	assert.deepEqual(Object.entries(categories(database)).filter(([, category]) => category).map(([id]) => id).sort(), ["hit", "labelled"]);
 });
 
 test("Inbox writes the primary marker, leaves rows that already carry it, and only touches promotions", async (t) => {

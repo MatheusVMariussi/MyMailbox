@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Folder, Forward, Plus, ShieldAlert, Trash2 } from "@/components/icons";
+import { Forward, Plus, ShieldAlert, Tag, Trash2 } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ import {
   createInboxRule,
   deleteInboxRule,
   fetchInboxRules,
-  fetchRuleFolders,
+  fetchRuleLabels,
   getInboxRuleDestination,
   getRuleFieldLabel,
   getRuleOperatorLabel,
@@ -51,16 +51,18 @@ export function InboxRules() {
   const [destination, setDestination] = useState("");
   const [forwardTo, setForwardTo] = useState("");
   const [keepCopy, setKeepCopy] = useState(false);
+  const [skipInbox, setSkipInbox] = useState(false);
   const [confirmingForward, setConfirmingForward] = useState(false);
   const { status: securityStatus } = useSecurityStatus();
   const isForward = destination === "forward";
+  const isLabel = destination.startsWith("label:");
   const isMailType = matchField === "mail_type";
   const mailboxId = selectedMailbox?.id ?? "";
 
-  const folders = useQuery({
-    queryKey: ["folders", mailboxId],
+  const labels = useQuery({
+    queryKey: ["labels", mailboxId],
     enabled: !!mailboxId,
-    queryFn: () => fetchRuleFolders(mailboxId),
+    queryFn: () => fetchRuleLabels(mailboxId),
   });
   const rules = useQuery({
     queryKey: ["routing-rules", mailboxId],
@@ -76,6 +78,7 @@ export function InboxRules() {
         matchOperator,
         matchValue,
         destination,
+        ...(isLabel ? { skipInbox } : {}),
         ...(isForward ? { forwardTo: forwardTo.trim(), keepCopy: keepCopy || isMailType } : {}),
         priority: editingRule?.priority ?? 10,
         ...(stepUpToken ? { stepUpToken } : {}),
@@ -101,19 +104,21 @@ export function InboxRules() {
       queryClient.invalidateQueries({ queryKey: ["routing-rules", mailboxId] }),
   });
 
-  const folderMap = new Map(
-    (folders.data?.folders ?? []).map((folder) => [folder.id, folder.name]),
+  const labelMap = new Map(
+    (labels.data?.labels ?? []).map((label) => [label.id, label.name]),
   );
 
   function getRuleDestinationLabel(
-    rule: Pick<InboxRule, "action" | "folderId" | "forwardTo" | "keepCopy">,
+    rule: Pick<InboxRule, "action" | "labelId" | "skipInbox" | "forwardTo" | "keepCopy">,
   ) {
     if (rule.action === "forward") {
       return t(rule.keepCopy ? "rules.forwardCopyTo" : "rules.forwardTo", { to: rule.forwardTo ?? "—" });
     }
     if (rule.action === "spam") return t("navigation.spam");
     if (rule.action === "trash") return t("navigation.trash");
-    return folderMap.get(rule.folderId ?? "") ?? t("rules.unknownFolder");
+    if (!rule.labelId) return rule.skipInbox ? t("rules.skipInboxOnly") : t("rules.unknownLabel");
+    const label = labelMap.get(rule.labelId) ?? t("rules.unknownLabel");
+    return rule.skipInbox ? t("rules.labelAndSkip", { label }) : label;
   }
 
   function openCreateDialog() {
@@ -124,6 +129,7 @@ export function InboxRules() {
     setDestination("");
     setForwardTo("");
     setKeepCopy(false);
+    setSkipInbox(false);
     save.reset();
     setDialogOpen(true);
   }
@@ -136,6 +142,7 @@ export function InboxRules() {
     setDestination(getInboxRuleDestination(rule));
     setForwardTo(rule.forwardTo ?? "");
     setKeepCopy(rule.keepCopy);
+    setSkipInbox(rule.skipInbox);
     save.reset();
     setDialogOpen(true);
   }
@@ -188,7 +195,7 @@ export function InboxRules() {
                   ) : rule.action === "trash" ? (
                     <Trash2 className="h-4 w-4" />
                   ) : (
-                    <Folder className="h-4 w-4" />
+                    <Tag className="h-4 w-4" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -307,16 +314,27 @@ export function InboxRules() {
                   {matchField !== "content" && (
                     <option value="forward">{t("rules.forwardOption")}</option>
                   )}
+                  <option value="archive">{t("rules.skipInboxOnly")}</option>
                   <option value="spam">{t("navigation.spam")}</option>
                   <option value="trash">{t("navigation.trash")}</option>
-                  {(folders.data?.folders ?? []).map((folder) => (
-                    <option key={folder.id} value={`folder:${folder.id}`}>
-                      {folder.name}
-                    </option>
-                  ))}
+                  {(labels.data?.labels ?? []).length > 0 && (
+                    <optgroup label={t("rules.labelsGroup")}>
+                      {(labels.data?.labels ?? []).map((label) => (
+                        <option key={label.id} value={`label:${label.id}`}>
+                          {label.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </RoutingRuleSelect>
               </div>
             </div>
+            {isLabel && (
+              <label className="flex items-center gap-2 text-sm text-neutral-700">
+                <Checkbox checked={skipInbox} onChange={(event) => setSkipInbox(event.target.checked)} />
+                {t("rules.skipInbox")}
+              </label>
+            )}
             {isForward && (
               <div className="grid gap-3">
                 <div className="grid min-w-0 gap-2">

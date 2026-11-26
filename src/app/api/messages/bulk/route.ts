@@ -1,8 +1,8 @@
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { AppDatabase } from "@/db";
 import { getDb } from "@/db";
-import { folders, messages } from "@/db/schema";
+import { messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
@@ -14,11 +14,12 @@ import type { BulkMessagePayload } from "./types";
 import {
 	getReadValueForBulkAction,
 	getStatusForBulkAction,
-	canMoveToFolder,
+	isLabelBulkAction,
 	isAllowedBulkMessageAction,
 	isPermanentlyDeletableStatus,
 } from "./utils";
 import { readJsonObject } from "@/lib/http/request";
+import { applyMessageActionForUser, MessageActionError } from "@/lib/messages/actions/service";
 
 const MAX_BULK_MESSAGES = 5000;
 const MESSAGE_ID_CHUNK = 90;
@@ -68,38 +69,24 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: `Select up to ${MAX_BULK_MESSAGES} messages at a time` }, { status: 400 });
 	}
 
+	if (isLabelBulkAction(payload.action)) {
+		if (!payload.labelId) return NextResponse.json({ error: "Label is required" }, { status: 400 });
+		try {
+			const result = await applyMessageActionForUser(env, user, { action: payload.action, messageIds, labelId: payload.labelId });
+			return NextResponse.json({ ok: true, applied: result.applied.length, skipped: result.skipped.length });
+		} catch (error) {
+			if (error instanceof MessageActionError) return NextResponse.json({ error: error.message }, { status: error.status });
+			throw error;
+		}
+	}
+
 	const status = getStatusForBulkAction(payload.action);
 	const read = getReadValueForBulkAction(payload.action);
 	const db = getDb(env);
-	let folderId: string | null | undefined;
-	let folderMailboxId: string | null = null;
-
-	if (payload.action === "folder") {
-		if (!payload.folderId) {
-			return NextResponse.json({ error: "Folder is required" }, { status: 400 });
-		}
-		const [folder] = await db
-			.select({ id: folders.id, mailboxId: folders.mailboxId })
-			.from(folders)
-			.where(eq(folders.id, payload.folderId))
-			.limit(1);
-		if (!folder) {
-			return NextResponse.json({ error: "Folder not found" }, { status: 404 });
-		}
-		const folderAccess = await getMailboxAccessLevel(db, user, folder.mailboxId);
-		if (!folderAccess?.canManage) {
-			return NextResponse.json({ error: "Folder not found" }, { status: 404 });
-		}
-		folderId = folder.id;
-		folderMailboxId = folder.mailboxId;
-	} else if (payload.action === "spam" || payload.action === "trash" || payload.action === "inbox" || payload.action === "archive") {
-		folderId = null;
-	}
 
 	const values = {
 		...(status ? { status } : {}),
 		...(read !== null ? { read } : {}),
-		...(folderId !== undefined ? { folderId } : {}),
 		...(payload.action === "inbox" ? { snoozedUntil: null } : {}),
 	};
 
@@ -120,7 +107,6 @@ export async function POST(request: Request) {
 		const access = accessByMailbox.get(message.mailboxId);
 		const canUpdate = payload.action === "read" || payload.action === "unread" ? access?.canRead : access?.canManage;
 		if (!canUpdate) continue;
-		if (folderMailboxId && !canMoveToFolder(message, folderMailboxId)) continue;
 		allowedMessageIds.push(message.id);
 	}
 

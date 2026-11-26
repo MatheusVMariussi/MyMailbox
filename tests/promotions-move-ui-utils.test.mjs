@@ -56,7 +56,7 @@ test("the Promotion chip shows on Inbox rows in show mode only", () => {
 	assert.equal(u.showsPromotionChip({ folder: "inbox", mode: "show", category: "primary" }), false);
 	assert.equal(u.showsPromotionChip({ folder: "inbox", mode: "show", category: null }), false);
 	assert.equal(u.showsPromotionChip({ folder: "promotions", mode: "show", category: "promotions" }), false);
-	assert.equal(u.showsPromotionChip({ folder: "inbox", folderId: "f1", mode: "show", category: "promotions" }), false);
+	assert.equal(u.showsPromotionChip({ folder: "inbox", labelId: "f1", mode: "show", category: "promotions" }), false);
 });
 
 test("a moved message leaves the open folder only when the folder stops listing it", () => {

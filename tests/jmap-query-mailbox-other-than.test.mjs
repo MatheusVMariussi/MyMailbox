@@ -70,7 +70,7 @@ const FOLDER = `${MAILBOX}~f~fld_work`;
 async function withFolder(t) {
 	const ctx = await fixture(t, [{ id: "m_inbox", at: 10 }, { id: "m_work", at: 20 }]);
 	ctx.env.DB.db.exec(`
-		INSERT INTO folders (id, user_id, mailbox_id, name, created_at) VALUES ('fld_work', 'admin', '${MAILBOX}', 'Work', 1);
+		INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('fld_work', 'admin', '${MAILBOX}', 'Work', 1);
 		UPDATE messages SET folder_id = 'fld_work' WHERE id = 'm_work';
 	`);
 	return ctx;

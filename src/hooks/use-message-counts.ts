@@ -21,7 +21,7 @@ const emptyCounts: MessageCounts = {
 		spam: { total: 0, unread: 0 },
 		trash: { total: 0, unread: 0 },
 	},
-	customFolders: {},
+	labels: {},
 	mailboxes: [],
 };
 

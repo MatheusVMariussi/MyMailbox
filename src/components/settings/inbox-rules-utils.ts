@@ -1,9 +1,9 @@
 import { defaultTranslator, type Translator } from "@/lib/i18n/utils";
 import { authFetch } from "@/lib/auth/client";
 import { requestError } from "@/lib/http/client-error";
-import { getMailboxFolders } from "@/lib/folders/client";
+import { getMailboxLabels } from "@/lib/labels/client";
 import { ruleErrorMessage } from "@/lib/email/mail-type-rule";
-import type { InboxRule, InboxRuleInput, InboxRulesResponse, RuleFoldersResponse } from "./inbox-rules-types";
+import type { InboxRule, InboxRuleInput, InboxRulesResponse, RuleLabelsResponse } from "./inbox-rules-types";
 
 export async function fetchInboxRules(mailboxId: string): Promise<InboxRulesResponse> {
 	const params = new URLSearchParams({ mailboxId });
@@ -11,8 +11,8 @@ export async function fetchInboxRules(mailboxId: string): Promise<InboxRulesResp
 	return (await response.json()) as InboxRulesResponse;
 }
 
-export async function fetchRuleFolders(mailboxId: string): Promise<RuleFoldersResponse> {
-	return getMailboxFolders<RuleFoldersResponse>(mailboxId);
+export async function fetchRuleLabels(mailboxId: string): Promise<RuleLabelsResponse> {
+	return getMailboxLabels<RuleLabelsResponse>(mailboxId);
 }
 
 export async function createInboxRule(input: InboxRuleInput) {
@@ -58,7 +58,8 @@ export function getRuleOperatorLabel(operator: string, t: Translator = defaultTr
 	return operator === "exact" ? t("rules.operator.exact") : t("rules.operator.contains");
 }
 
-export function getInboxRuleDestination(rule: Pick<InboxRule, "action" | "folderId">): string {
+export function getInboxRuleDestination(rule: Pick<InboxRule, "action" | "labelId" | "skipInbox">): string {
 	if (rule.action === "spam" || rule.action === "trash" || rule.action === "forward") return rule.action;
-	return rule.folderId ? `folder:${rule.folderId}` : "";
+	if (rule.labelId) return `label:${rule.labelId}`;
+	return rule.skipInbox ? "archive" : "";
 }

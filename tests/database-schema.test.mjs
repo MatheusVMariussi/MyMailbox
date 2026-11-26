@@ -52,8 +52,8 @@ test("the migrations create the search index, triggers and seed rows", async (t)
 	const { sqlite } = await newDatabase(t);
 	assert.ok(sqlite.prepare("SELECT 1 FROM sqlite_master WHERE name = 'messages_fts'").get());
 	const triggers = sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all().map((row) => row.name);
-	assert.equal(triggers.length, 30);
-	for (const prefix of ["messages_fts_", "messages_trashed_at_", "jmap_changes_", "jmap_messages_", "jmap_folders_", "jmap_mailboxes_", "jmap_mailbox_aliases_", "passkey_credentials_count_", "users_"]) {
+	assert.equal(triggers.length, 35);
+	for (const prefix of ["messages_fts_", "messages_trashed_at_", "jmap_changes_", "jmap_messages_", "jmap_labels_", "jmap_message_labels_", "message_labels_", "jmap_mailboxes_", "jmap_mailbox_aliases_", "passkey_credentials_count_", "users_"]) {
 		assert.ok(triggers.some((name) => name.startsWith(prefix)), prefix);
 	}
 	assert.deepEqual(sqlite.prepare("SELECT id, enabled FROM backup_settings").all().map((row) => ({ ...row })), [{ id: "default", enabled: 0 }]);

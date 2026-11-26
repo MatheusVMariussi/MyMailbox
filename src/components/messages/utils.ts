@@ -100,12 +100,12 @@ export async function runBulkMessageAction(
 	messageIds: string[],
 	action: string,
 	notify = true,
-	folderId?: string,
+	labelId?: string,
 	options: { undo?: boolean } = {},
 ) {
 	if (isReversibleMessageAction(action)) {
 		await performMessageAction(
-			{ action, messageIds, folderId },
+			{ action, messageIds, labelId },
 			{ notify, undo: options.undo !== false },
 		);
 		return;

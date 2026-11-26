@@ -55,9 +55,9 @@ test("navigation folder=promotions lists the same rows as the list, newest first
 	assert.deepEqual(ids(await nav("folder=promotions&mailboxId=s")), []);
 });
 
-test("navigation folder=promotions refuses a folderId, like the list", async (t) => {
+test("navigation folder=promotions refuses a labelId, like the list", async (t) => {
 	await fixture(t);
-	assert.equal((await nav("folder=promotions&folderId=f")).status, 400);
+	assert.equal((await nav("folder=promotions&labelId=f")).status, 400);
 });
 
 test("navigation folder=inbox hides promotions of separate mailboxes only, matching the list", async (t) => {

@@ -1,6 +1,6 @@
 import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { mailboxChangesSince } from "./changes";
-import { folders, messages } from "@/db/schema";
+import { labels, messages } from "@/db/schema";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { newId } from "@/lib/ids";
 import { JmapError } from "./errors";
@@ -206,7 +206,7 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 		}
 		const id = newId("fld");
 		try {
-			await ctx.db.insert(folders).values({ id, userId: mailbox.userId, mailboxId: mailbox.id, name });
+			await ctx.db.insert(labels).values({ id, userId: mailbox.userId, mailboxId: mailbox.id, name });
 		} catch {
 			notCreated[creationId] = { type: "invalidProperties", properties: ["name"], description: "A folder with that name already exists" };
 			continue;
@@ -240,9 +240,9 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 		}
 		if (typeof patch.name === "string" && patch.name.trim()) {
 			await ctx.db
-				.update(folders)
+				.update(labels)
 				.set({ name: patch.name.trim() })
-				.where(and(eq(folders.id, ref.folderId), eq(folders.mailboxId, mailbox.id)));
+				.where(and(eq(labels.id, ref.folderId), eq(labels.mailboxId, mailbox.id)));
 		}
 		updated[id] = null;
 	}
@@ -259,7 +259,7 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 			continue;
 		}
 		// The folder id comes from the client: it must belong to the mailbox the permission was checked on.
-		const [folder] = await ctx.db.select({ id: folders.id }).from(folders).where(and(eq(folders.id, ref.folderId), eq(folders.mailboxId, mailbox.id))).limit(1);
+		const [folder] = await ctx.db.select({ id: labels.id }).from(labels).where(and(eq(labels.id, ref.folderId), eq(labels.mailboxId, mailbox.id))).limit(1);
 		if (!folder) {
 			notDestroyed[id] = { type: "notFound" };
 			continue;
@@ -273,7 +273,7 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 				continue;
 			}
 		}
-		await ctx.db.delete(folders).where(and(eq(folders.id, ref.folderId), eq(folders.mailboxId, mailbox.id)));
+		await ctx.db.delete(labels).where(and(eq(labels.id, ref.folderId), eq(labels.mailboxId, mailbox.id)));
 		destroyed.push(id);
 	}
 

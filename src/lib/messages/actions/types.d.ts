@@ -1,10 +1,17 @@
-/** Explicit message actions whose effect can be reverted from the undo toast. */
+import type { MessageLabelDelta } from "@/lib/labels/types";
+
+/**
+ * Explicit message actions whose effect can be reverted from the undo toast. `label` and `unlabel`
+ * add or remove one label; `move` adds one and archives mail that was in the inbox (or Trash/Spam).
+ */
 export type ReversibleMessageAction =
 	| "archive"
 	| "trash"
 	| "spam"
 	| "inbox"
-	| "folder"
+	| "move"
+	| "label"
+	| "unlabel"
 	| "read"
 	| "unread"
 	| "star"
@@ -12,12 +19,11 @@ export type ReversibleMessageAction =
 	| "snooze"
 	| "unsnooze";
 
-/** The message fields an action may change. Undo restores only the fields it changed. */
+/** The message fields an action may change. Undo restores only the fields it changed. Labels travel as a delta. */
 export type MessageStateSnapshot = {
 	status: string;
 	read: boolean;
 	starred: boolean;
-	folderId: string | null;
 	snoozedUntil: string | null;
 };
 
@@ -29,6 +35,8 @@ export type MessageActionRecord = {
 	mailboxId: string | null;
 	previous: MessageStateSnapshot;
 	applied: MessageStateSnapshot;
+	/** The labels this action really added and removed; undo reverts exactly these pairs. */
+	labels?: MessageLabelDelta;
 };
 
 export type MessageActionSkipReason =
@@ -47,7 +55,8 @@ export type MessageActionSkipped = {
 export type MessageActionInput = {
 	action: ReversibleMessageAction;
 	messageIds: string[];
-	folderId?: string | null;
+	/** The label for `move`, `label` and `unlabel`. */
+	labelId?: string | null;
 	snoozedUntil?: string | null;
 };
 
@@ -69,7 +78,7 @@ export type UndoMessageActionResponse = {
 
 /** Payload carried by the signed undo token; never trusted from the request body directly. */
 export type MessageUndoTokenPayload = {
-	v: 2;
+	v: 3;
 	issuedAt: number;
 	action: ReversibleMessageAction;
 	/** The session user who received the token; another user cannot redeem it. */

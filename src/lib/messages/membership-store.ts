@@ -18,7 +18,7 @@ export type KnownMembershipRow = Pick<
 	| "status"
 	| "read"
 	| "starred"
-	| "folderId"
+	| "labelIds"
 	| "snoozedUntil"
 	| "threadId"
 	| "threadMessageIds"
@@ -58,10 +58,10 @@ function notify(): void {
 	for (const listener of [...listeners]) listener();
 }
 
-function membershipFieldsOf(row: Pick<Message, "status" | "folderId" | "snoozedUntil" | "starred">): MessageMembershipFields {
+function membershipFieldsOf(row: Pick<Message, "status" | "labelIds" | "snoozedUntil" | "starred">): MessageMembershipFields {
 	return {
 		status: row.status,
-		folderId: row.folderId ?? null,
+		...(row.labelIds ? { labelIds: row.labelIds } : {}),
 		snoozedUntil: row.snoozedUntil ?? null,
 		starred: row.starred,
 	};
@@ -75,7 +75,7 @@ function compactRow(row: Message): KnownMembershipRow {
 		status: row.status,
 		read: row.read,
 		starred: row.starred,
-		folderId: row.folderId ?? null,
+		labelIds: row.labelIds ? [...row.labelIds] : undefined,
 		snoozedUntil: row.snoozedUntil ?? null,
 		threadId: row.threadId,
 		threadMessageIds: row.threadMessageIds ? [...row.threadMessageIds] : undefined,
@@ -132,7 +132,7 @@ export function setMembershipOverlay(
 	for (const entry of entries) {
 		const patch: MembershipPatch = {};
 		if (entry.status !== undefined) patch.status = entry.status;
-		if (entry.folderId !== undefined) patch.folderId = entry.folderId;
+		if (entry.labelIds !== undefined) patch.labelIds = entry.labelIds;
 		if (entry.snoozedUntil !== undefined) patch.snoozedUntil = entry.snoozedUntil;
 		if (entry.starred !== undefined) patch.starred = entry.starred;
 		if (Object.keys(patch).length > 0) layer.set(entry.id, patch);
@@ -168,7 +168,7 @@ export function getVisibleMembership(id: string): MembershipPatch {
 		const entry = layer.get(id);
 		if (!entry) continue;
 		if (entry.status !== undefined) patch.status = entry.status;
-		if (entry.folderId !== undefined) patch.folderId = entry.folderId;
+		if (entry.labelIds !== undefined) patch.labelIds = entry.labelIds;
 		if (entry.snoozedUntil !== undefined) patch.snoozedUntil = entry.snoozedUntil;
 		if (entry.starred !== undefined) patch.starred = entry.starred;
 	}
@@ -239,7 +239,7 @@ export function updateRemovedRows(states: MessageMembershipState[]): void {
 	for (const state of states) {
 		const fields = {
 			status: state.status,
-			folderId: state.folderId,
+			...(state.labelIds ? { labelIds: state.labelIds } : {}),
 			snoozedUntil: state.snoozedUntil,
 			starred: state.starred,
 		};
@@ -307,7 +307,7 @@ export function getRestoredRowsForList(key: string, now = Date.now(), offset?: n
 
 function filterPendingRow(
 	row: Message,
-	context: { folder: Parameters<typeof messageMatchesFolder>[1]; folderId?: string | null } | null,
+	context: { folder: Parameters<typeof messageMatchesFolder>[1]; labelId?: string | null } | null,
 	now: number,
 ): Message | null {
 	if (!context) return row;
@@ -315,12 +315,12 @@ function filterPendingRow(
 	if (!members?.length) {
 		const patch = getVisibleMembership(row.id);
 		if (Object.keys(patch).length === 0) return row;
-		return messageMatchesFolder({ ...membershipFieldsOf(row), ...patch }, context.folder, context.folderId, now) ? row : null;
+		return messageMatchesFolder({ ...membershipFieldsOf(row), ...patch }, context.folder, context.labelId, now) ? row : null;
 	}
 	const remaining = members.filter((id) => {
 		const patch = getVisibleMembership(id);
 		if (Object.keys(patch).length === 0) return true;
-		return messageMatchesFolder({ ...membershipFieldsOf(row), ...patch }, context.folder, context.folderId, now);
+		return messageMatchesFolder({ ...membershipFieldsOf(row), ...patch }, context.folder, context.labelId, now);
 	});
 	if (remaining.length === members.length) return row;
 	if (remaining.length === 0) return null;

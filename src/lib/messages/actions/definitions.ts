@@ -1,3 +1,5 @@
+import { isEmptyLabelDelta, isLabelDelta, labelDeltaFor } from "@/lib/labels/label-utils";
+import type { MessageLabelDelta } from "@/lib/labels/types";
 import type {
 	MessageActionSkipReason,
 	MessageStateField,
@@ -12,7 +14,9 @@ const reversibleActions = new Set<ReversibleMessageAction>([
 	"trash",
 	"spam",
 	"inbox",
-	"folder",
+	"move",
+	"label",
+	"unlabel",
 	"read",
 	"unread",
 	"star",
@@ -25,7 +29,7 @@ export function isReversibleMessageAction(value: unknown): value is ReversibleMe
 	return typeof value === "string" && reversibleActions.has(value as ReversibleMessageAction);
 }
 
-/** Status and folder changes need manage access; read and star need read access, as before. */
+/** Status and label changes need manage access; read and star need read access, as before. */
 export function actionNeedsManage(action: ReversibleMessageAction): boolean {
 	return action !== "read" && action !== "unread" && action !== "star" && action !== "unstar";
 }
@@ -38,8 +42,11 @@ export type MessageActionTarget = {
 	status: string;
 	read: boolean;
 	starred: boolean;
-	folderId: string | null;
 	snoozedUntil: Date | string | null;
+	/** Current labels; undefined when unknown (a client row from before labels), which assumes a change. */
+	labelIds?: string[];
+	/** Optional: a private draft never becomes sent mail through a move. */
+	privateDraft?: boolean;
 };
 
 export function toIsoOrNull(value: Date | string | null | undefined): string | null {
@@ -55,7 +62,6 @@ export function snapshotMessageState(message: MessageActionTarget): MessageState
 		status: message.status,
 		read: message.read,
 		starred: message.starred,
-		folderId: message.folderId,
 		snoozedUntil: toIsoOrNull(message.snoozedUntil),
 	};
 }
@@ -65,40 +71,59 @@ export function getChangedStateFields(previous: MessageStateSnapshot, applied: M
 	if (previous.status !== applied.status) fields.push("status");
 	if (previous.read !== applied.read) fields.push("read");
 	if (previous.starred !== applied.starred) fields.push("starred");
-	if (previous.folderId !== applied.folderId) fields.push("folderId");
 	if (previous.snoozedUntil !== applied.snoozedUntil) fields.push("snoozedUntil");
 	return fields;
 }
 
-export function recordHasChanges(record: { previous: MessageStateSnapshot; applied: MessageStateSnapshot }): boolean {
-	return getChangedStateFields(record.previous, record.applied).length > 0;
+export function recordHasChanges(record: { previous: MessageStateSnapshot; applied: MessageStateSnapshot; labels?: MessageLabelDelta }): boolean {
+	return getChangedStateFields(record.previous, record.applied).length > 0 || !isEmptyLabelDelta(record.labels);
 }
 
 export type MessageActionPatchResult =
-	| { patch: Partial<MessageStateSnapshot>; reason?: never }
-	| { patch?: never; reason: MessageActionSkipReason };
+	| { patch: Partial<MessageStateSnapshot>; labels?: MessageLabelDelta; reason?: never }
+	| { patch?: never; labels?: never; reason: MessageActionSkipReason };
+
+/** Drafts and composer templates are never labelled; they stay private to their author. */
+export function canCarryLabels(message: Pick<MessageActionTarget, "status">): boolean {
+	return message.status !== "draft" && message.status !== "template";
+}
+
+/**
+ * Where "Move to" puts a message besides adding the label: out of the inbox (and out of Trash or
+ * Spam) into Archive, or back to Sent for sent mail. Sent and archived mail keep their status.
+ */
+export function moveStatusFor(message: Pick<MessageActionTarget, "status" | "direction" | "privateDraft">): string {
+	if (message.status !== "received" && message.status !== "trash" && message.status !== "spam") return message.status;
+	return message.direction === "outbound" && !message.privateDraft ? "sent" : "archived";
+}
 
 /** The reversible fields an action writes for one message; never ownership, bodies or attachments. */
 export function getMessageActionPatch(
 	action: ReversibleMessageAction,
-	input: { folderId?: string | null; snoozedUntil?: string | null },
+	input: { labelId?: string | null; snoozedUntil?: string | null },
 	message: MessageActionTarget,
 ): MessageActionPatchResult {
 	switch (action) {
 		case "archive":
-			return { patch: { status: "archived", folderId: null } };
+			return { patch: { status: "archived" } };
 		case "trash":
-			return { patch: { status: "trash", folderId: null } };
+			return { patch: { status: "trash" } };
 		case "spam":
 			return message.direction === "inbound"
-				? { patch: { status: "spam", folderId: null } }
+				? { patch: { status: "spam" } }
 				: { reason: "not_applicable" };
 		case "inbox":
-			return { patch: { status: "received", folderId: null, snoozedUntil: null } };
-		case "folder":
-			return input.folderId
-				? { patch: { status: "received", folderId: input.folderId } }
-				: { reason: "invalid_target" };
+			return { patch: { status: "received", snoozedUntil: null } };
+		case "move":
+		case "label":
+		case "unlabel": {
+			if (!input.labelId) return { reason: "invalid_target" };
+			if (!canCarryLabels(message)) return { reason: "not_applicable" };
+			const labels = labelDeltaFor(message.labelIds, input.labelId, action !== "unlabel");
+			if (action !== "move") return { patch: {}, labels };
+			const status = moveStatusFor(message);
+			return { patch: status === message.status ? {} : { status }, labels };
+		}
 		case "read":
 			return { patch: { read: true } };
 		case "unread":
@@ -136,7 +161,6 @@ function isStateSnapshot(value: unknown): value is MessageStateSnapshot {
 	return typeof state.status === "string"
 		&& typeof state.read === "boolean"
 		&& typeof state.starred === "boolean"
-		&& (typeof state.folderId === "string" || state.folderId === null)
 		&& (typeof state.snoozedUntil === "string" || state.snoozedUntil === null);
 }
 
@@ -151,36 +175,37 @@ function fieldsMatch(
 export type UndoAccess = { canRead: boolean; canManage: boolean };
 
 export type UndoRecordPlan =
-	| { id: string; patch: Partial<MessageStateSnapshot>; fields: MessageStateField[] }
+	| { id: string; patch: Partial<MessageStateSnapshot>; fields: MessageStateField[]; labels?: MessageLabelDelta }
 	| { id: string; reason: MessageActionSkipReason };
 
 /**
  * Restores only the fields the action changed, and only while they still hold
- * its result, so a later action is never clobbered.
+ * its result, so a later action is never clobbered. Labels are reverted pair by
+ * pair (removing what it added, re-adding what it removed while that label
+ * still exists in the message's mailbox); both directions are idempotent.
  */
 export function planUndoRecord(
-	record: { id: string; mailboxId: string | null; previous: MessageStateSnapshot; applied: MessageStateSnapshot },
+	record: { id: string; mailboxId: string | null; previous: MessageStateSnapshot; applied: MessageStateSnapshot; labels?: unknown },
 	current: MessageActionTarget,
 	access: UndoAccess,
-	folderMailboxId: string | null | undefined,
+	labelMailboxes: ReadonlyMap<string, string>,
 ): UndoRecordPlan {
 	if (record.id !== current.id) return { id: record.id, reason: "not_found" };
 	if (!record.mailboxId || record.mailboxId !== current.mailboxId) return { id: record.id, reason: "forbidden" };
 	if (!isStateSnapshot(record.previous) || !isStateSnapshot(record.applied)) {
 		return { id: record.id, reason: "invalid_target" };
 	}
+	if (record.labels !== undefined && !isLabelDelta(record.labels)) return { id: record.id, reason: "invalid_target" };
 
 	const fields = getChangedStateFields(record.previous, record.applied);
-	if (fields.length === 0) return { id: record.id, reason: "not_applicable" };
+	const delta = record.labels as MessageLabelDelta | undefined;
+	if (fields.length === 0 && isEmptyLabelDelta(delta)) return { id: record.id, reason: "not_applicable" };
 
-	const needsManage = fields.some((field) => field === "status" || field === "folderId" || field === "snoozedUntil");
+	const needsManage = !isEmptyLabelDelta(delta) || fields.some((field) => field === "status" || field === "snoozedUntil");
 	if (!access.canRead || (needsManage && !access.canManage)) return { id: record.id, reason: "forbidden" };
 
 	if (fields.includes("status") && !isValidReversibleStatus(record.previous.status)) {
 		return { id: record.id, reason: "invalid_target" };
-	}
-	if (fields.includes("folderId") && record.previous.folderId !== null) {
-		if (!folderMailboxId || folderMailboxId !== current.mailboxId) return { id: record.id, reason: "invalid_target" };
 	}
 	if (fields.includes("snoozedUntil") && record.previous.snoozedUntil !== null) {
 		if (current.direction !== "inbound" || Number.isNaN(new Date(record.previous.snoozedUntil).getTime())) {
@@ -195,5 +220,10 @@ export function planUndoRecord(
 	for (const field of fields) {
 		patch[field] = record.previous[field] as never;
 	}
-	return { id: record.id, patch, fields };
+	if (!delta || isEmptyLabelDelta(delta)) return { id: record.id, patch, fields };
+	const labels: MessageLabelDelta = {
+		added: delta.removed.filter((labelId) => labelMailboxes.get(labelId) === current.mailboxId),
+		removed: [...delta.added],
+	};
+	return { id: record.id, patch, fields, labels };
 }

@@ -8,7 +8,6 @@ export type Message = {
 	id: string;
 	userId: string;
 	mailboxId: string | null;
-	folderId: string | null;
 	direction: MessageDirection;
 	providerMessageId: string | null;
 	fromAddr: string;
@@ -31,6 +30,8 @@ export type Message = {
 	read: boolean;
 	starred: boolean;
 	snoozedUntil?: string | null;
+	/** Labels on this message, oldest first; absent on rows from before labels. */
+	labelIds?: string[];
 	hasUnsubscribe?: boolean;
 	/** `promotions` for filed bulk mail, `primary` after a manual move to Inbox, null when unclassified. */
 	category?: string | null;
@@ -113,7 +114,8 @@ export type MailboxCount = {
 
 export type MessageCounts = {
 	folders: Record<MessageFolder, FolderCount>;
-	customFolders: Record<string, FolderCount>;
+	/** Per label id: what its view lists, and the unread received mail in it. Missing from older responses. */
+	labels?: Record<string, FolderCount>;
 	mailboxes: MailboxCount[];
 	/** Mailboxes in scope with Promotions on (`show` or `separate`); off mailboxes are absent. Missing from older responses. */
 	promotionModes?: Record<string, "show" | "separate">;

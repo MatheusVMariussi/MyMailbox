@@ -1,6 +1,8 @@
 import { AUTH_SESSION_CHANGED_EVENT, authFetch } from "@/lib/auth/client";
 import { applyPendingToMessage, rememberMessageFields } from "@/lib/messages/field-store";
 import type { Message } from "@/hooks/types";
+import { applyLabelDelta } from "@/lib/labels/label-utils";
+import type { MessageLabelDelta } from "@/lib/labels/types";
 import type { CachedMessageDetail } from "./detail-cache-types";
 
 const CACHE_TTL_MS = 5 * 60_000;
@@ -29,7 +31,7 @@ function preserveNewerState(messageId: string, data: CachedMessageDetail): Cache
 			read: current.read,
 			starred: current.starred,
 			status: current.status,
-			folderId: current.folderId,
+			labelIds: current.labelIds,
 			snoozedUntil: current.snoozedUntil,
 		},
 	};
@@ -78,13 +80,20 @@ export function setCachedMessageRead(messageId: string, read: boolean): void {
 	if (cached?.message) cacheDetail(messageId, { ...cached, message: { ...cached.message, read } });
 }
 
-export type CachedMessageStatePatch = Partial<Pick<Message, "read" | "starred" | "status" | "folderId" | "snoozedUntil">>;
+export type CachedMessageStatePatch = Partial<Pick<Message, "read" | "starred" | "status" | "snoozedUntil">> & {
+	/** Labels added and removed; applied to the cached set rather than replacing it. */
+	labelDelta?: MessageLabelDelta;
+};
 
 /** Field-scoped detail patch for action/undo state; read and star also feed the field store. */
-export function patchCachedMessageState(messageId: string, patch: CachedMessageStatePatch): void {
+export function patchCachedMessageState(messageId: string, statePatch: CachedMessageStatePatch): void {
 	bumpStateRevision(messageId);
+	const { labelDelta, ...patch } = statePatch;
 	const cached = getCachedMessageDetail(messageId);
-	if (cached?.message) cacheDetail(messageId, { ...cached, message: { ...cached.message, ...patch } });
+	if (cached?.message) {
+		const labelIds = labelDelta ? applyLabelDelta(cached.message.labelIds ?? [], labelDelta) : cached.message.labelIds;
+		cacheDetail(messageId, { ...cached, message: { ...cached.message, ...patch, ...(labelIds ? { labelIds } : {}) } });
+	}
 	rememberMessageFields([messageId], {
 		...(patch.read !== undefined ? { read: patch.read } : {}),
 		...(patch.starred !== undefined ? { starred: patch.starred } : {}),

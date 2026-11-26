@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
-import { folders } from "@/db/schema";
+import { labels } from "@/db/schema";
 import type { routingRuleSchema } from "@/lib/validators";
 import type { z } from "zod";
 import type { RuleTarget } from "./types";
@@ -14,7 +14,7 @@ export async function resolveRuleTarget(
 	mailboxId: string,
 	input: z.infer<typeof routingRuleSchema>,
 ): Promise<RuleTarget | { error: string; status: number }> {
-	const destination = input.destination ?? (input.folderId ? `folder:${input.folderId}` : "");
+	const destination = input.destination ?? (input.labelId ? `label:${input.labelId}` : "");
 
 	if (destination === "forward") {
 		// Forwards are actioned while the message is still being received, before its body is
@@ -25,25 +25,33 @@ export async function resolveRuleTarget(
 		if (!input.forwardTo) return { error: "A forwarding address is required", status: 400 };
 		return {
 			action: "forward",
-			folderId: null,
+			labelId: null,
+			skipInbox: false,
 			forwardTo: input.forwardTo,
 			keepCopy: input.keepCopy ?? false,
 		};
 	}
 
 	if (destination === "spam" || destination === "trash") {
-		return { action: destination, folderId: null, forwardTo: null, keepCopy: false };
+		return { action: destination, labelId: null, skipInbox: false, forwardTo: null, keepCopy: false };
 	}
 
-	const folderId = destination.startsWith("folder:") ? destination.slice("folder:".length) : null;
-	if (!folderId) return { error: "Destination is required", status: 400 };
+	// "Skip the inbox" without a label: a store rule that only archives.
+	if (destination === "archive") {
+		return { action: "store", labelId: null, skipInbox: true, forwardTo: null, keepCopy: false };
+	}
 
-	const [folder] = await db
-		.select({ id: folders.id })
-		.from(folders)
-		.where(and(eq(folders.id, folderId), eq(folders.mailboxId, mailboxId)))
+	// `folder:` is what rules saved before labels sent; the id is the same.
+	const prefix = destination.startsWith("label:") ? "label:" : destination.startsWith("folder:") ? "folder:" : null;
+	const labelId = prefix ? destination.slice(prefix.length) : null;
+	if (!labelId) return { error: "Destination is required", status: 400 };
+
+	const [label] = await db
+		.select({ id: labels.id })
+		.from(labels)
+		.where(and(eq(labels.id, labelId), eq(labels.mailboxId, mailboxId)))
 		.limit(1);
-	if (!folder) return { error: "Folder not found", status: 404 };
+	if (!label) return { error: "Label not found", status: 404 };
 
-	return { action: "store", folderId, forwardTo: null, keepCopy: false };
+	return { action: "store", labelId, skipInbox: input.skipInbox ?? false, forwardTo: null, keepCopy: false };
 }

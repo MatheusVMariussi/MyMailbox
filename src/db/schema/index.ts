@@ -230,8 +230,12 @@ export const contacts = sqliteTable(
 	],
 );
 
-export const folders = sqliteTable(
-	"folders",
+/**
+ * Labels (Gmail-style, formerly folders): per mailbox, many per message through `message_labels`. A label never
+ * takes a message out of the inbox; status alone decides Inbox, Archive, Spam and Trash.
+ */
+export const labels = sqliteTable(
+	"labels",
 	{
 		id: text("id").primaryKey(),
 		userId: text("user_id")
@@ -247,9 +251,9 @@ export const folders = sqliteTable(
 			.$defaultFn(() => new Date()),
 	},
 	(t) => [
-		uniqueIndex("folders_mailbox_name_idx").on(t.mailboxId, t.name),
-		index("folders_user_idx").on(t.userId),
-		index("folders_mailbox_idx").on(t.mailboxId),
+		uniqueIndex("labels_mailbox_name_idx").on(t.mailboxId, t.name),
+		index("labels_user_idx").on(t.userId),
+		index("labels_mailbox_idx").on(t.mailboxId),
 	],
 );
 
@@ -342,7 +346,7 @@ export const messages = sqliteTable(
 		mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "set null" }),
 		direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
 		providerMessageId: text("provider_message_id"),
-		folderId: text("folder_id").references(() => folders.id, { onDelete: "set null" }),
+		folderId: text("folder_id").references(() => labels.id, { onDelete: "set null" }),
 		fromAddr: text("from_addr").notNull(),
 		toAddr: text("to_addr").notNull(),
 		ccAddr: text("cc_addr"),
@@ -358,7 +362,7 @@ export const messages = sqliteTable(
 		read: bool("read").notNull().default(false),
 		starred: bool("starred").notNull().default(false),
 		// An unsent draft stays private to its author for as long as the row exists, wherever it is moved
-		// (Trash, Archive, a folder). Cleared when the row becomes sent mail.
+		// (Trash, Archive, a label). Cleared when the row becomes sent mail.
 		privateDraft: bool("private_draft").notNull().default(false),
 		snoozedUntil: timestamp("snoozed_until"),
 		threadId: text("thread_id"),
@@ -397,25 +401,22 @@ export const messages = sqliteTable(
 			t.mailboxId,
 			t.category,
 			t.status,
-			t.folderId,
 			desc(t.createdAt),
 			desc(t.id),
 		),
 		// Covers the Promotions count (equality columns first, then the grouped and filtered `read` and `snoozed_until`).
-		index("messages_category_count_idx").on(t.mailboxId, t.category, t.folderId, t.direction, t.status, t.read, t.snoozedUntil),
+		index("messages_category_count_idx").on(t.mailboxId, t.category, t.direction, t.status, t.read, t.snoozedUntil),
 		// Serves the bounded sender re-file (one sender, newest first) and the Subscriptions sender grouping.
 		index("messages_sender_idx").on(t.mailboxId, t.senderAddress, t.createdAt),
 		index("messages_inbox_page_idx").on(
 			t.mailboxId,
 			t.status,
-			t.folderId,
 			desc(t.createdAt),
 			desc(t.id),
 		),
 		index("messages_thread_key_idx").on(
 			t.mailboxId,
 			t.status,
-			t.folderId,
 			sql`coalesce(${t.threadId}, ${t.id})`,
 			t.createdAt,
 		),
@@ -423,7 +424,6 @@ export const messages = sqliteTable(
 		index("messages_nav_cover_idx").on(
 			t.mailboxId,
 			t.status,
-			t.folderId,
 			desc(t.createdAt),
 			desc(t.id),
 			t.direction,
@@ -439,7 +439,6 @@ export const messages = sqliteTable(
 		// sorting the whole table.
 		index("messages_counts_cover_idx").on(
 			t.mailboxId,
-			t.folderId,
 			t.direction,
 			t.status,
 			t.read,
@@ -462,6 +461,27 @@ export const messages = sqliteTable(
 			t.id,
 			t.snoozedUntil,
 		),
+	],
+);
+
+/**
+ * Which labels each message carries (no surrogate id). Writes go through `src/lib/labels/service.ts`; triggers log an
+ * `updated` Email change and bump the mailbox revision per row, and refuse a label from another mailbox.
+ */
+export const messageLabels = sqliteTable(
+	"message_labels",
+	{
+		messageId: text("message_id")
+			.notNull()
+			.references(() => messages.id, { onDelete: "cascade" }),
+		labelId: text("label_id")
+			.notNull()
+			.references(() => labels.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").notNull().default(nowSeconds),
+	},
+	(t) => [
+		uniqueIndex("message_labels_message_label_idx").on(t.messageId, t.labelId),
+		index("message_labels_label_message_idx").on(t.labelId, t.messageId),
 	],
 );
 
@@ -1007,7 +1027,7 @@ export const routingRules = sqliteTable(
 		domainId: text("domain_id")
 			.notNull()
 			.references(() => domains.id, { onDelete: "cascade" }),
-		// "mailbox" rules run after delivery and file the message into a folder or system status.
+		// "mailbox" rules run after delivery: they add a label (and may skip the inbox) or move to spam/trash.
 		// "domain" rules run during address resolution and can catch-all, forward, or reject.
 		scope: text("scope", { enum: ["mailbox", "domain"] }).notNull().default("mailbox"),
 		name: text("name"),
@@ -1025,7 +1045,9 @@ export const routingRules = sqliteTable(
 			.default("contains"),
 		matchValue: text("match_value").notNull().default(""),
 		mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "set null" }),
-		folderId: text("folder_id").references(() => folders.id, { onDelete: "set null" }),
+		labelId: text("label_id").references(() => labels.id, { onDelete: "set null" }),
+		/** A matching `store` rule also archives the message, so it skips the inbox (Gmail's "Skip the Inbox"). */
+		skipInbox: bool("skip_inbox").notNull().default(false),
 		action: text("action", { enum: ["store", "forward", "reject", "spam", "trash"] }).notNull().default("store"),
 		forwardTo: text("forward_to"),
 		// Forward actions drop the message by default; keepCopy also delivers it to the mailbox.
@@ -1043,7 +1065,7 @@ export const routingRules = sqliteTable(
 		index("routing_rules_mailbox_idx").on(t.mailboxId),
 		index("routing_rules_priority_idx").on(t.priority),
 		index("routing_rules_user_idx").on(t.userId),
-		index("routing_rules_folder_idx").on(t.folderId),
+		index("routing_rules_label_idx").on(t.labelId),
 	],
 );
 
@@ -1393,9 +1415,10 @@ export const schema = {
 	autoReplyDeliveries,
 	mailboxAccess,
 	contacts,
-	folders,
+	labels,
 	apiKeys,
 	messages,
+	messageLabels,
 	spamTokenStats,
 	spamReputation,
 	spamFeedback,

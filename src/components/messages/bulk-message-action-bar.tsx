@@ -23,7 +23,7 @@ export function BulkMessageActionBar({
 	const [error, setError] = useState<string | null>(null);
 	const hasUnreadSelection = selectedMessages.some((message) => !message.read);
 
-	async function runAction(action: BulkMessageAction, folderId?: string) {
+	async function runAction(action: BulkMessageAction, labelId?: string) {
 		if (selectedMessages.length === 0) return;
 		if (action === "delete" && !await confirmDestructive(getPermanentDeleteConfirmText(selectedMessages.length, t))) return;
 
@@ -34,7 +34,7 @@ export function BulkMessageActionBar({
 				selectedMessages.map((message) => message.id),
 				action,
 				true,
-				folderId,
+				labelId,
 			);
 			onClearSelection();
 		} catch (actionError) {

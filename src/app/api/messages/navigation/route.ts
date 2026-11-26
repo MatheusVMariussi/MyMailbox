@@ -9,6 +9,7 @@ import { messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { categoryScopeCondition } from "@/lib/promotions/settings";
+import { hasLabelCondition, labelViewStatusCondition } from "@/lib/labels/service";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
@@ -27,11 +28,11 @@ export async function GET(request: Request) {
 	}
 
 	const mailboxId = params.get("mailboxId");
-	const folderId = params.get("folderId");
+	const labelId = params.get("labelId");
 	const grouped = params.get("group") === "thread";
 	const around = params.get("around");
 	const windowSize = Math.min(Math.max(Number(params.get("limit") ?? 250) || 250, 25), 1000);
-	if (folder === "promotions" && folderId) return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
+	if (folder === "promotions" && labelId) return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
 	const db = getDb(env);
 	const conditions: SQL[] = [];
 	// The mailboxes the request can see: the promotions modes below are looked up for exactly these.
@@ -51,26 +52,24 @@ export async function GET(request: Request) {
 
 	conditions.push(draftsVisibleTo(user.id));
 
-	if (folder === "inbox") {
+	if (labelId) {
+		// A label view, whatever `folder` the reader came with: the same predicate as the list.
+		conditions.push(hasLabelCondition(labelId), labelViewStatusCondition);
+	} else if (folder === "inbox") {
 		conditions.push(eq(messages.direction, "inbound"));
 		conditions.push(eq(messages.status, "received"));
-		if (!folderId) {
-			conditions.push(isNull(messages.folderId));
-			conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
-			// Same predicate as the list, so reader prev/next never steps onto a row the list hides.
-			const hidden = await categoryScopeCondition(db, scope, "inbox");
-			if (hidden) conditions.push(hidden);
-		}
+		conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
+		// Same predicate as the list, so reader prev/next never steps onto a row the list hides.
+		const hidden = await categoryScopeCondition(db, scope, "inbox");
+		if (hidden) conditions.push(hidden);
 	} else if (folder === "promotions") {
 		conditions.push(eq(messages.status, "received"));
-		conditions.push(isNull(messages.folderId));
 		conditions.push(or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date()))!);
 		conditions.push((await categoryScopeCondition(db, scope, "promotions"))!);
 	} else if (folder === "starred") {
 		conditions.push(eq(messages.starred, true));
 	} else if (folder === "snoozed") {
 		conditions.push(eq(messages.status, "received"));
-		conditions.push(isNull(messages.folderId));
 		conditions.push(gt(messages.snoozedUntil, new Date()));
 	} else if (folder === "sent") {
 		conditions.push(eq(messages.direction, "outbound"));
@@ -80,7 +79,6 @@ export async function GET(request: Request) {
 	} else {
 		conditions.push(eq(messages.status, folder));
 	}
-	if (folderId) conditions.push(eq(messages.folderId, folderId));
 
 	const { rows, hasNewer, hasOlder } = await loadNavigationRows(db, conditions, around, windowSize);
 

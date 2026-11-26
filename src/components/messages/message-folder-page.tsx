@@ -67,11 +67,13 @@ function supportsRowActions(folder: MessageFolderConfig["folder"]): boolean {
 	return folder === "inbox" || folder === "promotions" || folder === "snoozed" || folder === "archived" || folder === "spam" || folder === "trash";
 }
 
-/** Whether the action takes the row out of the folder that is on screen. */
+/** Whether the action takes the row out of the folder that is on screen. A label view keeps archived and inbox mail. */
 function removesMessageFromFolder(config: MessageFolderConfig, action: RowMessageAction): boolean {
-	if (action === "archive" || action === "trash") return true;
+	if (action === "trash") return true;
+	if (config.labelId) return action === "delete";
+	if (action === "archive") return true;
 	if (action === "inbox") {
-		return config.folder === "archived" || config.folder === "spam" || config.folder === "trash" || !!config.folderId;
+		return config.folder === "archived" || config.folder === "spam" || config.folder === "trash";
 	}
 	if (action === "delete") return config.folder === "trash" || config.folder === "spam";
 	return false;
@@ -147,7 +149,7 @@ function MessageListRowComponent({
 	const navigation = useMessageNavigation(href, rowMessage);
 
 	// Which folder counts a read flip on this row moves; see unreadDeltas.
-	const rowDeltas = useCallback((flip: number) => unreadDeltas({ folder: config.folder, folderId: config.folderId, mode: promotionMode, category: message.category }, flip), [config.folder, config.folderId, promotionMode, message.category]);
+	const rowDeltas = useCallback((flip: number) => unreadDeltas({ folder: config.folder, labelId: config.labelId, mode: promotionMode, category: message.category }, flip), [config.folder, config.labelId, promotionMode, message.category]);
 
 	const runRowAction = useCallback(async (action: RowMessageAction) => {
 		const previousRead = read;
@@ -180,7 +182,7 @@ function MessageListRowComponent({
 		if (!promotionTarget) return;
 		void moveMessagesToCategory({ messageIds: getRowMessageIds(message), target: promotionTarget, mailboxId: message.mailboxId, senderAddress: message.senderAddress });
 	}, [message, promotionTarget]);
-	const promotionChip = showsPromotionChip({ folder: config.folder, folderId: config.folderId, mode: promotionMode, category: message.category })
+	const promotionChip = showsPromotionChip({ folder: config.folder, labelId: config.labelId, mode: promotionMode, category: message.category })
 		? <span className="ms-2 inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 text-[11px] font-medium leading-5 text-amber-800 ring-1 ring-inset ring-amber-200">{t("promotions.chip")}</span>
 		: null;
 
@@ -268,7 +270,7 @@ function MessageListRowComponent({
 					<MessageListRowActions
 						message={rowMessage}
 						folder={config.folder}
-						folderId={config.folderId}
+						labelId={config.labelId}
 						onAction={runRowAction}
 						compact
 						active={active || opening}
@@ -403,7 +405,7 @@ function MessageListRowComponent({
 				<MessageListRowActions
 					message={rowMessage}
 					folder={config.folder}
-					folderId={config.folderId}
+					labelId={config.labelId}
 					onAction={runRowAction}
 					onSnoozeChange={onSnoozeChange}
 					promotionTarget={promotionTarget}
@@ -475,24 +477,24 @@ export function MessageFolderPage({
 		offset,
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
-	}, !mailboxesLoading, config.folderId);
+	}, !mailboxesLoading, config.labelId);
 	const { counts, isLoading: countsLoading } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
 	const { mailboxes: accessibleMailboxes } = useSelectedMailbox();
 	const getPromotionMode = useCallback((message: Message): "show" | "separate" | undefined => counts.promotionModes?.[message.mailboxId ?? ""], [counts.promotionModes]);
 	// Only received mail in Inbox or Promotions moves between them, in mailboxes with Promotions on that the user manages.
-	const canMovePromotions = useCallback((message: Message) => (config.folder === "promotions" || (config.folder === "inbox" && !config.folderId)) && canMoveCategory({
+	const canMovePromotions = useCallback((message: Message) => (config.folder === "promotions" || (config.folder === "inbox" && !config.labelId)) && canMoveCategory({
 		mode: counts.promotionModes?.[message.mailboxId ?? ""],
 		permission: accessibleMailboxes.find((mailbox) => mailbox.id === message.mailboxId)?.permission,
 		direction: message.direction,
 		status: message.status,
-	}), [accessibleMailboxes, config.folder, config.folderId, counts.promotionModes]);
+	}), [accessibleMailboxes, config.folder, config.labelId, counts.promotionModes]);
 	// Promotions with every mailbox off is empty by design; say so and point at the setting.
 	const promotionsOff = config.folder === "promotions" && !mailboxesLoading && !countsLoading && !hasActivePromotions(counts.promotionModes);
 	usePageLoading(mailboxesLoading || isLoading, true);
 	const headerIcons = config.headerIcons ?? [];
 	const hasActiveFilters = !!query.trim();
-	const folderCount = config.folderId
-		? counts.customFolders[config.folderId]
+	const folderCount = config.labelId
+		? counts.labels?.[config.labelId]
 		: counts.folders[config.folder];
 	const titleTotal = folderCount?.total ?? total;
 	const titleUnread = folderCount?.unread ?? 0;
@@ -521,7 +523,7 @@ export function MessageFolderPage({
 		if (usesSharedListState) return;
 		setOffset(0);
 		setSelectedMessages([]);
-	}, [usesSharedListState, query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped, setOffset, setSelectedMessages]);
+	}, [usesSharedListState, query, selectedMailbox?.id, config.folder, config.labelId, unreadOnly, grouped, setOffset, setSelectedMessages]);
 
 	const previousOffset = useRef(offset);
 	useEffect(() => {
@@ -541,12 +543,12 @@ export function MessageFolderPage({
 		if (mailboxesLoading) return;
 		document.title = formatEmailPageTitle({
 			location: title,
-			inbox: config.folder === "inbox" && !config.folderId,
+			inbox: config.folder === "inbox" && !config.labelId,
 			total: titleTotal,
 			unread: titleUnread,
 			emailAddress: mailboxAddress,
 		});
-	}, [title, config.folder, config.folderId, mailboxAddress, mailboxesLoading, titleTotal, titleUnread]);
+	}, [title, config.folder, config.labelId, mailboxAddress, mailboxesLoading, titleTotal, titleUnread]);
 
 	useEffect(() => {
 		if (isLoading) return;
@@ -592,10 +594,10 @@ export function MessageFolderPage({
 		const currentSelectedMessageId = selectedMessageIdRef.current;
 		if (!currentSelectedMessageId || messageId !== currentSelectedMessageId) return;
 		const removesOpenMessage = snoozed
-			? config.folder === "inbox" && !config.folderId
+			? config.folder === "inbox" && !config.labelId
 			: config.folder === "snoozed";
 		if (removesOpenMessage && isCurrentMessageRoute(config.hrefPrefix, currentSelectedMessageId)) router.push(config.hrefPrefix);
-	}, [config.folder, config.folderId, config.hrefPrefix, router]);
+	}, [config.folder, config.labelId, config.hrefPrefix, router]);
 
 	function toggleAllVisible(selected: boolean) {
 		const visibleIds = new Set(messages.map((message) => message.id));
@@ -612,7 +614,7 @@ export function MessageFolderPage({
 		});
 	}
 
-	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	const permanentDeleteFolder = !config.labelId && supportsPermanentDelete(config.folder) ? config.folder : null;
 	async function emptyFolder() {
 		if (!permanentDeleteFolder || !selectedMailbox?.id) return;
 		if (!await confirmDestructive(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
@@ -634,16 +636,16 @@ export function MessageFolderPage({
 		return () => clearTimeout(timer);
 	}, [actionError]);
 
-	async function runSelectedActionReportingErrors(action: BulkMessageAction, folderId?: string) {
+	async function runSelectedActionReportingErrors(action: BulkMessageAction, labelId?: string) {
 		setActionError(null);
 		try {
-			await runSelectedAction(action, folderId);
+			await runSelectedAction(action, labelId);
 		} catch (error) {
 			setActionError(error instanceof PartialDeleteError ? t("actions.error.deleteSkipped") : t("actions.error.update"));
 		}
 	}
 
-	async function runSelectedAction(action: BulkMessageAction, folderId?: string) {
+	async function runSelectedAction(action: BulkMessageAction, labelId?: string) {
 		if (selectedIds.length === 0) return;
 		if (action === "delete") {
 			const ids = expandSelectedIds(selectedIds);
@@ -661,7 +663,7 @@ export function MessageFolderPage({
 			: messages
 				.filter((message) => selectedIdSet.has(message.id))
 				.reduce<UnreadDeltas | null>((total, message) => mergeUnreadDeltas(total, unreadDeltas(
-					{ folder: config.folder, folderId: config.folderId, mode: getPromotionMode(message), category: message.category },
+					{ folder: config.folder, labelId: config.labelId, mode: getPromotionMode(message), category: message.category },
 					getUnreadFlipCount(message, readValue) * (readValue ? -1 : 1),
 				)), null);
 		if (readValue !== null) {
@@ -674,7 +676,7 @@ export function MessageFolderPage({
 			if (countsDelta) dispatchMessageCountsDelta(countsDelta);
 		}
 		try {
-			await runBulkMessageAction(expandSelectedIds(selectedIds), action, true, folderId);
+			await runBulkMessageAction(expandSelectedIds(selectedIds), action, true, labelId);
 			setSelectedMessages([]);
 		} catch (error) {
 			if (readValue !== null) {
@@ -730,7 +732,7 @@ export function MessageFolderPage({
 							onAction={runSelectedActionReportingErrors}
 							onClearSelection={() => setSelectedMessages([])}
 							pending={pendingBulkAction}
-							folder={config.folderId ? undefined : config.folder}
+							folder={config.labelId ? undefined : config.folder}
 						/>
 					) : (
 						(compact || isMobile) && (
@@ -811,7 +813,7 @@ export function MessageFolderPage({
 			)}
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
-				{config.folder === "inbox" && !config.folderId && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={selectedMailbox?.id} />}
+				{config.folder === "inbox" && !config.labelId && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={selectedMailbox?.id} />}
 				<div role="list" aria-label={title} className="divide-y divide-neutral-100">
 					{messages.map((message) => (
 						<MessageListRow

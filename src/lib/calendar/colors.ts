@@ -1,7 +1,7 @@
-import { DEFAULT_FOLDER_COLOR, FOLDER_COLOR_VALUES } from "@/lib/folders/colors";
-import type { FolderColor } from "@/lib/folders/types";
+import { DEFAULT_LABEL_COLOR, LABEL_COLOR_VALUES } from "@/lib/labels/colors";
+import type { LabelColor } from "@/lib/labels/types";
 
-const LEGACY_CALENDAR_COLORS: Record<string, FolderColor> = {
+const LEGACY_CALENDAR_COLORS: Record<string, LabelColor> = {
   blue: "#2563eb",
   violet: "#7c3aed",
   rose: "#db2777",
@@ -9,8 +9,8 @@ const LEGACY_CALENDAR_COLORS: Record<string, FolderColor> = {
   emerald: "#16a34a",
 };
 
-export function normalizeCalendarColor(value: string | undefined): FolderColor {
-  return FOLDER_COLOR_VALUES.find((color) => color === value)
+export function normalizeCalendarColor(value: string | undefined): LabelColor {
+  return LABEL_COLOR_VALUES.find((color) => color === value)
     ?? LEGACY_CALENDAR_COLORS[value ?? ""]
-    ?? DEFAULT_FOLDER_COLOR;
+    ?? DEFAULT_LABEL_COLOR;
 }

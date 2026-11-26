@@ -53,7 +53,7 @@ await build({
 			alias(/^@\/lib\/spam\/feedback$/, "mock-spam", `
 				export async function applySpamFeedback(_env, _user, messageId, classification) {
 					const status = classification === "spam" ? "spam" : "received";
-					globalThis.__rawSqlite.prepare("UPDATE messages SET status = ?, folder_id = NULL WHERE id = ?").run(status, messageId);
+					globalThis.__rawSqlite.prepare("UPDATE messages SET status = ? WHERE id = ?").run(status, messageId);
 					return true;
 				}
 			`);
@@ -74,13 +74,22 @@ sqlite.exec(`
 		status text NOT NULL,
 		read integer NOT NULL,
 		starred integer NOT NULL,
-		folder_id text,
 		snoozed_until integer
 	);
-	CREATE TABLE folders (
+	CREATE TABLE labels (
 		id text PRIMARY KEY NOT NULL,
-		mailbox_id text NOT NULL
+		user_id text NOT NULL DEFAULT 'user-1',
+		mailbox_id text NOT NULL,
+		name text NOT NULL,
+		color text NOT NULL DEFAULT '#2563eb',
+		created_at integer NOT NULL DEFAULT 0
 	);
+	CREATE TABLE message_labels (
+		message_id text NOT NULL,
+		label_id text NOT NULL,
+		created_at integer DEFAULT (unixepoch()) NOT NULL
+	);
+	CREATE UNIQUE INDEX message_labels_message_label_idx ON message_labels (message_id, label_id);
 	CREATE TABLE message_action_undo_claims (
 		nonce text PRIMARY KEY NOT NULL,
 		user_id text NOT NULL,
@@ -95,7 +104,7 @@ after(() => sqlite.close());
 const user = { id: "user-1" };
 
 function reset(message = {}) {
-	sqlite.exec("DELETE FROM messages; DELETE FROM message_action_undo_claims; DELETE FROM folders;");
+	sqlite.exec("DELETE FROM messages; DELETE FROM message_action_undo_claims; DELETE FROM labels; DELETE FROM message_labels;");
 	globalThis.__undoAudits = [];
 	globalThis.__failUndoAudit = false;
 	const row = {
@@ -105,17 +114,16 @@ function reset(message = {}) {
 		status: "received",
 		read: 0,
 		starred: 0,
-		folderId: null,
 		snoozedUntil: null,
 		...message,
 	};
-	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, folder_id, snoozed_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-		.run(row.id, row.mailboxId, row.direction, row.status, row.read, row.starred, row.folderId, row.snoozedUntil);
+	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES (?, ?, ?, ?, ?, ?, ?)")
+		.run(row.id, row.mailboxId, row.direction, row.status, row.read, row.starred, row.snoozedUntil);
 	return row;
 }
 
 function rowState(id = "m1") {
-	return sqlite.prepare("SELECT status, read, starred, folder_id, snoozed_until FROM messages WHERE id = ?").get(id);
+	return sqlite.prepare("SELECT status, read, starred, snoozed_until FROM messages WHERE id = ?").get(id);
 }
 
 function withDbProbe({ beforeUpdate } = {}) {
@@ -145,7 +153,7 @@ test("apply signs the server CAS result and undo restores it exactly once", asyn
 	const applied = await m.applyMessageActionForUser({}, user, { action: "archive", messageIds: ["m1"] });
 	assert.equal(applied.applied.length, 1);
 	assert.ok(applied.undoToken);
-	assert.deepEqual(rowState(), { status: "archived", read: 0, starred: 0, folder_id: null, snoozed_until: null });
+	assert.deepEqual(rowState(), { status: "archived", read: 0, starred: 0, snoozed_until: null });
 
 	const undo = await m.undoMessageActionForUser({}, user, applied.undoToken);
 	assert.deepEqual(undo.restored, ["m1"]);
@@ -171,7 +179,7 @@ test("undo tokens are bound to the user who received them", async () => {
 
 test("a mixed undo restores only rows still holding the action's applied state", async () => {
 	reset();
-	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, folder_id, snoozed_until) VALUES ('m2', 'mb1', 'inbound', 'received', 0, 0, NULL, NULL)").run();
+	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES ('m2', 'mb1', 'inbound', 'received', 0, 0, NULL)").run();
 	const applied = await m.applyMessageActionForUser({}, user, { action: "read", messageIds: ["m1", "m2"] });
 	assert.equal(applied.applied.length, 2);
 	sqlite.prepare("UPDATE messages SET read = 0 WHERE id = 'm2'").run();
@@ -208,7 +216,7 @@ test("only actually changed rows are reported as applied", async () => {
 
 test("a partial transient undo keeps the claim, reports the failed row, and audits restores", async () => {
 	reset();
-	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, folder_id, snoozed_until) VALUES ('m2', 'mb1', 'inbound', 'received', 0, 0, NULL, NULL)").run();
+	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES ('m2', 'mb1', 'inbound', 'received', 0, 0, NULL)").run();
 	const applied = await m.applyMessageActionForUser({}, user, { action: "read", messageIds: ["m1", "m2"] });
 	globalThis.__undoAudits = [];
 	sqlite.exec(`
@@ -239,7 +247,7 @@ test("a partial transient undo keeps the claim, reports the failed row, and audi
 
 test("a zero-progress transient undo releases the claim so a clean retry works", async () => {
 	reset();
-	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, folder_id, snoozed_until) VALUES ('m2', 'mb1', 'inbound', 'received', 0, 0, NULL, NULL)").run();
+	sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES ('m2', 'mb1', 'inbound', 'received', 0, 0, NULL)").run();
 	const applied = await m.applyMessageActionForUser({}, user, { action: "read", messageIds: ["m1", "m2"] });
 	sqlite.exec(`
 		CREATE TRIGGER fail_all_restore BEFORE UPDATE OF read ON messages
@@ -287,7 +295,7 @@ test("an audit failure after a committed restore does not release the claim", as
 
 test("a bulk apply batches CAS updates instead of one query per message", async () => {
 	reset();
-	const insert = sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, folder_id, snoozed_until) VALUES (?, 'mb1', 'inbound', 'received', 0, 0, NULL, NULL)");
+	const insert = sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES (?, 'mb1', 'inbound', 'received', 0, 0, NULL)");
 	const ids = ["m1"];
 	for (let index = 2; index <= 120; index += 1) {
 		ids.push(`m${index}`);
@@ -306,7 +314,7 @@ test("a bulk apply batches CAS updates instead of one query per message", async 
 
 test("a bulk undo also batches its CAS restores", async () => {
 	reset();
-	const insert = sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, folder_id, snoozed_until) VALUES (?, 'mb1', 'inbound', 'received', 0, 0, NULL, NULL)");
+	const insert = sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES (?, 'mb1', 'inbound', 'received', 0, 0, NULL)");
 	const ids = ["m1"];
 	for (let index = 2; index <= 120; index += 1) {
 		ids.push(`m${index}`);
@@ -327,7 +335,7 @@ test("a bulk undo also batches its CAS restores", async () => {
 
 test("heterogeneous previous values still batch apply and undo", async () => {
 	reset();
-	const insert = sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, folder_id, snoozed_until) VALUES (?, 'mb1', 'inbound', 'received', 0, 0, NULL, ?)");
+	const insert = sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES (?, 'mb1', 'inbound', 'received', 0, 0, ?)");
 	const ids = ["m1"];
 	const snoozedUntil = new Map([["m1", 1800000000]]);
 	sqlite.prepare("UPDATE messages SET snoozed_until = 1800000000 WHERE id = 'm1'").run();
@@ -357,21 +365,21 @@ test("heterogeneous previous values still batch apply and undo", async () => {
 });
 
 test("apply CAS checks every field the action writes, not only changed ones", async () => {
-	reset();
-	// A concurrent folder move between the read and the CAS leaves folder_id set;
-	// the archive must not report folderId null as applied.
+	// A concurrent snooze between the read and the CAS: the inbox move writes snoozedUntil too,
+	// so it must not report the row's old snooze as applied.
+	reset({ status: "archived" });
 	const probe = withDbProbe({
-		beforeUpdate: () => sqlite.prepare("UPDATE messages SET folder_id = 'f-race' WHERE id = 'm1'").run(),
+		beforeUpdate: () => sqlite.prepare("UPDATE messages SET snoozed_until = 4102444800 WHERE id = 'm1'").run(),
 	});
 	let applied;
 	try {
-		applied = await m.applyMessageActionForUser({}, user, { action: "archive", messageIds: ["m1"] });
+		applied = await m.applyMessageActionForUser({}, user, { action: "inbox", messageIds: ["m1"] });
 	} finally {
 		probe.restore();
 	}
 	assert.deepEqual(applied.applied, []);
 	assert.deepEqual(applied.skipped, [{ id: "m1", reason: "stale" }]);
-	assert.deepEqual(rowState(), { status: "received", read: 0, starred: 0, folder_id: "f-race", snoozed_until: null });
+	assert.deepEqual(rowState(), { status: "archived", read: 0, starred: 0, snoozed_until: 4102444800 });
 });
 
 test("a CAS race rejects a stale archive snapshot instead of signing it", async () => {
@@ -390,4 +398,101 @@ test("a CAS race rejects a stale archive snapshot instead of signing it", async 
 	assert.deepEqual(applied.skipped, [{ id: "m1", reason: "stale" }]);
 	assert.equal(applied.undoToken, undefined);
 	sqlite.exec("DROP TRIGGER block_archive");
+});
+
+function labels(id = "m1") {
+	return sqlite.prepare("SELECT label_id FROM message_labels WHERE message_id = ? ORDER BY label_id").all(id).map((row) => row.label_id);
+}
+
+function addLabel(id, mailboxId = "mb1") {
+	sqlite.prepare("INSERT INTO labels (id, mailbox_id, name) VALUES (?, ?, ?)").run(id, mailboxId, id);
+}
+
+test("label adds one label, keeps the status, and undo removes exactly that pair", async () => {
+	reset();
+	addLabel("work");
+	addLabel("travel");
+	sqlite.prepare("INSERT INTO message_labels (message_id, label_id) VALUES ('m1', 'travel')").run();
+	const applied = await m.applyMessageActionForUser({}, user, { action: "label", messageIds: ["m1"], labelId: "work" });
+	assert.deepEqual(applied.applied.map((record) => record.labels), [{ added: ["work"], removed: [] }]);
+	assert.equal(rowState().status, "received");
+	assert.deepEqual(labels(), ["travel", "work"]);
+
+	const undo = await m.undoMessageActionForUser({}, user, applied.undoToken);
+	assert.deepEqual(undo.restored, ["m1"]);
+	assert.deepEqual(labels(), ["travel"]);
+});
+
+test("labelling mail that already has the label changes nothing and signs no undo", async () => {
+	reset();
+	addLabel("work");
+	sqlite.prepare("INSERT INTO message_labels (message_id, label_id) VALUES ('m1', 'work')").run();
+	const applied = await m.applyMessageActionForUser({}, user, { action: "label", messageIds: ["m1"], labelId: "work" });
+	assert.deepEqual(applied.applied, []);
+	assert.equal(applied.undoToken, undefined);
+});
+
+test("move labels and archives inbox mail; undo restores the inbox and drops the label", async () => {
+	reset();
+	addLabel("work");
+	const applied = await m.applyMessageActionForUser({}, user, { action: "move", messageIds: ["m1"], labelId: "work" });
+	assert.equal(rowState().status, "archived");
+	assert.deepEqual(labels(), ["work"]);
+	assert.equal(applied.applied[0].applied.status, "archived");
+
+	await m.undoMessageActionForUser({}, user, applied.undoToken);
+	assert.equal(rowState().status, "received");
+	assert.deepEqual(labels(), []);
+});
+
+test("a sent message keeps status sent when labelled or moved", async () => {
+	reset({ direction: "outbound", status: "sent", read: 1 });
+	addLabel("work");
+	addLabel("clients");
+	await m.applyMessageActionForUser({}, user, { action: "label", messageIds: ["m1"], labelId: "work" });
+	await m.applyMessageActionForUser({}, user, { action: "move", messageIds: ["m1"], labelId: "clients" });
+	assert.equal(rowState().status, "sent");
+	assert.deepEqual(labels(), ["clients", "work"]);
+});
+
+test("archive, trash and spam keep labels", async () => {
+	for (const action of ["archive", "trash", "spam"]) {
+		reset();
+		addLabel("work");
+		sqlite.prepare("INSERT INTO message_labels (message_id, label_id) VALUES ('m1', 'work')").run();
+		await m.applyMessageActionForUser({}, user, { action, messageIds: ["m1"] });
+		assert.deepEqual(labels(), ["work"], action);
+	}
+});
+
+test("unlabel removes the label, and undo puts it back only while the label exists", async () => {
+	reset();
+	addLabel("work");
+	sqlite.prepare("INSERT INTO message_labels (message_id, label_id) VALUES ('m1', 'work')").run();
+	const applied = await m.applyMessageActionForUser({}, user, { action: "unlabel", messageIds: ["m1"], labelId: "work" });
+	assert.deepEqual(applied.applied[0].labels, { added: [], removed: ["work"] });
+	assert.deepEqual(labels(), []);
+	await m.undoMessageActionForUser({}, user, applied.undoToken);
+	assert.deepEqual(labels(), ["work"]);
+
+	const again = await m.applyMessageActionForUser({}, user, { action: "unlabel", messageIds: ["m1"], labelId: "work" });
+	sqlite.exec("DELETE FROM labels WHERE id = 'work'");
+	await m.undoMessageActionForUser({}, user, again.undoToken);
+	assert.deepEqual(labels(), []);
+});
+
+test("a label never applies to mail of another mailbox, and an unknown label is refused", async () => {
+	reset();
+	addLabel("elsewhere", "mb2");
+	const applied = await m.applyMessageActionForUser({}, user, { action: "label", messageIds: ["m1"], labelId: "elsewhere" });
+	assert.deepEqual(applied.skipped, [{ id: "m1", reason: "not_applicable" }]);
+	assert.deepEqual(labels(), []);
+	await assert.rejects(
+		m.applyMessageActionForUser({}, user, { action: "label", messageIds: ["m1"], labelId: "missing" }),
+		(error) => error instanceof m.MessageActionError && error.status === 404,
+	);
+	await assert.rejects(
+		m.applyMessageActionForUser({}, user, { action: "move", messageIds: ["m1"] }),
+		(error) => error instanceof m.MessageActionError && error.status === 400,
+	);
 });
