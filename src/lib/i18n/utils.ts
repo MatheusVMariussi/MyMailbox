@@ -10,10 +10,6 @@ export function resolveLocale(value: unknown): Locale {
 	return typeof value === "string" && Object.hasOwn(locales, value) ? value as Locale : DEFAULT_LOCALE;
 }
 
-export function getDirection(locale: Locale): "ltr" | "rtl" {
-	return (locales[locale] as { dir?: "rtl" }).dir ?? "ltr";
-}
-
 /** Reads a static asset by path. The browser uses `fetch`; server code passes the `ASSETS` binding. */
 export type AssetReader = (path: string) => Promise<Response>;
 

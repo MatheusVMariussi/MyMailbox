@@ -30,11 +30,11 @@ await build({
 });
 const { prepareOutboundAttachments } = await import(pathToFileURL(join(outDir, "prepare.mjs")).href);
 
-const de = JSON.parse(readFileSync(join(root, "public/locales/de.json"), "utf8"));
+const ptBR = JSON.parse(readFileSync(join(root, "public/locales/pt-BR.json"), "utf8"));
 const MB = 1_000_000;
 const file = (name, size, storageId) => ({ filename: name, type: "application/pdf", content: new ArrayBuffer(size), ...(storageId ? { storageId } : {}) });
 const message = { subject: "Report", html: "<p>Hi</p>", text: "Hi", headers: {}, publicOrigin: "https://mail.example.com" };
-const makeEnv = (extra = {}) => ({ linked: [], ASSETS: { fetch: async () => new Response(JSON.stringify(de)) }, ...extra });
+const makeEnv = (extra = {}) => ({ linked: [], ASSETS: { fetch: async () => new Response(JSON.stringify(ptBR)) }, ...extra });
 
 for (const provider of ["resend", "ses"]) {
 	test(`${provider}: a file past the 20 MB direct limit becomes a Shared Files link, small files stay attached`, async () => {
@@ -61,7 +61,7 @@ for (const provider of ["resend", "ses"]) {
 }
 
 test("the notice follows the sender's locale", async () => {
-	const localized = await prepareOutboundAttachments(makeEnv(), "resend", [file("big.pdf", 30 * MB, "x")], { ...message, locale: "de" });
-	assert.ok(localized.text.includes(de["attachment.sharedIntro"].replace("{days}", "30")));
-	assert.ok(localized.html.includes(`>${de["attachment.sharedDownload"]}</a>`));
+	const localized = await prepareOutboundAttachments(makeEnv(), "resend", [file("big.pdf", 30 * MB, "x")], { ...message, locale: "pt-BR" });
+	assert.ok(localized.text.includes(ptBR["attachment.sharedIntro"].replace("{days}", "30")));
+	assert.ok(localized.html.includes(`>${ptBR["attachment.sharedDownload"]}</a>`));
 });

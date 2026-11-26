@@ -43,7 +43,7 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
 - **Import**: Bring in mail from IMAP, Gmail Takeout, `.eml` and `.mbox` files, and Google Calendar events, Google Contacts and Google Drive files from Takeout. See [Importing from Google Takeout](docs/import.md).
 
-Mailflare currently supports 34 languages, including English, Português (Brasil), Português (Portugal), Español, Français, Deutsch, Italiano, Nederlands, Polski, Українська, Русский, Türkçe, 中文（简体）, 日本語, 한국어, Bahasa Indonesia, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, සිංහල, Kiswahili, Hausa, plus العربية, اردو and فارسی (right-to-left).
+Mailflare is available in English and Português (Brasil).
 
 ## Cost
 

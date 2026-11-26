@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { DEFAULT_LOCALE, createTranslator, getDirection, loadMessages, resolveLocale, serializeLocaleCookie } from "@/lib/i18n/utils";
+import { DEFAULT_LOCALE, createTranslator, loadMessages, resolveLocale, serializeLocaleCookie } from "@/lib/i18n/utils";
 import type { Locale, Messages } from "@/lib/i18n/types";
 import type { LanguageState } from "./language-provider-types";
 
@@ -33,7 +33,6 @@ export function LanguageProvider({ initialLocale, initialMessages, children }: {
 				// Keep the in-memory preference when cookie storage is unavailable.
 			}
 			document.documentElement.lang = nextLocale;
-			document.documentElement.dir = getDirection(nextLocale);
 			setActive({ locale: nextLocale, messages });
 		}).catch(() => undefined);
 	}, []);

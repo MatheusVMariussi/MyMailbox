@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
-import { DEFAULT_LOCALE, getDirection } from "@/lib/i18n/utils";
+import { DEFAULT_LOCALE } from "@/lib/i18n/utils";
 import { getRequestLocale, loadServerMessages } from "@/lib/i18n/server";
 import { sidebarBootstrapScript } from "@/components/sidebar-state-utils";
 import { themeBootstrapScript } from "@/components/theme-utils";
@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 	const messages = locale === DEFAULT_LOCALE ? undefined : await loadServerMessages(locale);
 	const branding = await getHomeBranding();
 	return (
-		<html lang={locale} dir={getDirection(locale)} data-remote-image-proxy="enabled" suppressHydrationWarning>
+		<html lang={locale} data-remote-image-proxy="enabled" suppressHydrationWarning>
 			<head>
 				<script dangerouslySetInnerHTML={{ __html: sidebarBootstrapScript }} />
 				<script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />

@@ -281,10 +281,10 @@ export function SubscriptionsPage() {
 						<span className="text-sm text-neutral-600">{t("subscriptions.pager.range", { start: pager.start, end: pager.end, total: pager.total })}</span>
 						<span className="flex gap-2">
 							<Button type="button" variant="outline" size="sm" className="max-md:h-11" disabled={pager.prevOffset === null || busy} aria-label={t("list.previousPage")} onClick={() => setOffset(pager.prevOffset ?? 0)}>
-								<ChevronLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+								<ChevronLeft className="h-4 w-4" aria-hidden="true" />
 							</Button>
 							<Button type="button" variant="outline" size="sm" className="max-md:h-11" disabled={pager.nextOffset === null || busy} aria-label={t("list.nextPage")} onClick={() => setOffset(pager.nextOffset ?? 0)}>
-								<ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+								<ChevronRight className="h-4 w-4" aria-hidden="true" />
 							</Button>
 						</span>
 					</nav>

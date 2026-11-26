@@ -37,9 +37,9 @@ test("the shared-files notice defaults to English and states the real link lifet
 });
 
 test("the shared-files notice follows the sender's language", () => {
-	const de = JSON.parse(readFileSync(join(root, "public/locales/de.json"), "utf8"));
-	const notice = sharedFileNotice(files, 30, createTranslator("de", de));
-	assert.equal(notice.intro, de["attachment.sharedIntro"].replace("{days}", "30"));
-	assert.ok(notice.html.includes(`>${de["attachment.sharedDownload"]}</a>`));
+	const ptBR = JSON.parse(readFileSync(join(root, "public/locales/pt-BR.json"), "utf8"));
+	const notice = sharedFileNotice(files, 30, createTranslator("pt-BR", ptBR));
+	assert.equal(notice.intro, ptBR["attachment.sharedIntro"].replace("{days}", "30"));
+	assert.ok(notice.html.includes(`>${ptBR["attachment.sharedDownload"]}</a>`));
 	assert.doesNotMatch(notice.intro, /Files shared through/);
 });

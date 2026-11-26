@@ -61,7 +61,7 @@ async function bundleI18n(outfile, extraLocale = false) {
 			setup(builder) {
 				if (extraLocale) builder.onLoad({ filter: /[\\/]i18n[\\/]locales\.ts$/ }, ({ path }) => ({
 					contents: readFileSync(path, "utf8").replace("export const locales = {", `export const locales = {
-						he: { label: "Testlandic", dir: "rtl" },`),
+						he: { label: "Testlandic" },`),
 					loader: "ts",
 				}));
 				builder.onResolve({ filter: /^(next\/headers|next\/font\/google|@\/components\/providers|@\/lib\/cloudflare|\.\/home-server-utils)$/ }, (args) => ({ path: args.path, namespace: "stub" }));
@@ -125,9 +125,12 @@ test("translation uses the requested catalog and falls back per key", async () =
 });
 
 test("existing locale-specific plural translations remain available", async () => {
-	const catalog = await i18n.loadMessages("pl");
-	assert.equal(catalog["thread.attachmentCount.few"], "{count} załączniki");
-	assert.equal(i18n.createTranslator("pl", catalog)("thread.attachmentCount", { count: 3 }), "3 załączniki");
+	const catalog = await i18n.loadMessages("pt-BR");
+	assert.equal(catalog["thread.attachmentCount.many"], "{count} de anexos");
+	const t = i18n.createTranslator("pt-BR", catalog);
+	assert.equal(t("thread.attachmentCount", { count: 1 }), "1 anexo");
+	assert.equal(t("thread.attachmentCount", { count: 3 }), "3 anexos");
+	assert.equal(t("thread.attachmentCount", { count: 1000000 }), "1000000 de anexos");
 });
 
 test("preference cookie persists for a year, covers every path and is Secure on HTTPS", () => {
@@ -179,7 +182,6 @@ test("a locale registered once reaches resolution, translation, cookie, selector
 	const layout = await extended.renderLayout("he");
 	assert.match(layout, /<html lang="he"/);
 	assert.match(layout, />Entrada<\/span>/);
-	assert.match(layout, /<html lang="he" dir="rtl"/);
 	const t = extended.createTranslator("he", await extended.loadMessages("he"));
 	assert.equal(t("navigation.inbox", { count: 1 }), "1 entrada");
 	assert.equal(t("navigation.inbox", { count: 3 }), "3 entradas");
@@ -189,9 +191,8 @@ test("a locale registered once reaches resolution, translation, cookie, selector
 	}
 });
 
-test("translations interpolate {vars}, keep unknown placeholders and default to ltr", async () => {
+test("translations interpolate {vars} and keep unknown placeholders", async () => {
 	assert.equal(i18n.translate({ "navigation.inbox": "Hi {name}, {other}" }, "navigation.inbox", { name: "Ana", count: 2 }), "Hi Ana, {other}");
 	assert.equal(i18n.translate({}, "navigation.inbox", { name: "x" }), "Inbox");
 	assert.equal(i18n.createTranslator("pt-BR", await i18n.loadMessages("pt-BR"))("navigation.inbox", { count: 2 }), "Entrada");
-	assert.equal(i18n.getDirection("en"), "ltr");
 });

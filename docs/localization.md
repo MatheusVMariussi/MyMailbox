@@ -1,18 +1,8 @@
 # Interface languages
 
-Mailflare defaults to English and ships 34 interface languages. Visitors switch language from the homepage or sign-in page, and signed-in users can set it under **Settings → Account → General**, next to their time zone.
+Mailflare defaults to English and also ships Português (Brasil) (`pt-BR`). Visitors switch language from the homepage or sign-in page, and signed-in users can set it under **Settings → Account → General**, next to their time zone.
 
-## Current coverage
-
-| Region | Languages (code) |
-| --- | --- |
-| Europe | English (`en`), Español (`es`), Français (`fr`), Deutsch (`de`), Italiano (`it`), Nederlands (`nl`), Polski (`pl`), Українська (`uk`), Русский (`ru`), Türkçe (`tr`), Português (Brasil) (`pt-BR`), Português (Portugal) (`pt-PT`) |
-| South Asia | हिन्दी (`hi`), বাংলা (`bn`), मराठी (`mr`), తెలుగు (`te`), தமிழ் (`ta`), ગુજરાતી (`gu`), ಕನ್ನಡ (`kn`), മലയാളം (`ml`), ਪੰਜਾਬੀ (`pa`), සිංහල (`si`), اردو (`ur`, right-to-left) |
-| Middle East | العربية (`ar`, right-to-left), فارسی (`fa`, right-to-left) |
-| East and Southeast Asia | 中文（简体）(`zh-CN`), 日本語 (`ja`), 한국어 (`ko`), Bahasa Indonesia (`id`), Bahasa Melayu (`ms`), Tiếng Việt (`vi`), ไทย (`th`) |
-| Africa | Kiswahili (`sw`), Hausa (`ha`) |
-
-Every catalog covers the whole interface. Email content, custom folder and mailbox names stay user content, and selecting a language does not change routes, system-folder identifiers or date/time formatting. Catalogs for languages added most recently were translated without native-speaker review, so wording may need polish; corrections are welcome as pull requests.
+Every catalog covers the whole interface. Email content, custom folder and mailbox names stay user content, and selecting a language does not change routes, system-folder identifiers or date/time formatting.
 
 ## Preference and rendering
 
@@ -34,9 +24,9 @@ To add another language:
    es: { label: "Español" },
    ```
 
-That is the only registration point. The `Locale` type, supported-locale validation, cookie handling, server-rendered HTML and selector options all derive from it. No provider, layout, selector or utility changes are needed. English remains the default. For a right-to-left language add `dir: "rtl"` to the entry; the layout and provider then set `<html dir>`. English ships in the main bundle; every other catalog is a static asset loaded on demand (the browser fetches `/locales/<code>.json`, server rendering reads it through the `ASSETS` binding), so catalogs do not count toward the Worker's 3 MiB Free-plan size limit. Locale-specific date formatting is not part of this system.
+That is the only registration point. The `Locale` type, supported-locale validation, cookie handling, server-rendered HTML and selector options all derive from it. No provider, layout, selector or utility changes are needed. English remains the default. English ships in the main bundle; every other catalog is a static asset loaded on demand (the browser fetches `/locales/<code>.json`, server rendering reads it through the `ASSETS` binding), so catalogs do not count toward the Worker's 3 MiB Free-plan size limit. Locale-specific date formatting is not part of this system.
 
-Client components use `useLanguage().t(key, vars?)`; server code uses `createTranslator(locale)` from `src/lib/i18n/utils.ts`, which returns the same function. Strings interpolate `{name}` placeholders from `vars`. For plurals, add `key.one`, `key.other` (and any other CLDR categories the language needs, such as `few` for Polish, Ukrainian and Arabic) to the catalog, then call `t("key", { count })`; the variant is picked with `Intl.PluralRules`, falling back to the bare key. The dialog close button uses the translated `navigation.close` automatically.
+Client components use `useLanguage().t(key, vars?)`; server code uses `createTranslator(locale)` from `src/lib/i18n/utils.ts`, which returns the same function. Strings interpolate `{name}` placeholders from `vars`. For plurals, add `key.one`, `key.other` (and any other CLDR categories the language needs, such as `many` for Portuguese) to the catalog, then call `t("key", { count })`; the variant is picked with `Intl.PluralRules`, falling back to the bare key. The dialog close button uses the translated `navigation.close` automatically.
 
  Keep routes, storage keys, permission checks, API values and user content independent of translated display text. Extend coverage gradually rather than replacing strings throughout the app in one change.
 

@@ -178,7 +178,7 @@ test("placeholders survive translation", () => {
 			const source = en[key] ?? en[`${base}.other`];
 			const wanted = new Set(source.match(/\{\w+\}/g) ?? []);
 			const found = new Set(messages[key].match(/\{\w+\}/g) ?? []);
-			// Arabic .one/.two and similar forms may drop the number, but never invent a placeholder.
+			// Plural forms such as .one may drop the number, but never invent a placeholder.
 			for (const placeholder of found) assert.ok(wanted.has(placeholder), `${locale} ${key} has stray ${placeholder}`);
 			if (!/\.(zero|one|two)$/.test(key)) for (const placeholder of wanted) assert.ok(found.has(placeholder), `${locale} ${key} lost ${placeholder}`);
 		}
