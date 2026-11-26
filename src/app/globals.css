@@ -2,36 +2,169 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ── MyMailbox identity ──────────────────────────────────────────────────────
+   The ~/matheus design language: layered near-black surfaces, one interaction accent (blue) and three
+   semantic accents (live, category, warm). Dark is the default theme; light is derived from the same
+   tokens. Screens mostly use the Tailwind palette directly (bg-white, text-neutral-900, bg-blue-50…),
+   so both themes remap the neutral and blue scales onto these tokens instead of editing every
+   component. Brand tokens are also exposed as utilities (bg-ground, text-ink, border-line, …). */
 :root {
-	--color-neutral-500: #6b6b6b;
-	--background: #f6f8fc;
-	--foreground: #202124;
-	--card: #ffffff;
-	--muted: #eef3fb;
-	--border: #dadce0;
-	--primary: #0b57d0;
+	--ground: #f2f3f6;
+	--surface-1: #ffffff;
+	--surface-2: #f6f7f9;
+	--surface-3: #eef0f3;
+	--line: #e2e5ea;
+	--line-strong: #cdd2d9;
+	--ink: #0d0f12;
+	--ink-soft: #363c47;
+	--ink-muted: #5f6672;
+	--accent: #2a64f6;
+	--accent-strong: #2356d6;
+	--accent-soft: #eef4ff;
+	--live: #059669;
+	--category: #9333ea;
+	--warm: #b45309;
+
+	--background: var(--ground);
+	--foreground: var(--ink);
+	--card: var(--surface-1);
+	--muted: var(--surface-3);
+	--border: var(--line);
+	--primary: var(--accent);
 	--primary-foreground: #ffffff;
+
+	--color-neutral-50: #f6f7f9;
+	--color-neutral-100: #eef0f3;
+	--color-neutral-200: #e2e5ea;
+	--color-neutral-300: #cdd2d9;
+	--color-neutral-400: #9aa1ab;
+	--color-neutral-500: #5f6672;
+	--color-neutral-600: #4b5260;
+	--color-neutral-700: #363c47;
+	--color-neutral-800: #1f242c;
+	--color-neutral-900: #111418;
+	--color-neutral-950: #07080a;
+	--color-gray-50: var(--color-neutral-50);
+	--color-gray-100: var(--color-neutral-100);
+	--color-gray-200: var(--color-neutral-200);
+	--color-gray-300: var(--color-neutral-300);
+	--color-gray-400: var(--color-neutral-400);
+	--color-gray-500: var(--color-neutral-500);
+	--color-gray-600: var(--color-neutral-600);
+	--color-gray-700: var(--color-neutral-700);
+	--color-gray-800: var(--color-neutral-800);
+	--color-gray-900: var(--color-neutral-900);
+	--color-gray-950: var(--color-neutral-950);
+	--color-blue-50: #eef4ff;
+	--color-blue-100: #dde8ff;
+	--color-blue-200: #bcd2ff;
+	--color-blue-300: #8fb4ff;
+	--color-blue-400: #6a9cff;
+	--color-blue-500: #4f8cff;
+	--color-blue-600: #2a64f6;
+	--color-blue-700: #2356d6;
+	--color-blue-800: #1f47ad;
+	--color-blue-900: #1d3d88;
+	--color-blue-950: #142553;
 }
 
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
-	--font-sans: var(--font-geist-sans);
-	--no-font-mono: var(--font-geist-mono);
+	--color-ground: var(--ground);
+	--color-surface-1: var(--surface-1);
+	--color-surface-2: var(--surface-2);
+	--color-surface-3: var(--surface-3);
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+	--color-ink: var(--ink);
+	--color-ink-soft: var(--ink-soft);
+	--color-ink-muted: var(--ink-muted);
+	--color-accent: var(--accent);
+	--color-accent-strong: var(--accent-strong);
+	--color-accent-soft: var(--accent-soft);
+	--color-live: var(--live);
+	--color-category: var(--category);
+	--color-warm: var(--warm);
+	--font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+	--font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+	--font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+	--ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-in-soft: cubic-bezier(0.7, 0, 0.84, 0);
+	--animate-caret-blink: caret-blink 1.1s steps(1) infinite;
+}
+
+/* Terminal caret: hard on/off, like a real cursor. */
+@keyframes caret-blink {
+	0%, 49% { opacity: 1; }
+	50%, 100% { opacity: 0; }
+}
+
+html {
+	scrollbar-color: var(--line-strong) transparent;
 }
 
 body {
 	background: var(--background);
 	color: var(--foreground);
-	font-family: var(--font-geist-sans), system-ui, sans-serif;
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+}
+
+h1, h2 {
+	font-family: var(--font-display);
+	letter-spacing: -0.01em;
+}
+
+::selection {
+	background: var(--accent);
+	color: #ffffff;
 }
 
 pre {
-	font-family: var(--font-geist-sans), system-ui, sans-serif;
+	font-family: var(--font-sans);
 }
 
 .text {
-	font-family: var(--font-geist-sans), system-ui, sans-serif;
+	font-family: var(--font-sans);
+}
+
+/* The ~/ wordmark and other terminal accents. */
+.wordmark {
+	font-family: var(--font-mono);
+	font-weight: 500;
+	letter-spacing: -0.02em;
+}
+
+/* Atmosphere for the sign-in, setup and empty screens only: a faint grid, two soft glows and grain.
+   Never behind lists or mail. */
+.atmosphere {
+	position: relative;
+	isolation: isolate;
+	background-color: var(--ground);
+}
+.atmosphere::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background-image:
+		radial-gradient(40rem 28rem at 18% 12%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 70%),
+		radial-gradient(34rem 24rem at 86% 88%, color-mix(in oklch, var(--category) 10%, transparent), transparent 70%),
+		linear-gradient(to right, color-mix(in oklch, var(--ink) 4%, transparent) 1px, transparent 1px),
+		linear-gradient(to bottom, color-mix(in oklch, var(--ink) 4%, transparent) 1px, transparent 1px);
+	background-size: auto, auto, 56px 56px, 56px 56px;
+	mask-image: radial-gradient(ellipse at center, #000 40%, transparent 85%);
+}
+.atmosphere::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	opacity: 0.025;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @keyframes dialog-overlay-show {
@@ -167,13 +300,13 @@ pre {
 	margin: 0.25rem 0;
 }
 .email-body blockquote {
-	border-left: 2px solid #d4d4d4;
+	border-left: 2px solid var(--line-strong);
 	margin: 0.25rem 0;
 	padding-left: 0.75rem;
-	color: #525252;
+	color: var(--ink-muted);
 }
 .email-body a {
-	color: #2563eb;
+	color: var(--accent);
 	text-decoration: underline;
 }
 .email-body p {
@@ -189,8 +322,8 @@ pre {
 	width: 26px;
 	height: 12px;
 	border-radius: 9999px;
-	background: #ececec;
-	color: #4d4d4d;
+	background: var(--surface-3);
+	color: var(--ink-soft);
 	cursor: pointer;
 	list-style: none;
 }
@@ -208,10 +341,10 @@ pre {
 	transform: translateY(-0.5px);
 }
 .email-quote-toggle > summary:hover {
-	background: #e5e5e5;
+	background: var(--line);
 }
 .email-quote-toggle > summary:focus-visible {
-	outline: 2px solid #2563eb;
+	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
 .email-quote-content {
@@ -222,92 +355,88 @@ button {
 	cursor: pointer;
 }
 
-/* ── Dark theme ──────────────────────────────────────────────────────────────
-   Screens use the Tailwind palette directly (bg-white, text-neutral-900, bg-blue-50…). Rather than
-   editing every component, the dark theme remaps the palette variables under .dark: neutrals follow
-   Gmail's dark palette (#202124, #303134, #3c4043, #9aa0a6, #e8eaed…) and accents are inverted
-   (50↔950, 100↔900…). The exceptions come right after. The .dark class is set on <html>
-   (theme-utils.ts). */
+/* ── Dark theme (default) ────────────────────────────────────────────────────
+   The .dark class is set on <html> (theme-utils.ts). Neutrals follow the portfolio surfaces and are
+   inverted (50 is the darkest raised surface, 950 is white); blue is inverted around the #4f8cff
+   accent. Other hues keep the inversion below (50↔950, 100↔900…). */
 /* Modal backdrops and other scrims must use `black` (optionally with a `dark:` alpha), never the
    neutral-900/950 values: those are remapped below to near-white, so a scrim would lighten the page
    instead of dimming it. */
 .dark {
 	color-scheme: dark;
-	--background: #202124;
-	--foreground: #e8eaed;
-	--card: #292a2d;
-	--muted: #303134;
-	--border: #3c4043;
-	--primary: #8ab4f8;
-	--primary-foreground: #202124;
-	--color-white: #292a2d;
+	--ground: #07080a;
+	--surface-1: #0d0f12;
+	--surface-2: #14171c;
+	--surface-3: #1c2027;
+	--line: #23272f;
+	--line-strong: #2f343d;
+	--ink: #f4f6fa;
+	--ink-soft: #c2c8d2;
+	--ink-muted: #8b929e;
+	--accent: #4f8cff;
+	--accent-strong: #2f6dff;
+	--accent-soft: #111c31;
+	--live: #34d399;
+	--category: #c084fc;
+	--warm: #fbbf24;
+	--primary-foreground: #07080a;
+	--color-white: var(--surface-1);
 	--color-black: #000;
-	--color-neutral-50: #303134;
-	--color-neutral-100: #35363a;
-	--color-neutral-200: #3c4043;
-	--color-neutral-300: #5f6368;
-	--color-neutral-400: #9aa0a6;
-	--color-neutral-500: #a8aeb4;
-	--color-neutral-600: #bdc1c6;
-	--color-neutral-700: #dadce0;
-	--color-neutral-800: #e8eaed;
-	--color-neutral-900: #f1f3f4;
+	--color-neutral-50: #14171c;
+	--color-neutral-100: #1c2027;
+	--color-neutral-200: #23272f;
+	--color-neutral-300: #2f343d;
+	--color-neutral-400: #767d89;
+	--color-neutral-500: #8b929e;
+	--color-neutral-600: #a7aebb;
+	--color-neutral-700: #c2c8d2;
+	--color-neutral-800: #dde2ea;
+	--color-neutral-900: #f4f6fa;
 	--color-neutral-950: #ffffff;
-	--color-gray-50: #303134;
-	--color-gray-100: #35363a;
-	--color-gray-200: #3c4043;
-	--color-gray-300: #5f6368;
-	--color-gray-400: #80868b;
-	--color-gray-500: #9aa0a6;
-	--color-gray-600: #bdc1c6;
-	--color-gray-700: #dadce0;
-	--color-gray-800: #e8eaed;
-	--color-gray-900: #f1f3f4;
-	--color-gray-950: #ffffff;
-	--color-stone-50: #303134;
-	--color-stone-100: #35363a;
-	--color-stone-200: #3c4043;
-	--color-stone-300: #5f6368;
-	--color-stone-400: #80868b;
-	--color-stone-500: #9aa0a6;
-	--color-stone-600: #bdc1c6;
-	--color-stone-700: #dadce0;
-	--color-stone-800: #e8eaed;
-	--color-stone-900: #f1f3f4;
-	--color-stone-950: #ffffff;
-	--color-zinc-50: #303134;
-	--color-zinc-100: #35363a;
-	--color-zinc-200: #3c4043;
-	--color-zinc-300: #5f6368;
-	--color-zinc-400: #80868b;
-	--color-zinc-500: #9aa0a6;
-	--color-zinc-600: #bdc1c6;
-	--color-zinc-700: #dadce0;
-	--color-zinc-800: #e8eaed;
-	--color-zinc-900: #f1f3f4;
-	--color-zinc-950: #ffffff;
-	--color-slate-50: #303134;
-	--color-slate-100: #35363a;
-	--color-slate-200: #3c4043;
-	--color-slate-300: #5f6368;
-	--color-slate-400: #80868b;
-	--color-slate-500: #9aa0a6;
-	--color-slate-600: #bdc1c6;
-	--color-slate-700: #dadce0;
-	--color-slate-800: #e8eaed;
-	--color-slate-900: #f1f3f4;
-	--color-slate-950: #ffffff;
-	--color-blue-50: #2c3d57;
-	--color-blue-100: #33486a;
-	--color-blue-200: oklch(42.4% 0.199 265.638);
-	--color-blue-300: oklch(48.8% 0.243 264.376);
-	--color-blue-400: oklch(54.6% 0.245 262.881);
-	--color-blue-500: oklch(62.3% 0.214 259.815);
-	--color-blue-600: oklch(70.7% 0.165 254.624);
-	--color-blue-700: oklch(80.9% 0.105 251.813);
-	--color-blue-800: oklch(88.2% 0.059 254.128);
-	--color-blue-900: oklch(93.2% 0.032 255.585);
-	--color-blue-950: oklch(97% 0.014 254.604);
+	--color-stone-50: var(--color-neutral-50);
+	--color-stone-100: var(--color-neutral-100);
+	--color-stone-200: var(--color-neutral-200);
+	--color-stone-300: var(--color-neutral-300);
+	--color-stone-400: var(--color-neutral-400);
+	--color-stone-500: var(--color-neutral-500);
+	--color-stone-600: var(--color-neutral-600);
+	--color-stone-700: var(--color-neutral-700);
+	--color-stone-800: var(--color-neutral-800);
+	--color-stone-900: var(--color-neutral-900);
+	--color-stone-950: var(--color-neutral-950);
+	--color-zinc-50: var(--color-neutral-50);
+	--color-zinc-100: var(--color-neutral-100);
+	--color-zinc-200: var(--color-neutral-200);
+	--color-zinc-300: var(--color-neutral-300);
+	--color-zinc-400: var(--color-neutral-400);
+	--color-zinc-500: var(--color-neutral-500);
+	--color-zinc-600: var(--color-neutral-600);
+	--color-zinc-700: var(--color-neutral-700);
+	--color-zinc-800: var(--color-neutral-800);
+	--color-zinc-900: var(--color-neutral-900);
+	--color-zinc-950: var(--color-neutral-950);
+	--color-slate-50: var(--color-neutral-50);
+	--color-slate-100: var(--color-neutral-100);
+	--color-slate-200: var(--color-neutral-200);
+	--color-slate-300: var(--color-neutral-300);
+	--color-slate-400: var(--color-neutral-400);
+	--color-slate-500: var(--color-neutral-500);
+	--color-slate-600: var(--color-neutral-600);
+	--color-slate-700: var(--color-neutral-700);
+	--color-slate-800: var(--color-neutral-800);
+	--color-slate-900: var(--color-neutral-900);
+	--color-slate-950: var(--color-neutral-950);
+	--color-blue-50: #111c31;
+	--color-blue-100: #16264a;
+	--color-blue-200: #1d3566;
+	--color-blue-300: #26478a;
+	--color-blue-400: #3563c4;
+	--color-blue-500: #4f8cff;
+	--color-blue-600: #79a6ff;
+	--color-blue-700: #9dbdff;
+	--color-blue-800: #c3d6ff;
+	--color-blue-900: #e1ebff;
+	--color-blue-950: #f0f5ff;
 	--color-red-50: oklch(25.8% 0.092 26.042);
 	--color-red-100: oklch(39.6% 0.141 25.723);
 	--color-red-200: oklch(44.4% 0.177 26.899);
@@ -480,9 +609,9 @@ button {
 .dark .border-white { border-color: #fff; }
 /* Dark chips with white text (tooltip, compose header): the chip turns light, the text turns dark */
 .dark .bg-neutral-900.text-white, .dark .bg-neutral-800.text-white, .dark .bg-neutral-950.text-white { color: var(--color-neutral-50); }
-/* Buttons and highlights with white text keep their original saturated background, not the inverted one */
-.dark .bg-blue-600 { background-color: oklch(54.6% 0.245 262.881); }
-.dark .bg-blue-700, .dark .hover\:bg-blue-700:hover { background-color: oklch(48.8% 0.243 264.376); }
+/* Buttons and highlights with white text keep a saturated background, not the inverted one */
+.dark .bg-blue-600, .dark .hover\:bg-blue-600:hover { background-color: #2a64f6; }
+.dark .bg-blue-700, .dark .hover\:bg-blue-700:hover { background-color: #2356d6; }
 .dark .bg-red-600 { background-color: oklch(57.7% 0.245 27.325); }
 .dark .bg-red-700, .dark .hover\:bg-red-700:hover { background-color: oklch(50.5% 0.213 27.518); }
 .dark .bg-green-600 { background-color: oklch(62.7% 0.194 149.214); }
@@ -491,13 +620,12 @@ button {
 .dark .bg-teal-600 { background-color: oklch(60% 0.118 184.704); }
 .dark .bg-pink-600 { background-color: oklch(59.2% 0.249 0.584); }
 .dark .bg-orange-600 { background-color: oklch(64.6% 0.222 41.116); }
-/* Fixed-hex backgrounds (page, panels) and their hover: variants (inbox rows, mailbox selector) */
-.dark .bg-\[\#f6f8fc\], .dark .bg-\[\#f7f9fc\] { background-color: #202124; }
-.dark .bg-\[\#f2f6fc\], .dark .bg-\[\#f1f4fa\], .dark .bg-\[\#f0f3f9\] { background-color: #303134; }
-.dark .bg-\[\#eef3fb\], .dark .bg-\[\#eaf1fb\], .dark .bg-\[\#e6ecf6\] { background-color: #383a3e; }
-.dark .hover\:bg-\[\#f2f6fc\]:hover,
-.dark .bg-\[\#f2f6fc\] { background-color: #35363a; }
-.dark .hover\:bg-\[\#e6ecf6\]:hover { background-color: #3c4043; }
+/* Fixed-hex backgrounds inherited from the original Gmail-like palette, mapped to surfaces in both themes */
+.bg-\[\#f6f8fc\], .bg-\[\#f7f9fc\] { background-color: var(--ground); }
+.bg-\[\#f2f6fc\], .bg-\[\#f1f4fa\], .bg-\[\#f0f4f8\], .bg-\[\#f0f3f9\] { background-color: var(--surface-2); }
+.bg-\[\#eef3fb\], .bg-\[\#eaf1fb\], .bg-\[\#e6ecf6\] { background-color: var(--surface-3); }
+.hover\:bg-\[\#f2f6fc\]:hover { background-color: var(--surface-2); }
+.hover\:bg-\[\#e6ecf6\]:hover { background-color: var(--surface-3); }
 /* Soft shadows turn dark */
 .dark .shadow-neutral-200, .dark .shadow-neutral-300 { --tw-shadow-color: rgb(0 0 0 / 0.6); }
 /* HTML emails assume a white background: keep them on light "paper" inside the dark theme */
