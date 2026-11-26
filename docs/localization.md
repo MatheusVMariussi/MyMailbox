@@ -2,7 +2,7 @@
 
 MyMailbox defaults to English and also ships Português (Brasil) (`pt-BR`). Visitors switch language from the homepage or sign-in page, and signed-in users can set it under **Settings → Account → General**, next to their time zone.
 
-Every catalog covers the whole interface. Email content, custom folder and mailbox names stay user content, and selecting a language does not change routes, system-folder identifiers or date/time formatting.
+Every catalog covers the whole interface. Email content, label and mailbox names stay user content, and selecting a language does not change routes, system-folder identifiers or date/time formatting.
 
 ## Preference and rendering
 

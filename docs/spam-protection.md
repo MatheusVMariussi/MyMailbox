@@ -6,7 +6,7 @@ Scores range from 0 to 100. Messages scoring 55 or higher move to Spam by defaul
 
 A passing SPF, DKIM or DMARC result only proves that mail came from the domain it claims, and a throwaway domain passes for its own mail. Passes therefore lower the score in full only for senders you have a relationship with: a manually saved contact, an address you have written to, a sender or domain you have repeatedly marked as legitimate, or an address that has already written to the mailbox at least twice without being reported as spam. For a first-time sender a pass counts for half (at most 7 points instead of 14), while a failure still adds its full score. A first-time sender (no saved contact, and no earlier message from that exact address) that pitches search-engine or traffic services for your own website (it names your domain, matches at least two typical SEO sales phrases, is not a reply and has no unsubscribe header) also gets a +45 signal.
 
-Scores from 40 through 69 are recorded as suspicious but remain in their normal Inbox or custom folder. Analysis failures also deliver normally. Automatic replies and new-message notifications are suppressed for messages placed in Spam.
+Scores from 40 through 69 are recorded as suspicious but remain in their normal Inbox (or wherever a rule put them). Analysis failures also deliver normally. Automatic replies and new-message notifications are suppressed for messages placed in Spam.
 
 The Spam Filter switch is under **Settings → Inbox → Spam protection** and is enabled by default. Disabling it affects future incoming messages; it does not move or rescan existing mail.
 
@@ -20,9 +20,9 @@ MyMailbox accepts mail before this analysis. Forward-only routing occurs before 
 
 ## Rules for newsletters and promotional mail
 
-Routing rules can match on **Newsletter or promotional mail** instead of text. One rule is enough to move all such mail to a folder, Spam or Trash, or to forward it with a kept copy. Pick it in the rule's field list under **Settings → Inbox** (mailbox rules) or **Domain routing**; there is no value to enter.
+Routing rules can match on **Newsletter or promotional mail** instead of text. One rule is enough to label all such mail (and skip the inbox), move it to Spam or Trash, or forward it with a kept copy. Pick it in the rule's field list under **Settings → Inbox** (mailbox rules) or **Domain routing**; there is no value to enter.
 
-The condition is usually newsletters and marketing mail, but some notifications (for example GitHub or ticketing tools) carry the same headers and match too. Because a match can be wrong, these rules are limited to actions that keep the message: a folder, Spam, Trash, or a forward that keeps a copy. Reject and forwarding without a copy are refused, in the interface and by the API.
+The condition is usually newsletters and marketing mail, but some notifications (for example GitHub or ticketing tools) carry the same headers and match too. Because a match can be wrong, these rules are limited to actions that keep the message: a label, skipping the inbox, Spam, Trash, or a forward that keeps a copy. Reject and forwarding without a copy are refused, in the interface and by the API.
 
 Detection reads headers only, so it works the same for mail received through Cloudflare, SMTP and Resend. A message counts when it has any of:
 

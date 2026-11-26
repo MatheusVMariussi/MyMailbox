@@ -10,7 +10,7 @@ MyMailbox is a personal webmail for your own domain: email and calendar running 
 
 - **Mailboxes on your domains**: personal or shared mailboxes with access you control, aliases and catch-all addresses. Receive through Cloudflare Email Routing or Resend and send through Cloudflare Email Sending or Resend, chosen per domain.
 - **Reading and writing**: conversation view, rich-text composer with signatures and templates, undo send, scheduled send, snooze, follow-up reminders, opt-in read receipts, auto-replies and conversation notes.
-- **Organising**: folders, stars, archive, routing rules (store, forward, reject or file incoming mail) and an optional Promotions category for bulk mail.
+- **Organising**: Gmail-style labels (many per message, never taking mail out of the inbox), stars, archive, routing rules (label, skip the inbox, forward or reject incoming mail) and an optional Promotions category for bulk mail.
 - **Search**: full-text search with `from:`, `to:`, `subject:`, `has:attachment`, `is:unread`, `after:`/`before:`, exact phrases and `-exclusions`.
 - **Spam filtering**: local scoring from authentication results, sender history, a Bayesian classifier and optional blocklist lookups. See [Spam protection](docs/spam-protection.md).
 - **Deliverability**: per-domain suppression of bounced addresses, DMARC aggregate and TLS reports, MTA-STS. See [Deliverability](docs/deliverability.md).
