@@ -6,11 +6,7 @@ Users choose an IANA timezone in `/settings/account`. Leaving it blank follows t
 
 Authenticated browser requests send `X-Time-Zone`. Message queries also include `timeZone` so cached searches are scoped to their timezone. The saved account preference takes precedence on the server. When the preference is blank, API consumers can supply either a query parameter or header; the query parameter takes precedence. Missing or invalid zones fall back to UTC.
 
-`after:` / `newer:` are inclusive local-midnight boundaries, and `before:` / `older:` are exclusive local-midnight boundaries. Each date uses its own timezone offset. Chat searches use the same timezone as the assistant's time context.
-
-## Daily AI usage
-
-The API groups the last 30 calendar days using the requesting user's timezone, including days shorter or longer than 24 hours. The chart names that timezone and uses the dates returned by the API.
+`after:` / `newer:` are inclusive local-midnight boundaries, and `before:` / `older:` are exclusive local-midnight boundaries. Each date uses its own timezone offset.
 
 ## Calendar
 
@@ -24,7 +20,7 @@ During a daylight-saving overlap, generated occurrences use the earlier instant;
 
 ## Operational schedules
 
-Backups still run at the explicitly labeled 02:00 UTC schedule. Automated assistant daily limits still reset at UTC midnight. Session expiration uses a fixed 30-day elapsed duration, independent of the server's timezone.
+Backups still run at the explicitly labeled 02:00 UTC schedule. Session expiration uses a fixed 30-day elapsed duration, independent of the server's timezone.
 
 ## Verification status
 

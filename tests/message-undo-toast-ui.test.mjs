@@ -377,9 +377,9 @@ test("dismissing removes a toast and returns focus to main content", async (t) =
 
 test("focus falls back to a visible app surface when main is inert", async (t) => {
 	const app = await mount(t);
-	const assistant = document.createElement("section");
-	assistant.id = "email-assistant-panel";
-	document.body.appendChild(assistant);
+	const menu = document.createElement("nav");
+	menu.setAttribute("data-mobile-menu", "");
+	document.body.appendChild(menu);
 	const id = await act(async () => show());
 	await ui.flush();
 	const close = toast(app.container, id).querySelector('button[aria-label="Dismiss"]');
@@ -393,8 +393,8 @@ test("focus falls back to a visible app surface when main is inert", async (t) =
 	});
 	await ui.flush();
 	assert.equal(toast(app.container, id), null);
-	assert.equal(document.activeElement, assistant);
-	assistant.remove();
+	assert.equal(document.activeElement, menu);
+	menu.remove();
 });
 
 test("removing a focused toast resumes the remaining region countdown", async (t) => {

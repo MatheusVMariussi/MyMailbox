@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { agentSendApprovals, apiKeys, mcpKeyMailboxes } from "@/db/schema";
+import { apiKeys, mcpKeyMailboxes } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { generateApiKey, generateAppPassword, parseScopes, scopesToJson } from "@/lib/api-keys";
 import { API_KEY_SCOPES } from "@/lib/api/scopes";
@@ -93,7 +93,6 @@ export async function DELETE(request: Request) {
 	const [key] = await db.select({ id: apiKeys.id, scopes: apiKeys.scopes }).from(apiKeys).where(and(eq(apiKeys.id, id), eq(apiKeys.userId, user.id))).limit(1);
 	if (!key) return NextResponse.json({ error: "Key not found" }, { status: 404 });
 	if (parseScopes(key.scopes).some((scope) => (ADMIN_API_KEY_SCOPES as readonly string[]).includes(scope))) return NextResponse.json({ error: "Manage this key in Admin API keys" }, { status: 403 });
-	await db.update(agentSendApprovals).set({ status: "cancelled" }).where(and(eq(agentSendApprovals.requestKeyId, id), eq(agentSendApprovals.status, "pending")));
 	await db.delete(apiKeys).where(and(eq(apiKeys.id, id), eq(apiKeys.userId, user.id)));
 	return NextResponse.json({ ok: true });
 }

@@ -35,7 +35,6 @@ import { MessageDetailsPanel } from "@/components/messages/message-details-panel
 import { SenderCheckNotice } from "@/components/messages/sender-check-notice";
 import { useMessageThread } from "@/components/messages/use-message-thread";
 import { useLatestMessagesFirst } from "@/components/messages/use-latest-messages-first";
-import { useMessageListVisibility } from "@/components/messages/message-list-visibility";
 import { subscribePendingOverlay } from "@/lib/messages/field-store";
 import { splitEmailAddressList } from "@/lib/email/address";
 import { findInviteAttachment } from "@/lib/calendar/invite-attachment";
@@ -57,7 +56,6 @@ import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import { getEmailAddress } from "@/lib/email/address";
 import { useRemoteContent } from "@/components/messages/use-remote-content";
 import clsx from "clsx";
-import { useAssistantOpen } from "@/components/agent/assistant-open-state";
 import { useMessageContentScroll } from "./use-message-content-scroll";
 import { useSendViewStatus } from "@/components/messages/use-send-view-status";
 import { MailingListBanner } from "@/components/messages/mailing-list-banner";
@@ -95,11 +93,8 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
     data?.message ? getEmailAddress(data.message.fromAddr) : undefined,
     data?.message?.status === "spam",
   );
-  const { visible: messageListVisible } = useMessageListVisibility();
   usePageLoading(loading, true);
   const thread = useMessageThread(messageId, data?.message?.threadId);
-  const assistantVisible = useAssistantOpen();
-  const isAnyPanelVisible = messageListVisible || assistantVisible;
   const { scrollRef, scrolled, handleScroll } = useMessageContentScroll(messageId, loading);
   const [unsubBannerDismissed, dismissUnsubBanner] = useMailingListBanner(messageId);
   // A browser/server response can race the explicit read this reader sends when
@@ -323,7 +318,7 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
   return (<ConversationNotesProvider key={message.threadId ?? message.id} messageId={message.id} emails={noteEmails}>
 
     <div className={clsx("flex py-2 h-12 items-center px-2 border-b sticky top-0 bg-white z-40 gap-3", scrolled ? "border-neutral-200" : "border-transparent")}>
-      <MessageReadingHeaderButton assistantVisible={assistantVisible} />
+      <MessageReadingHeaderButton />
       {/* <div className="min-w-0 flex-1" /> */}
       {/* <div className="flex items-center flex-row gap-6">
 					<Link

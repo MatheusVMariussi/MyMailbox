@@ -93,8 +93,8 @@ authentication (CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID).
 
 Read README.md, docs/deployment.md, and wrangler.jsonc first. Keep the Worker name
 exactly mailflare. In the selected account, create or reuse the D1 database
-mailflare, R2 bucket mailflare-raw, and Queues mailflare-inbound,
-mailflare-outbound, and mailflare-agent. Set the D1 database_id in the local
+mailflare, R2 bucket mailflare-raw, and Queues mailflare-inbound and
+mailflare-outbound. Set the D1 database_id in the local
 Wrangler config without committing that account-specific ID. Install dependencies,
 run npm run deploy, and set the runtime CF_TOKEN as a Worker secret. Do not run
 remote D1 migrations manually; the /setup flow initializes the database.
@@ -147,7 +147,7 @@ When all four B2 variables (or the S3 ones) are present that storage replaces R2
 - **Switching does not copy data.** Objects already in R2 are not moved; copy them to the bucket first (for example with `rclone`, keeping the same keys) or old mail bodies, attachments and Drive files will report as missing.
 - **Drive upload parts** are buffered one at a time in the Worker (64 MB each). B2 and S3 require every part but the last to be at least 5 MB, which holds.
 - **Lifecycle.** Set the bucket's lifecycle rule to keep only the last version and to delete unfinished large files after a few days, as R2 would abort incomplete multipart uploads.
-- **Test it** with `POST /api/v1/storage` (admin key with the `storage` scope), or the `manage_storage` MCP tool with `action: "test"`; it writes, reads and deletes a small object.
+- **Test it** with `POST /api/v1/storage` (admin key with the `storage` scope); it writes, reads and deletes a small object.
 
 ## Database backups
 
@@ -156,14 +156,6 @@ Mailflare exports its D1 records as JSON and stores the backup files in the conf
 Deploy the complete Worker with `npm run deploy` whenever the cron trigger is added or changed.
 
 After upgrading an existing installation and confirming the cron trigger is active, the old Workflow can be removed with `npx wrangler workflows delete mailflare-database-backup`. Deleting it also removes its historical Workflow instances; backup files in storage and rows in Mailflare's backup history are unaffected.
-
-## Email assistant and MCP
-
-The assistant uses the Workers AI `AI` binding and a separate `mailflare-agent` queue. Provision the queue in the Cloudflare account before deploying a configuration that declares it, and apply migration `0032_add_agentic_mail.sql` before opening the new UI on an existing database. The five-minute cron recovers pending auto-draft work; the 02:00 UTC cron still runs backups.
-
-In the inbox, open **Assistant → Settings** for a mailbox, select its reviewer, and enable the assistant. Auto-drafting is a separate opt-in. It skips spam, automated mail, and mailboxes with out-of-office replies enabled. Generated replies appear as ordinary drafts assigned to the reviewer. The reviewer must open the draft and confirm the exact content before delivery.
-
-The assistant panel no longer exposes MCP key management. External MCP clients can still connect to `https://<your-mailflare-origin>/mcp` with a mailbox-scoped Bearer key created through the authenticated `/api/agent/mcp-keys` endpoint. Keys can be listed and revoked through that endpoint; a new key is shown only once. The server uses Streamable HTTP and accepts clients that can set a Bearer header. Its `request_send` tool returns a Mailflare review URL; the MCP key cannot confirm or deliver messages directly. MCP does not require Workers AI for read and draft tools.
 
 ## Database migrations
 

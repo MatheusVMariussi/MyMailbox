@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Globe2, KeyRound, Mail, Palette, Users } from "@/components/icons";
+import { Globe2, KeyRound, Mail, Palette, Users } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { AdminMigrationsCard } from "@/components/admin-migrations-card";
@@ -12,18 +12,11 @@ type AdminSection = {
 	href: string;
 	titleKey: TranslationKey;
 	descriptionKey: TranslationKey;
-	icon: typeof Bot;
+	icon: typeof Mail;
 	permission?: "primary" | "domains" | "users";
 };
 
 const sections: AdminSection[] = [
-	{
-		href: "/agent",
-		titleKey: "admin.nav.agent",
-		descriptionKey: "admin.section.agent",
-		icon: Bot,
-		permission: "primary",
-	},
 	{
 		href: "/mailboxes",
 		titleKey: "admin.nav.mailboxes",

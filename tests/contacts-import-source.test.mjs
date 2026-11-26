@@ -15,7 +15,6 @@ await build({
 			export { applyMigrations } from "./tests/helpers/migrate.ts";
 			export { getDb } from "./src/db/index.ts";
 			export { analyzeSpam } from "./src/lib/spam/engine.ts";
-			export { unfamiliarRecipients } from "./src/lib/agent/approvals/utils.ts";
 			export { upsertContactFromAddress, upsertContactsFromAddresses } from "./src/lib/contacts/service.ts";
 			export { getPartyDisplayName } from "./src/lib/contacts/utils.ts";
 		`,
@@ -28,7 +27,7 @@ await build({
 	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
-const { SqliteDatabase, applyMigrations, getDb, analyzeSpam, unfamiliarRecipients, upsertContactFromAddress, upsertContactsFromAddresses, getPartyDisplayName } = await import(pathToFileURL(join(directory, "entry.mjs")).href);
+const { SqliteDatabase, applyMigrations, getDb, analyzeSpam, upsertContactFromAddress, upsertContactsFromAddresses, getPartyDisplayName } = await import(pathToFileURL(join(directory, "entry.mjs")).href);
 
 async function fixture(t, source) {
 	const database = new SqliteDatabase(":memory:");
@@ -49,12 +48,6 @@ const signalIds = async (f) => (await analyzeSpam(f.db, { mailboxId: "m1", userI
 test("an imported contact counts as a saved contact for the spam score, like a manual one", async (t) => {
 	for (const source of ["manual", "import"]) assert.ok((await signalIds(await fixture(t, source))).includes("manual_contact"), source);
 	assert.ok(!(await signalIds(await fixture(t, "inbound"))).includes("manual_contact"));
-});
-
-test("an imported address is a familiar recipient for agent sends, like a manual one", async (t) => {
-	const snapshot = { to: "pal@x.test, stranger@y.test", cc: null, bcc: null };
-	for (const source of ["manual", "import"]) assert.deepEqual(await unfamiliarRecipients((await fixture(t, source)).env, "u1", snapshot), ["stranger@y.test"], source);
-	assert.deepEqual(await unfamiliarRecipients((await fixture(t, "inbound")).env, "u1", snapshot), ["pal@x.test", "stranger@y.test"]);
 });
 
 test("an imported name wins over the message header name, like a manual one", () => {

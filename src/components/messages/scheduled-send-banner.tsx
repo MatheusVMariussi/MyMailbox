@@ -65,7 +65,7 @@ export function ScheduledSendBanner({ messageId, scheduledAt, onRescheduled }: {
 				disabled={cancelling || rescheduling}
 				className="shrink-0 font-medium text-blue-600 hover:underline disabled:opacity-50"
 			>
-				{t("agent.activity.editDraft")}
+				{t("schedule.editDraft")}
 			</button>
 			<button
 				type="button"

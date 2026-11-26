@@ -19,7 +19,6 @@ await build({
 			export { createUserAccountSchema } from "./src/lib/validators.ts";
 			export { POST as dashboardCreate } from "./src/app/api/accounts/route.ts";
 			export { POST as apiCreate } from "./src/app/api/v1/accounts/route.ts";
-			export { registerAdminMcpTools } from "./src/lib/mcp/admin-tools.ts";
 			export { getMailboxDomainAddresses } from "./src/lib/mailboxes/domain-addresses.ts";
 			export { resolveInboundAddress } from "./src/lib/email/routing.ts";
 			export { getAuthorizedSenderAddress } from "./src/lib/email/sender.ts";
@@ -39,7 +38,7 @@ await build({
 });
 const {
 	SqliteDatabase, applyMigrations, getDb, createSession, generateApiKey, createUserAccountSchema,
-	dashboardCreate, apiCreate, registerAdminMcpTools, getMailboxDomainAddresses, resolveInboundAddress, getAuthorizedSenderAddress,
+	dashboardCreate, apiCreate, getMailboxDomainAddresses, resolveInboundAddress, getAuthorizedSenderAddress,
 } = await import(pathToFileURL(join(directory, "entry.mjs")).href);
 const key = await generateApiKey();
 
@@ -149,16 +148,6 @@ test("omitted settings preserve API compatibility; opting in includes future dom
 	assert.equal((await f.post("dashboard", { username: "jane", useAllDomains: true, aliases: [{ domainId: "two", localPart: "billing" }] })).status, 201);
 	const address = await resolveInboundAddress(f.db, "billing@two.test");
 	assert.equal(address.mailbox.localPart, "jane");
-});
-
-test("admin MCP forwards alias selection to the same account creation handler", async (t) => {
-	const f = await fixture(t);
-	const handlers = new Map();
-	registerAdminMcpTools({ registerTool: (name, _schema, handler) => handlers.set(name, handler) }, { scopes: ["accounts"] }, "https://mailflare.test", `Bearer ${key.fullKey}`);
-	const result = await handlers.get("manage_accounts")({ action: "create", data: { username: "sam", domainId: "one", password: "test-password", useAllDomains: false, aliases: [{ domainId: "two", localPart: "sales" }] } });
-	assert.equal(result.isError, false);
-	assert.equal(JSON.parse(result.content[0].text).status, 201);
-	assert.deepEqual((await getMailboxDomainAddresses(f.db, f.mailbox())).sort(), ["sales@two.test", "sam@one.test"]);
 });
 
 test("invalid, duplicate, foreign, and inactive aliases fail before provisioning", async (t) => {

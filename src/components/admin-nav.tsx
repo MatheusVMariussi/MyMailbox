@@ -11,7 +11,6 @@ import {
   Route,
   Webhook,
   KeyRound,
-  Bot,
   ShieldCheck,
   ShieldAlert,
 } from "@/components/icons";
@@ -60,7 +59,6 @@ const sections: { id?: string; labelKey?: TranslationKey; links: AdminNavLink[] 
     links: [
       { href: "/api-keys", labelKey: "admin.nav.apiKeys", icon: KeyRound, permission: "primary" },
       { href: "/general", labelKey: "admin.nav.general", icon: Settings, permission: "primary" },
-      { href: "/agent", labelKey: "admin.nav.agent", icon: Bot, permission: "primary" },
       { href: "/accounts", labelKey: "admin.nav.accounts", icon: Users },
       { href: "/activity", labelKey: "admin.nav.activity", icon: Activity, permission: "primary" },
       { href: "/backups", labelKey: "admin.nav.backups", icon: DatabaseBackup, permission: "primary" },

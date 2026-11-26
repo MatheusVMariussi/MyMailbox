@@ -44,7 +44,6 @@ export function RichTextEditor({ value, onChange, toolbarStart, toolbarEnd, foot
 `],
   ["@/components/compose/recipient-input", `export function RecipientInput() { return null; }`],
   ["@/components/compose/schedule-send-menu", `export function ScheduleSendMenu() { return null; }`],
-  ["@/components/agent/send-review", `export function SendReview() { return null; }`],
 ]);
 
 const genericUI = `

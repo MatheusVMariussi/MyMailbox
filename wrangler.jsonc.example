@@ -42,11 +42,6 @@
 			"namespace_id": "1004",
 			"simple": { "limit": 600, "period": 60 },
 		},
-		{
-			"name": "AGENT_RATE_LIMIT",
-			"namespace_id": "1002",
-			"simple": { "limit": 120, "period": 60 },
-		},
 	],
 	"observability": {
 		"enabled": true,
@@ -58,7 +53,6 @@
 			"remote": true,
 		},
 	],
-	"ai": { "binding": "AI" },
 	"d1_databases": [
 		{
 			"binding": "DB",
@@ -82,10 +76,6 @@
 				"binding": "OUTBOUND_QUEUE",
 				"queue": "mailflare-outbound",
 			},
-			{
-				"binding": "AGENT_QUEUE",
-				"queue": "mailflare-agent",
-			},
 		],
 		"consumers": [
 			{
@@ -99,11 +89,6 @@
 			{
 				"queue": "mailflare-outbound",
 				"max_batch_size": 5,
-				"max_retries": 3,
-			},
-			{
-				"queue": "mailflare-agent",
-				"max_batch_size": 1,
 				"max_retries": 3,
 			},
 		],

@@ -29,20 +29,6 @@ export function formatMessageIdHeader(ids: string[]): string {
 }
 
 /**
- * The References line a reply should carry: the parent's own chain followed by
- * the parent itself. Long chains keep the root and the most recent ancestors,
- * which is what mail clients use to reconstruct a conversation.
- */
-export function buildReplyReferences(parentReferences: string[], parentMessageId: string | null): string[] {
-	const ids = [...parentReferences];
-	const parent = normalizeMessageId(parentMessageId);
-	if (parent && !ids.includes(parent)) ids.push(parent);
-	const MAX = 30;
-	if (ids.length <= MAX) return ids;
-	return [ids[0], ...ids.slice(ids.length - (MAX - 1))];
-}
-
-/**
  * Work out which conversation a message belongs to. A reply names its parent in
  * In-Reply-To or References; if that parent is stored in the same mailbox, the
  * new message joins the parent's thread. Otherwise it starts a thread keyed by

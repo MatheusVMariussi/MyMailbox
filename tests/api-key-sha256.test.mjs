@@ -16,7 +16,6 @@ await build({
 			export { generateApiKey, generateAppPassword, hashApiKey, timingSafeEqualText, verifyApiKey } from "./src/lib/api-keys.ts";
 			export { clearApiKeyVerificationCache } from "./src/lib/api/find-api-key.ts";
 			export { authenticateApiKeyValue, authenticateApiRequest } from "./src/lib/api/key-auth.ts";
-			export { authenticateMcpRequest } from "./src/lib/mcp/auth.ts";
 			export { hashPassword, verifyPassword } from "./src/lib/auth/password.ts";
 			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
 			export { applyMigrations } from "./tests/helpers/migrate.ts";
@@ -45,7 +44,6 @@ const {
 	clearApiKeyVerificationCache,
 	authenticateApiKeyValue,
 	authenticateApiRequest,
-	authenticateMcpRequest,
 	hashPassword,
 	verifyPassword,
 	SqliteDatabase,
@@ -159,19 +157,12 @@ test("disabled users and account passwords are rejected", async (t) => {
 	assert.equal(await authenticateApiKeyValue(env, ""), null);
 });
 
-test("MCP accepts only mcp keys and uses the same SHA-256 check", async (t) => {
+test("keys minted for the retired MCP server authenticate as ordinary keys", async (t) => {
 	const { database, env } = await createFixture(t);
 	const issued = await generateApiKey();
 	insertKey(database, { id: "mcp", prefix: issued.prefix, hash: "not-a-bcrypt-hash", sha256: issued.sha256, kind: "mcp", scopes: '["mcp:read"]' });
-	const request = new Request("https://mail.example/mcp", { headers: { Authorization: `Bearer ${issued.fullKey}` } });
-	const principal = await authenticateMcpRequest(env, request);
-	assert.equal(principal?.keyId, "mcp");
-	assert.deepEqual(principal?.scopes, ["mcp:read"]);
-	const appPassword = await generateAppPassword();
-	insertKey(database, { id: "app", prefix: appPassword.prefix, hash: appPassword.hash, sha256: appPassword.sha256, scopes: '["mcp:read"]' });
-	const appRequest = new Request("https://mail.example/mcp", { headers: { Authorization: `Bearer ${appPassword.fullKey}` } });
-	assert.equal(await authenticateMcpRequest(env, appRequest), null);
-	database.db.prepare("UPDATE api_keys SET kind = 'legacy' WHERE id = 'mcp'").run();
-	clearApiKeyVerificationCache();
-	assert.equal(await authenticateMcpRequest(env, request), null);
+	const auth = await authenticateApiKeyValue(env, issued.fullKey);
+	assert.equal(auth?.keyId, "mcp");
+	assert.equal(auth?.keyKind, "legacy");
+	assert.deepEqual(auth?.scopes, ["mcp:read"]);
 });

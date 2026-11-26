@@ -44,50 +44,8 @@ await build({
 	logLevel: "silent",
 });
 
-// The real tool handlers of src/lib/mcp/server.ts run against a recording MCP
-// server and stubs for everything outside the note tools, so the scope checks
-// execute exactly as shipped without a JSON-RPC transport.
-const mcpMocks = {
-	"@modelcontextprotocol/server": `
-		export class McpServer {
-			constructor() { this.tools = new Map(); }
-			registerTool(name, config, handler) { this.tools.set(name, handler); }
-		}
-		export const createMcpHandler = (factory) => factory();
-	`,
-	"@/lib/agent/tools": `export const EMAIL_TOOL_NAMES = []; export const emailToolDescriptions = { edit_draft: "" }; export const emailToolSchemas = { edit_draft: { shape: {} } }; export const runEmailTool = () => { throw new Error("not under test"); };`,
-	"@/lib/agent/edit-draft": `export const editAgentDraft = () => { throw new Error("not under test"); };`,
-	"@/lib/agent/approvals/utils": `export const requestAgentSend = () => { throw new Error("not under test"); }; export const getAgentSendRequest = () => { throw new Error("not under test"); };`,
-	"@/lib/email/scheduled": `export const cancelScheduledSend = () => { throw new Error("not under test"); }; export const getScheduledTime = () => { throw new Error("not under test"); };`,
-	"@/lib/calendar/tools": `export const CALENDAR_TOOL_NAMES = []; export const calendarToolDescriptions = {}; export const calendarToolSchemas = {}; export const calendarToolScope = () => "mcp:calendar-read"; export const runCalendarTool = () => { throw new Error("not under test"); };`,
-	"./admin-tools": `export const registerAdminMcpTools = () => {};`,
-};
-await build({
-	stdin: {
-		contents: `export { createMailflareMcpHandler } from "./src/lib/mcp/server";`,
-		resolveDir: root,
-		loader: "ts",
-	},
-	outfile: join(outDir, "mcp.mjs"),
-	bundle: true,
-	platform: "node",
-	format: "esm",
-	target: "node22",
-	tsconfig: join(root, "tsconfig.json"),
-	external: ["better-sqlite3", "drizzle-orm", "drizzle-orm/*"],
-	logLevel: "silent",
-	plugins: [{
-		name: "mcp-mocks",
-		setup(builder) {
-			builder.onResolve({ filter: /.*/ }, (args) => (args.path in mcpMocks ? { path: args.path, namespace: "mock" } : undefined));
-			builder.onLoad({ filter: /.*/, namespace: "mock" }, (args) => ({ contents: mcpMocks[args.path], loader: "js" }));
-		},
-	}],
-});
-
 const load = (name) => import(pathToFileURL(join(outDir, `${name}.mjs`)).href);
 const notes = await load("notes");
-const mcp = await load("mcp");
 const { SqliteDatabase } = await load("database");
 const { applyMigrations } = await load("migrate");
 
@@ -269,33 +227,4 @@ test("a note whose author is gone stays, can no longer be edited, and a manager 
 	assert.equal(note.authorName, null);
 	assert.equal(note.canEdit, false);
 	assert.equal(note.canDelete, true);
-});
-
-test("an MCP key with only mcp:read can list notes but cannot write them", async (t) => {
-	const { db, addMessage, conversation, env } = await createFixture(t);
-	addMessage("m1");
-	const own = await conversation(owner, "m1");
-	const note = await notes.addConversationNote(db, own, owner.id, { html: "<p>x</p>" });
-	const server = mcp.createMailflareMcpHandler(env, { keyId: "key", user: reader, scopes: ["mcp:read"], mailboxIds: ["support"] }, "http://localhost", "");
-	const call = async (name, args) => {
-		const result = await server.tools.get(name)(args);
-		return { data: JSON.parse(result.content[0].text), isError: !!result.isError };
-	};
-
-	const listed = await call("list_conversation_notes", { mailboxId: "support", messageId: "m1" });
-	assert.equal(listed.isError, false);
-	assert.equal(listed.data.contentTrust, "untrusted_third_party_content");
-	assert.equal(listed.data.notes.length, 1);
-
-	for (const [name, args] of [
-		["add_conversation_note", { mailboxId: "support", messageId: "m1", html: "<p>denied</p>" }],
-		["update_conversation_note", { mailboxId: "support", messageId: "m1", noteId: note.id, html: "<p>denied</p>" }],
-		["delete_conversation_note", { mailboxId: "support", messageId: "m1", noteId: note.id }],
-	]) {
-		const denied = await call(name, args);
-		assert.equal(denied.isError, true);
-		assert.equal(denied.data.error, "Permission denied");
-	}
-	const [kept] = await notes.listConversationNotes(db, own, owner.id);
-	assert.equal(kept.html, "<p>x</p>", "the denied calls did not touch the note");
 });

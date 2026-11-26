@@ -15,7 +15,6 @@ await build({
 			export { applyMigrations } from "./tests/helpers/migrate.ts";
 			export { createSession, getUserFromSession } from "./src/lib/auth/session.ts";
 			export * as contactsRoute from "./src/app/api/contacts/route.ts";
-			export { createMailflareMcpHandler } from "./src/lib/mcp/server.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "delegate-access-test-entry.ts",
@@ -30,7 +29,7 @@ await build({
 	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
-const { SqliteDatabase, applyMigrations, createSession, getUserFromSession, contactsRoute, createMailflareMcpHandler } =
+const { SqliteDatabase, applyMigrations, createSession, getUserFromSession, contactsRoute } =
 	await import(pathToFileURL(join(directory, "entry.mjs")).href);
 
 // The primary admin owns a shared inbox; Sam is a member of it with the permission each test sets.
@@ -85,48 +84,4 @@ test("a shared-inbox manager can still delete an ordinary contact", async t => {
 	const response = await contactsRoute.DELETE(f.request("/api/contacts?mailboxId=m-shared&address=friend%40example.net", "DELETE"));
 	assert.equal(response.status, 200);
 	assert.equal(f.sql.prepare("SELECT count(*) AS count FROM contacts WHERE id='c-friend'").get().count, 0);
-});
-
-async function callMcpTool(f, principal, name, args) {
-	const handler = createMailflareMcpHandler(f.env, principal, "https://mail.test", "Bearer test");
-	try {
-		const response = await handler.fetch(new Request("https://mail.test/mcp", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
-			body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
-		}));
-		const text = await response.text();
-		const data = text.startsWith("{") ? JSON.parse(text) : JSON.parse(text.split("\n").find((line) => line.startsWith("data:")).slice(5));
-		return data.result;
-	} finally {
-		await handler.close();
-	}
-}
-
-function scheduleSend(f) {
-	f.sql.exec(`
-		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, subject, text_body, status, created_at)
-			VALUES ('scheduled', 'primary', 'm-shared', 'outbound', 'support@one.test', 'customer@example.net', 'Later', 'Body', 'queued', 1);
-		INSERT INTO outbound_jobs (id, user_id, message_id, payload, scheduled_at, created_at, updated_at)
-			VALUES ('job', 'primary', 'scheduled', '{}', 2000000000, 0, 0);
-	`);
-}
-
-test("the MCP tool does not let a read-only member cancel a scheduled send", async t => {
-	const f = await fixture(t, "read_only");
-	scheduleSend(f);
-	const principal = { keyId: "key", user: await f.sam(), scopes: ["mcp:draft"], mailboxIds: ["m-shared"] };
-	const result = await callMcpTool(f, principal, "cancel_scheduled_send", { mailboxId: "m-shared", messageId: "scheduled" });
-	assert.equal(result.isError, true);
-	assert.equal(f.sql.prepare("SELECT status FROM messages WHERE id='scheduled'").get().status, "queued");
-	assert.equal(f.sql.prepare("SELECT count(*) AS count FROM outbound_jobs").get().count, 1);
-});
-
-test("the MCP tool still cancels for a member who can send", async t => {
-	const f = await fixture(t, "full_access");
-	scheduleSend(f);
-	const principal = { keyId: "key", user: await f.sam(), scopes: ["mcp:draft"], mailboxIds: ["m-shared"] };
-	const result = await callMcpTool(f, principal, "cancel_scheduled_send", { mailboxId: "m-shared", messageId: "scheduled" });
-	assert.notEqual(result.isError, true);
-	assert.equal(f.sql.prepare("SELECT status FROM messages WHERE id='scheduled'").get().status, "draft");
 });

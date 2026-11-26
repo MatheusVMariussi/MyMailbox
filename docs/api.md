@@ -55,7 +55,7 @@ Resend and Amazon SES deliver mail by calling the app, so these routes are publi
 
 Each user has a personal calendar at **Calendar** in the dashboard. Events have a title, description, location, attendees, color, time zone and an optional repeat (`daily`, `weekly`, `monthly` or `weekdays`, with an end date and skipped occurrences). Changing or deleting a repeating event affects the whole series unless you choose a starting occurrence.
 
-When you add attendees and choose a sending mailbox, Mailflare emails each attendee an invitation with a calendar (`.ics`) file from that mailbox, and sends updates and cancellations the same way. Events created through MCP tools or the assistant record attendees but do not send invitations.
+When you add attendees and choose a sending mailbox, Mailflare emails each attendee an invitation with a calendar (`.ics`) file from that mailbox, and sends updates and cancellations the same way.
 
 | Mailflare route | Purpose |
 | --- | --- |
@@ -64,7 +64,7 @@ When you add attendees and choose a sending mailbox, Mailflare emails each atten
 | `PATCH /api/calendar/events/[eventId]` | Update an event or series. For a repeating event, pass an occurrence ID or `effectiveFrom` to change it from that occurrence onward. Like `POST`, the response carries `inviteErrors` when some updated invitations could not be sent |
 | `DELETE /api/calendar/events/[eventId]` | Delete an event, or a series from an occurrence onward |
 
-These routes accept the dashboard session or an API key (`Authorization: Bearer <key>`) with the **Read calendar** (`calendar:read`) or **Manage calendar** (`calendar:write`) scope, which you choose when creating the key in **Settings → API keys**. A key can only send invitations if it also has the `send` scope for the chosen mailbox. MCP and the assistant use separate calendar tools, described in [Email assistant and MCP](email-assistant-and-mcp.md).
+These routes accept the dashboard session or an API key (`Authorization: Bearer <key>`) with the **Read calendar** (`calendar:read`) or **Manage calendar** (`calendar:write`) scope, which you choose when creating the key in **Settings → API keys**. A key can only send invitations if it also has the `send` scope for the chosen mailbox.
 
 ### Booking pages
 
@@ -89,7 +89,7 @@ Admin > API keys can also grant the `accounts`, `mailboxes` and `storage` scopes
 
 The `storage` scope reports and tests object storage: `GET /api/v1/storage` returns `{ storage: { provider: "backblaze" | "s3" | "r2" | "files", configured, bucket, endpoint }, warning }` (credentials are never returned; `warning` explains a half-set `B2_*` configuration), and `POST /api/v1/storage` round-trips a small object and returns `{ ok, error?, latencyMs, storage }` (HTTP 502 on failure). Backblaze B2 (`B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET`, `B2_ENDPOINT`) or AWS S3 (`S3_BUCKET`, `S3_REGION`, credentials) replaces R2 for all stored objects when configured.
 
-Admin API keys cannot read or send mail. Enable **Allow MCP access** when creating an admin key to use its selected `domains`, `accounts`, `mailboxes`, and `storage` permissions through `/mcp`. The `manage_domains`, `manage_accounts`, `manage_mailboxes`, and `manage_storage` (`status`, `test`) tools expose the corresponding management actions below. Admin MCP keys do not expose mail tools. Use Settings > API keys for mail and mail MCP access.
+Admin API keys cannot read or send mail. Use Settings > API keys for mail access.
 
 | Scope | Mailflare route | Purpose |
 | --- | --- | --- |
@@ -112,7 +112,7 @@ Add optional aliases by choosing each username and domain, or enable **Use all d
 to also receive and send as the primary username on every available active domain owned
 by the same admin, including domains added later.
 
-The dashboard, admin API, and MCP `manage_accounts` create action share the same
+The dashboard and the admin API share the same
 creation handler. For example, this API body creates `sam@example.com` with just
 `sales@example.net` as an additional alias:
 
@@ -128,13 +128,12 @@ creation handler. For example, this API body creates `sam@example.com` with just
 }
 ```
 
-Pass the same object as `data` to `manage_accounts` with `action: "create"`.
 `aliases` defaults to an empty list. Alias domains must
 be active and owned by the admin creating the account. Duplicate addresses and conflicts
 with existing mailboxes or aliases are rejected, including equivalent dot/plus variants.
 An alias shares its mailbox's delivery, message storage, and sending permissions.
 
-For backward compatibility, API/MCP requests that omit `useAllDomains` still default
+For backward compatibility, API requests that omit `useAllDomains` still default
 to `true`; pass `false` explicitly for primary-only or selected-alias accounts. The
 dashboard sends `false` unless the checkbox is enabled. This changes initial address
 assignment, not existing mailbox management permissions. Existing accounts are not

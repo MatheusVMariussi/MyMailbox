@@ -3,21 +3,15 @@ import test from "node:test";
 import { loadApp, sharedMailboxSeed } from "./helpers/real-db.mjs";
 
 // Another user's draft that its author filed under Archive or a folder is still private: the
-// thread view, the list's conversation counts, Drive's attachment list and the auto-draft prompt
-// must all leave it out, for everyone but its author.
+// thread view, the list's conversation counts and Drive's attachment list must all leave it out,
+// for everyone but its author.
 const mocks = {
 	"@/lib/cloudflare": "export function getEnv(){return globalThis.prEnv}",
 	"@/lib/auth/cookies": "export async function getCurrentUser(){return globalThis.prUser} export async function requireUser(){return globalThis.prUser}",
-	ai: "export async function generateText(o){globalThis.prPrompt=o.prompt;return {text:''}}",
-	"../model": "export async function getAgentModel(){return {model:{}}}",
-	"../provider": "export async function getAgentEnabled(){return true}",
-	"../tools": "export async function runEmailTool(){return {draftId:'x'}}",
-	"@/lib/ai/usage": "export async function recordAiUsage(){}",
 };
 const { app, newDatabase } = await loadApp("private-draft-readers", `
 	export { getMessageThreadForUser } from "./src/lib/email/thread-view.ts";
 	export { listDriveAttachments } from "./src/lib/drive/attachments.ts";
-	export { processAgentDraftJob } from "./src/lib/agent/jobs/utils.ts";
 	export * as list from "./src/app/api/messages/route.ts";
 `, { mocks });
 
@@ -28,8 +22,6 @@ const seed = `${sharedMailboxSeed("send_on_behalf")}
 	INSERT INTO message_attachments (id, message_id, filename, content_type, size, disposition, r2_key, created_at) VALUES
 		('att-d', 'd-arch', 'secret.pdf', 'application/pdf', 1, 'attachment', 'k1', 1),
 		('att-v', 'in-1', 'ok.pdf', 'application/pdf', 1, 'attachment', 'k2', 1);
-	INSERT INTO mailbox_agent_settings (mailbox_id, enabled, auto_draft_enabled, reviewer_user_id, instructions, daily_limit, updated_at) VALUES ('mb-team', 1, 1, 'delegate', '', 25, 1);
-	INSERT INTO agent_jobs (id, mailbox_id, source_message_id, reviewer_user_id, status, next_attempt_at, created_at) VALUES ('job-1', 'mb-team', 'in-1', 'delegate', 'pending', 1, 1);
 `;
 const user = (id) => ({ id, email: `${id}@example.com`, role: "user" });
 async function setup(t, who) {
@@ -62,13 +54,4 @@ test("Drive lists attachments of visible mail, not of another user's archived dr
 	const names = async (id) => (await app.listDriveAttachments(db, user(id), [])).map((item) => item.name).sort();
 	assert.deepEqual(await names("delegate"), ["ok.pdf"]);
 	assert.deepEqual(await names("author"), ["ok.pdf", "secret.pdf"]);
-});
-
-test("the auto-draft prompt does not quote another user's archived draft", async (t) => {
-	const { env } = await setup(t, "delegate");
-	globalThis.prPrompt = undefined;
-	await app.processAgentDraftJob(env, "job-1");
-	assert.ok(globalThis.prPrompt, "the model was called");
-	assert.match(globalThis.prPrompt, /visible question/);
-	assert.doesNotMatch(globalThis.prPrompt, /SECRET-DRAFT/);
 });

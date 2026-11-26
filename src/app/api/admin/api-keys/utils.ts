@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { agentSendApprovals, apiKeys } from "@/db/schema";
+import { apiKeys } from "@/db/schema";
 import { requireSessionUser } from "@/lib/api/auth";
 import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { generateApiKey, parseScopes, scopesToJson } from "@/lib/api-keys";
@@ -15,7 +15,6 @@ const adminScopes = new Set<string>(ADMIN_API_KEY_SCOPES);
 const createKeySchema = z.object({
 	name: z.string().trim().min(1).max(100),
 	scopes: z.array(z.enum([...ADMIN_API_KEY_SCOPES])).min(1),
-	mcpAllowed: z.boolean().default(false),
 });
 
 async function authorize(request: Request) {
@@ -33,7 +32,6 @@ export async function GET(request: Request) {
 		id: apiKeys.id,
 		name: apiKeys.name,
 		prefix: apiKeys.prefix,
-		kind: apiKeys.kind,
 		scopes: apiKeys.scopes,
 		createdAt: apiKeys.createdAt,
 		lastUsedAt: apiKeys.lastUsedAt,
@@ -52,7 +50,6 @@ export async function POST(request: Request) {
 	const id = newId("key");
 	await db.insert(apiKeys).values({
 		id,
-		kind: parsed.data.mcpAllowed ? "mcp" : "legacy",
 		userId: access.user!.id,
 		name: parsed.data.name,
 		prefix,
@@ -72,7 +69,6 @@ export async function DELETE(request: Request) {
 	const db = getDb(access.env);
 	const [key] = await db.select({ id: apiKeys.id, scopes: apiKeys.scopes }).from(apiKeys).where(and(eq(apiKeys.id, id), eq(apiKeys.userId, access.user!.id))).limit(1);
 	if (!key || !parseScopes(key.scopes).some((scope) => adminScopes.has(scope))) return NextResponse.json({ error: "Key not found" }, { status: 404 });
-	await db.update(agentSendApprovals).set({ status: "cancelled" }).where(and(eq(agentSendApprovals.requestKeyId, id), eq(agentSendApprovals.status, "pending")));
 	await db.delete(apiKeys).where(eq(apiKeys.id, id));
 	return NextResponse.json({ ok: true });
 }

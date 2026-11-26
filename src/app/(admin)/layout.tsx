@@ -21,7 +21,6 @@ import { ShortcutsProvider } from "@/components/shortcuts";
 import { RouteTitle } from "@/components/route-title";
 
 const primaryOnlyPrefixes = [
-  "/agent",
   "/api-keys",
   "/webhooks",
   "/spam-filter",
@@ -30,7 +29,6 @@ const primaryOnlyPrefixes = [
   "/activity",
   "/audit-logs",
   "/general",
-  "/ai-usage",
 ];
 
 export default function DashboardLayout({

@@ -20,7 +20,7 @@ type AccountAdminActor = {
 	createdByUserId: string | null;
 };
 
-/** Shared by dashboard and admin API/MCP account creation. */
+/** Shared by dashboard and admin API account creation. */
 export async function createAccountResponse(env: CloudflareEnv, actor: AccountAdminActor, input: CreateUserAccountInput) {
 	const db = getDb(env);
 	const adminUserId = actor.id;

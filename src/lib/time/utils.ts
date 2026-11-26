@@ -1,4 +1,3 @@
-import type { ZonedDay } from "./types";
 
 const fieldFormatters = new Map<string, Intl.DateTimeFormat>();
 const displayFormatters = new Map<string, Intl.DateTimeFormat>();
@@ -119,16 +118,4 @@ export function dateFromZonedFields(fields: Date, timeZone: string): Date {
 	return candidates.find((date) => zonedDateFields(date, timeZone).getTime() === wallTime)
 		?? candidates.find((date) => zonedDateFields(date, timeZone).getTime() > wallTime)
 		?? candidates[candidates.length - 1];
-}
-
-export function recentZonedDays(timeZone: string, count: number, now = new Date()): ZonedDay[] {
-	const today = zonedDateFields(now, timeZone);
-	today.setUTCHours(0, 0, 0, 0);
-	return Array.from({ length: count }, (_, index) => {
-		const day = new Date(today);
-		day.setUTCDate(day.getUTCDate() - count + 1 + index);
-		const next = new Date(day);
-		next.setUTCDate(next.getUTCDate() + 1);
-		return { date: day.toISOString().slice(0, 10), start: dateFromZonedFields(day, timeZone), end: dateFromZonedFields(next, timeZone) };
-	});
 }

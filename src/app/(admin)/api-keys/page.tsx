@@ -21,7 +21,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { List, ListRow } from "@/components/ui/list";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
-import { McpAgentInstructions } from "@/components/settings/mcp-agent-instructions";
 import { authFetch } from "@/lib/auth/client";
 import type { AdminApiKeyScope } from "@/lib/api/scopes-types";
 import type { ApiKey } from "./types";
@@ -32,8 +31,6 @@ export default function ApiKeysPage() {
 	const qc = useQueryClient();
 	const [name, setName] = useState("");
 	const [scopes, setScopes] = useState<AdminApiKeyScope[]>(["domains"]);
-	const [mcpAllowed, setMcpAllowed] = useState(false);
-	const [createdMcpAllowed, setCreatedMcpAllowed] = useState(false);
 	const [newKey, setNewKey] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [createOpen, setCreateOpen] = useState(false);
@@ -52,12 +49,11 @@ export default function ApiKeysPage() {
 			const res = await authFetch("/api/admin/api-keys", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ name: name.trim(), scopes, mcpAllowed }),
+				body: JSON.stringify({ name: name.trim(), scopes }),
 			});
 			const json = (await res.json()) as { key?: string; error?: string };
 			if (!res.ok || !json.key) throw new Error(typeof json.error === "string" ? json.error : t("apiKeys.createFailed"));
 			setNewKey(json.key ?? null);
-			setCreatedMcpAllowed(mcpAllowed);
 			setCopied(false);
 			setName("");
 		},
@@ -95,7 +91,6 @@ export default function ApiKeysPage() {
 							<Label htmlFor="admin-key-name">{t("apiKeys.keyName")}</Label>
 							<Input id="admin-key-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder={t("adminKeys.namePlaceholder")} />
 						</div>
-						<label className="flex items-start gap-3 text-sm"><Checkbox checked={mcpAllowed} onChange={(event) => setMcpAllowed(event.target.checked)} /><span><strong>{t("apiKeys.allowMcp")}</strong><span className="mt-1 block text-neutral-500">{t("adminKeys.allowMcpHint")}</span></span></label>
 						<fieldset className="space-y-2">
 							<legend className="text-sm font-medium">{t("apiKeys.permissions")}</legend>
 							<div className="space-y-2">
@@ -127,7 +122,7 @@ export default function ApiKeysPage() {
 							{create.isPending ? t("accounts.creating") : t("adminKeys.createKey")}
 						</Button>
 						</div>}
-						{newKey && <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4"><code className="block break-all rounded bg-white p-2 text-xs">{newKey}</code>{createdMcpAllowed && <McpAgentInstructions mode="admin" apiKey={newKey} />}<div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(newKey).then(() => setCopied(true))}><Copy className="h-4 w-4" />{copied ? t("common.copied") : t("apiKeys.copyKey")}</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setCreateOpen(false); setNewKey(null); setCopied(false); }}>{t("common.done")}</Button></div></div>}
+						{newKey && <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4"><code className="block break-all rounded bg-white p-2 text-xs">{newKey}</code><div className="flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(newKey).then(() => setCopied(true))}><Copy className="h-4 w-4" />{copied ? t("common.copied") : t("apiKeys.copyKey")}</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setCreateOpen(false); setNewKey(null); setCopied(false); }}>{t("common.done")}</Button></div></div>}
 					</DialogContent>
 				</Dialog>
 			</div>
@@ -151,7 +146,7 @@ export default function ApiKeysPage() {
 								<KeyRound className="h-5 w-5" />
 							</span>
 							<span className="min-w-0 flex-1 space-y-2">
-								<span className="flex min-w-0 flex-wrap items-center gap-2"><strong className="truncate text-sm font-semibold text-neutral-900">{key.name}</strong>{key.kind === "mcp" && <Badge variant="outline">MCP</Badge>}</span>
+								<span className="flex min-w-0 flex-wrap items-center gap-2"><strong className="truncate text-sm font-semibold text-neutral-900">{key.name}</strong></span>
 								<span className="block truncate no-font-mono text-sm text-neutral-500">{key.prefix}...</span>
 								<span className="flex flex-wrap gap-1">
 									{parseApiKeyScopes(key.scopes).map((scope) => (

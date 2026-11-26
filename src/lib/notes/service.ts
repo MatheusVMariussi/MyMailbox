@@ -9,7 +9,7 @@ import type { SessionUser } from "@/lib/auth/types";
 import { canDeleteNote, canEditNote } from "./note-permissions";
 import type { ConversationNote, NoteChangeResult, NoteConversation } from "./types";
 
-/** Longest note the API accepts; the same ceiling the agent tools put on a body. */
+/** Longest note the API accepts. */
 export const CONVERSATION_NOTE_MAX_LENGTH = 40_000;
 
 /**

@@ -3,7 +3,7 @@
 
 # Mailflare
 
-A self-hosted alternative to Google Workspace. Setup **custom domain Emails**, **Calendar, Drive, Booking** and **built-in AI agents**.
+A self-hosted alternative to Google Workspace. Setup **custom domain Emails**, **Calendar, Drive** and **Booking**.
 
 Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.co?ref=github) with high-deliverable emails** from $4​
 
@@ -18,7 +18,6 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 - **Calendar**: Repeating events with time zones. Attendees get email invitations.
 - **Booking**: Share a public link so anyone can book a free time on your calendar.
 - **Drive**: Store and share files.
-- **AI agents**: Search mail, draft replies and manage events. Connect other AI tools over MCP.
 
 ### Technical
 
@@ -64,8 +63,8 @@ Install Mailflare for me from https://github.com/hieunc229/mailflare on my Cloud
    a deploy token (for Wrangler) and a runtime token (the Worker secret CF_TOKEN).
    Never print them, commit them, or pass them as command arguments.
 3. Keep the Worker name exactly "mailflare". Create or reuse the D1 database
-   "mailflare", the R2 bucket "mailflare-raw", and the queues "mailflare-inbound",
-   "mailflare-outbound" and "mailflare-agent".
+   "mailflare", the R2 bucket "mailflare-raw", and the queues "mailflare-inbound"
+   and "mailflare-outbound".
 4. Install dependencies, run `npm run deploy`, and set CF_TOKEN as a Worker secret.
    Do not run remote database migrations yourself. The /setup page does that.
 5. Give me the app URL and anything I still need to do. I will open /setup, create
@@ -97,7 +96,6 @@ A schema change needs a migration for each database type. See [Databases](docs/d
 - [Databases](docs/databases.md)
 - [Sending and receiving providers](docs/providers.md)
 - [API and integrations](docs/api.md)
-- [Email assistant and MCP](docs/email-assistant-and-mcp.md)
 - [Importing from Google Takeout](docs/import.md)
 - [Adding a language](docs/localization.md)
 - [Troubleshooting](docs/troubleshooting.md)

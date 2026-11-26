@@ -40,7 +40,9 @@ export async function authenticateApiKeyValue(env: CloudflareEnv, key: string, o
 	const allowed = candidate.mailboxScopeEnabled
 		? await db.select({ mailboxId: mcpKeyMailboxes.mailboxId }).from(mcpKeyMailboxes).where(eq(mcpKeyMailboxes.keyId, candidate.id))
 		: null;
-	return { keyId: candidate.id, keyKind: candidate.kind, userId: user.id, email: user.email, scopes: scopes.some((scope) => ADMIN_SCOPES.has(scope)) ? scopes.filter((scope) => ADMIN_SCOPES.has(scope)) : scopes, mailboxIds: allowed?.map((row) => row.mailboxId) ?? null, user };
+	// Keys minted for the retired MCP server authenticate as ordinary keys; their scopes decide what they reach.
+	const keyKind = candidate.kind === "mcp" ? "legacy" : candidate.kind;
+	return { keyId: candidate.id, keyKind, userId: user.id, email: user.email, scopes: scopes.some((scope) => ADMIN_SCOPES.has(scope)) ? scopes.filter((scope) => ADMIN_SCOPES.has(scope)) : scopes, mailboxIds: allowed?.map((row) => row.mailboxId) ?? null, user };
 }
 
 /**

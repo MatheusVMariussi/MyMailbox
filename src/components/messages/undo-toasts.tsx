@@ -73,7 +73,7 @@ function hasBlockingOverlay() {
 	return !!document.querySelector(BLOCKING_OVERLAY_SELECTOR);
 }
 
-/** A modal, mobile sidebar, assistant full-size view or hidden main surface owns interaction. */
+/** A modal, mobile sidebar or hidden main surface owns interaction. */
 function hasInteractionHold() {
 	if (typeof document === "undefined") return false;
 	return !!document.querySelector(INTERACTION_SELECTOR);
@@ -165,7 +165,7 @@ function isAvailableSurface(element: HTMLElement) {
 }
 
 function focusVisibleAppSurface() {
-	const selectors = ["#main-content", "#email-assistant-panel", "[data-mobile-menu]", "main", '[role="main"]'];
+	const selectors = ["#main-content", "[data-mobile-menu]", "main", '[role="main"]'];
 	for (const selector of selectors) {
 		const element = document.querySelector<HTMLElement>(selector);
 		if (!element || !isAvailableSurface(element)) continue;

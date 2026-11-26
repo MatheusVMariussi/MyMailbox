@@ -113,8 +113,8 @@ function stripBlocks(html: string, names: string[]): string {
 }
 
 /**
- * `decodeAllEntities` is only set for list snippets; the other callers (spam tokenizer, agent context,
- * reply splitter) keep the original small named-entity set so their output does not change.
+ * `decodeAllEntities` is only set for list snippets; the other callers (spam tokenizer, reply splitter)
+ * keep the original small named-entity set so their output does not change.
  */
 export function htmlToReadableText(html: string | null | undefined, decodeAllEntities = false): string {
 	return stripBlocks((html ?? "").slice(0, MAX_READABLE_HTML), ["style", "script", "head"])

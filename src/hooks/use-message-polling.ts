@@ -70,19 +70,13 @@ export function useMessagePolling(): MessageRealtimeState {
 
 		function handleNotification(payload: string, fromSocket: boolean) {
 			try {
-				const parsed = JSON.parse(payload) as { type?: string; revision?: string; changed?: boolean; draftId?: string; mailboxId?: string };
+				const parsed = JSON.parse(payload) as { type?: string; revision?: string; changed?: boolean };
 				if (parsed.type === "revision" && typeof parsed.revision === "string") {
 					revision = parsed.revision;
 					if (parsed.changed) {
 						dispatchMessagesChanged();
 						if (fromSocket) channel?.postMessage({ type: "refresh" } satisfies RealtimeChannelMessage);
 					}
-					return;
-				}
-				if (parsed.type === "agent_draft" && parsed.draftId && parsed.mailboxId) {
-					window.dispatchEvent(new CustomEvent("mailflare:agent-draft", { detail: parsed }));
-					dispatchMessagesChanged();
-					if (fromSocket) channel?.postMessage({ type: "notification", payload } satisfies RealtimeChannelMessage);
 					return;
 				}
 			} catch { return; }

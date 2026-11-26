@@ -2,16 +2,7 @@ import type { TranslationKey } from "@/lib/i18n/types";
 import { authFetch } from "@/lib/auth/client";
 import { requestError } from "@/lib/http/client-error";
 import type { ApiKeyScope } from "@/lib/api/scopes";
-import type { ManagedApiKey, McpKeyScope } from "./api-keys-settings-types";
-
-export const MCP_KEY_SCOPES: { value: McpKeyScope; labelKey: TranslationKey; descriptionKey: TranslationKey }[] = [
-	{ value: "mcp:read", labelKey: "apiKeys.mcpRead.label", descriptionKey: "apiKeys.mcpRead.description" },
-	{ value: "mcp:draft", labelKey: "apiKeys.mcpDraft.label", descriptionKey: "apiKeys.mcpDraft.description" },
-	{ value: "mcp:organize", labelKey: "apiKeys.mcpOrganize.label", descriptionKey: "apiKeys.mcpOrganize.description" },
-	{ value: "mcp:request-send", labelKey: "apiKeys.mcpRequestSend.label", descriptionKey: "apiKeys.mcpRequestSend.description" },
-	{ value: "mcp:calendar-read", labelKey: "apiKeys.mcpCalendarRead.label", descriptionKey: "apiKeys.mcpCalendarRead.description" },
-	{ value: "mcp:calendar-write", labelKey: "apiKeys.mcpCalendarWrite.label", descriptionKey: "apiKeys.mcpCalendarWrite.description" },
-];
+import type { ManagedApiKey } from "./api-keys-settings-types";
 
 export const STANDARD_KEY_SCOPES: { value: ApiKeyScope; labelKey: TranslationKey; descriptionKey: TranslationKey }[] = [
 	{ value: "read", labelKey: "apiKeys.read.label", descriptionKey: "apiKeys.read.description" },
@@ -40,9 +31,9 @@ export async function loadManagedApiKeys(): Promise<ManagedApiKey[]> {
 	return data.apiKeys;
 }
 
-export async function createManagedApiKey(input: { name: string; mcpAllowed: boolean; scopes: ApiKeyScope[] | McpKeyScope[]; mailboxIds: string[] }, stepUpToken?: string): Promise<string> {
+export async function createManagedApiKey(input: { name: string; scopes: ApiKeyScope[]; mailboxIds: string[] }, stepUpToken?: string): Promise<string> {
 	// With a step-up token (jmap keys), a 401 means that proof was refused, not that the session ended.
-	const response = await authFetch(input.mcpAllowed ? "/api/agent/mcp-keys" : "/api/api-keys", {
+	const response = await authFetch("/api/api-keys", {
 		method: "POST",
 		...(stepUpToken ? { redirectOnUnauthorized: false } : {}),
 		headers: { "Content-Type": "application/json" },

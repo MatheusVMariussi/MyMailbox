@@ -17,7 +17,6 @@ import {
 	BellOffIcon as HugeBellOffIcon,
 	BellRingIcon as HugeBellRingIcon,
 	BoldIcon as HugeBoldIcon,
-	BotIcon as HugeBotIcon,
 	Building02Icon as HugeBuilding02Icon,
 	CalendarAdd02Icon as HugeCalendarAdd02Icon,
 	CalendarClockIcon as HugeCalendarClockIcon,
@@ -38,7 +37,6 @@ import {
 	CloudUploadIcon as HugeCloudUploadIcon,
 	CopyIcon as HugeCopyIcon,
 	CornerDownLeftIcon as HugeCornerDownLeftIcon,
-	CornerDownRightIcon as HugeCornerDownRightIcon,
 	DatabaseBackupIcon as HugeDatabaseBackupIcon,
 	DatabaseIcon as HugeDatabaseIcon,
 	Delete02Icon as HugeDelete02Icon,
@@ -73,7 +71,6 @@ import {
 	KeyboardIcon as HugeKeyboardIcon,
 	Layout2ColumnIcon as HugeLayout2ColumnIcon,
 	Link02Icon as HugeLink02Icon,
-	ListChecksIcon as HugeListChecksIcon,
 	ListFilterIcon as HugeListFilterIcon,
 	ListIcon as HugeListIcon,
 	ListOrderedIcon as HugeListOrderedIcon,
@@ -96,8 +93,6 @@ import {
 	MusicIcon as HugeMusicIcon,
 	PaletteIcon as HugePaletteIcon,
 	PaperclipIcon as HugePaperclipIcon,
-	PauseCircleIcon as HugePauseCircleIcon,
-	PauseIcon as HugePauseIcon,
 	Note01Icon as HugeNote01Icon,
 	PenLineIcon as HugePenLineIcon,
 	Edit04Icon as HugeEdit04Icon,
@@ -118,7 +113,6 @@ import {
 	SearchIcon as HugeSearchIcon,
 	SendIcon as HugeSendIcon,
 	ServerIcon as HugeServerIcon,
-	Settings02Icon as HugeSettings02Icon,
 	SettingsIcon as HugeSettingsIcon,
 	Share02Icon as HugeShare02Icon,
 	ShieldAlertIcon as HugeShieldAlertIcon,
@@ -127,7 +121,6 @@ import {
 	ShieldOffIcon as HugeShieldOffIcon,
 	SmartphoneIcon as HugeSmartphoneIcon,
 	SparklesIcon as HugeSparklesIcon,
-	SquareIcon as HugeSquareIcon,
 	StarIcon as HugeStarIcon,
 	StrikethroughIcon as HugeStrikethroughIcon,
 	TagIcon as HugeTagIcon,
@@ -144,7 +137,6 @@ import {
 	UsersIcon as HugeUsersIcon,
 	UsersRoundIcon as HugeUsersRoundIcon,
 	WebhookIcon as HugeWebhookIcon,
-	WrenchIcon as HugeWrenchIcon,
 	XIcon as HugeXIcon,
 } from "@hugeicons/core-free-icons";
 
@@ -201,7 +193,6 @@ export const Bell = createIcon(HugeBellIcon, "Bell");
 export const BellOff = createIcon(HugeBellOffIcon, "BellOff");
 export const BellRing = createIcon(HugeBellRingIcon, "BellRing");
 export const Bold = createIcon(HugeBoldIcon, "Bold");
-export const Bot = createIcon(HugeBotIcon, "Bot");
 export const Building2 = createIcon(HugeBuilding02Icon, "Building2");
 export const CalendarClock = createIcon(HugeCalendarClockIcon, "CalendarClock");
 export const CalendarDays = createIcon(HugeCalendarDaysIcon, "CalendarDays");
@@ -222,7 +213,6 @@ export const Cloud = createIcon(HugeCloudIcon, "Cloud");
 export const Columns2 = createIcon(HugeLayout2ColumnIcon, "Columns2");
 export const Copy = createIcon(HugeCopyIcon, "Copy");
 export const CornerDownLeft = createIcon(HugeCornerDownLeftIcon, "CornerDownLeft");
-export const CornerDownRight = createIcon(HugeCornerDownRightIcon, "CornerDownRight");
 export const Database = createIcon(HugeDatabaseIcon, "Database");
 export const DatabaseBackup = createIcon(HugeDatabaseBackupIcon, "DatabaseBackup");
 export const Download = createIcon(HugeDownloadIcon, "Download");
@@ -260,7 +250,6 @@ export const KeyRound = createIcon(HugeKeyRoundIcon, "KeyRound");
 export const Keyboard = createIcon(HugeKeyboardIcon, "Keyboard");
 export const Link2 = createIcon(HugeLink02Icon, "Link2");
 export const List = createIcon(HugeListIcon, "List");
-export const ListChecks = createIcon(HugeListChecksIcon, "ListChecks");
 export const ListFilter = createIcon(HugeListFilterIcon, "ListFilter");
 export const ListOrdered = createIcon(HugeListOrderedIcon, "ListOrdered");
 export const Loader2 = createIcon(HugeLoading03Icon, "Loader2");
@@ -283,8 +272,6 @@ export const MoreVertical = createIcon(HugeMoreVerticalIcon, "MoreVertical");
 export const Music = createIcon(HugeMusicIcon, "Music");
 export const Palette = createIcon(HugePaletteIcon, "Palette");
 export const Paperclip = createIcon(HugePaperclipIcon, "Paperclip");
-export const Pause = createIcon(HugePauseIcon, "Pause");
-export const PauseCircle = createIcon(HugePauseCircleIcon, "PauseCircle");
 export const Note = createIcon(HugeNote01Icon, "Note");
 export const PenLine = createIcon(HugePenLineIcon, "PenLine");
 export const Edit04 = createIcon(HugeEdit04Icon, "Edit04");
@@ -306,7 +293,6 @@ export const Search = createIcon(HugeSearchIcon, "Search");
 export const Send = createIcon(HugeSendIcon, "Send");
 export const Server = createIcon(HugeServerIcon, "Server");
 export const Settings = createIcon(HugeSettingsIcon, "Settings");
-export const Settings2 = createIcon(HugeSettings02Icon, "Settings2");
 export const Share2 = createIcon(HugeShare02Icon, "Share2");
 export const Shield = createIcon(HugeShieldIcon, "Shield");
 export const ShieldAlert = createIcon(HugeShieldAlertIcon, "ShieldAlert");
@@ -314,7 +300,6 @@ export const ShieldCheck = createIcon(HugeShieldCheckIcon, "ShieldCheck");
 export const ShieldOff = createIcon(HugeShieldOffIcon, "ShieldOff");
 export const Smartphone = createIcon(HugeSmartphoneIcon, "Smartphone");
 export const Sparkles = createIcon(HugeSparklesIcon, "Sparkles");
-export const Square = createIcon(HugeSquareIcon, "Square");
 export const Star = createIcon(HugeStarIcon, "Star");
 export const Strikethrough = createIcon(HugeStrikethroughIcon, "Strikethrough");
 export const Tag = createIcon(HugeTagIcon, "Tag");
@@ -330,7 +315,6 @@ export const UserRound = createIcon(HugeUserRoundIcon, "UserRound");
 export const Users = createIcon(HugeUsersIcon, "Users");
 export const UsersRound = createIcon(HugeUsersRoundIcon, "UsersRound");
 export const Webhook = createIcon(HugeWebhookIcon, "Webhook");
-export const Wrench = createIcon(HugeWrenchIcon, "Wrench");
 export const X = createIcon(HugeXIcon, "X");
 export const XCircle = createIcon(HugeCancelCircleIcon, "XCircle");
 export const LoaderCircle = Loader2;

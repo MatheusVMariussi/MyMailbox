@@ -125,8 +125,8 @@ export function parseStoredDetails(json: string | null | undefined): ContactDeta
  * `import`, so a later import may update that name again but never one you edited (editing makes it `manual`); an
  * `outbound` contact keeps that source (the name rules still apply) so an import never downgrades it. Without an
  * imported name the name stays, but an inbound contact on an imported card still becomes `import`.
- * `import` is treated like `manual` everywhere a contact counts as known or its name is shown (spam score, agent send
- * review, display name). `blocked` and `remoteContentAllowed` are never part of this decision.
+ * `import` is treated like `manual` everywhere a contact counts as known or its name is shown (spam score, display
+ * name). `blocked` and `remoteContentAllowed` are never part of this decision.
  */
 export function mergeImportedContact(existing: ContactNameSource | null, importedName: string | null): { displayName: string | null; source: ContactNameSource["source"] } {
 	const name = cleanLine(importedName, MAX_NAME) || null;
