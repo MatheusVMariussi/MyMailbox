@@ -23,7 +23,7 @@ await build({
 	target: "node24",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 const { isPastPick, isPastRequest } = await import(pathToFileURL(join(bundleDirectory, "entry.mjs")).href);

@@ -10,8 +10,8 @@ import { build } from "esbuild";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
- * The module under test imports through the `@/*` alias and is TypeScript, so it is bundled with the
- * esbuild already used by `scripts/build-server.mjs` rather than loaded directly. Nothing here
+ * The module under test imports through the `@/*` alias and is TypeScript, so it is bundled with esbuild
+ * (a dev dependency) rather than loaded directly. Nothing here
  * touches a Workers binding: `validateRequest` only inspects the decoded request object.
  */
 const outDir = mkdtempSync(join(tmpdir(), "mailflare-jmap-capabilities-test-"));

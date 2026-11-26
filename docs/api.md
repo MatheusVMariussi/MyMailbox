@@ -47,7 +47,7 @@ Resend and Amazon SES deliver mail by calling the app, so these routes are publi
 | --- | --- |
 | `POST /api/inbound/resend` | The Svix signature of the webhook secret Resend returned when Mailflare created the webhook |
 | `POST /api/inbound/ses?token=…` | The secret token in the subscription URL, the SNS topic ARN, and reading the message from the account's own S3 bucket |
-| `POST /api/inbound` | The HMAC from the Cloudflare relay Worker, used by self-hosted installs ([self-hosting](self-hosting.md)) |
+| `POST /api/inbound` | The HMAC from the Cloudflare relay Worker (legacy; to be removed) |
 
 ## Calendar and booking
 

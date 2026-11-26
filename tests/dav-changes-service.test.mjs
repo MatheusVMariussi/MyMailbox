@@ -13,8 +13,8 @@ await build({
 	stdin: {
 		contents: `
 			export * from "./src/lib/dav/changes.ts";
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "dav-changes-entry.ts",
@@ -26,7 +26,7 @@ await build({
 	target: "node22",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 

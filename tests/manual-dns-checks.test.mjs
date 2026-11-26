@@ -43,7 +43,7 @@ await build({
 	target: "node24",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	plugins: [{
 		name: "mock-domain-deps",
 		setup(builder) {

@@ -13,8 +13,8 @@ await build({
 	entryPoints: {
 		exporter: join(root, "src/lib/export/mbox.ts"),
 		importer: join(root, "src/lib/import/mbox.ts"),
-		database: join(root, "server/runtime/sqlite-database.ts"),
-		migrate: join(root, "server/runtime/migrate.ts"),
+		database: join(root, "tests/helpers/sqlite-database.ts"),
+		migrate: join(root, "tests/helpers/migrate.ts"),
 	},
 	outdir: outDir,
 	outExtension: { ".js": ".mjs" },

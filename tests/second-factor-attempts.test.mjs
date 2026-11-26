@@ -14,8 +14,8 @@ writeFileSync(headersStub, "export async function cookies() { return { get: () =
 await build({
 	stdin: {
 		contents: `
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 			export { createLoginChallenge } from "./src/lib/auth/login-challenge.ts";
 			export { generateTotpSecret, hotp, totpCounter } from "./src/lib/auth/totp.ts";
 			export * as mfaVerify from "./src/app/api/auth/mfa/verify/route.ts";
@@ -31,7 +31,7 @@ await build({
 	target: "node24",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "next/headers": headersStub, "next/server": "next/server.js", "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "next/headers": headersStub, "next/server": "next/server.js", "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 const { SqliteDatabase, applyMigrations, createLoginChallenge, generateTotpSecret, hotp, totpCounter, mfaVerify, device } =

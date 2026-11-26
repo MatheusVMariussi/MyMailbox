@@ -149,15 +149,12 @@ const lintConfig = {
   },
   "ignorePatterns": [
     ".next/**",
-    ".next-node/**",
     ".vinext/**",
     ".wrangler/**",
     "node_modules/**",
     "tests/.tmp-*/**",
     "drizzle/**",
     "dist/**",
-    "data/**",
-    "deploy/**/node_modules/**",
     "cloudflare-env.d.ts",
     "next-env.d.ts"
   ],

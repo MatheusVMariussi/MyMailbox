@@ -33,7 +33,7 @@ await build({
 	target: "node22",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 const { getDatabaseConfig, openExternalDatabase, applyPendingMigrations, getDb, processRequest } = await import(pathToFileURL(join(outDir, "entry.mjs")).href);

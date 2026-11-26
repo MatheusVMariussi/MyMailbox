@@ -13,8 +13,8 @@ after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({
 	entryPoints: {
 		ingest: join(root, "src/lib/deliverability/ingest.ts"),
-		database: join(root, "server/runtime/sqlite-database.ts"),
-		migrate: join(root, "server/runtime/migrate.ts"),
+		database: join(root, "tests/helpers/sqlite-database.ts"),
+		migrate: join(root, "tests/helpers/migrate.ts"),
 	},
 	outdir: outDir,
 	outExtension: { ".js": ".mjs" },

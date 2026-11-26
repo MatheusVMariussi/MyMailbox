@@ -18,8 +18,8 @@ await build({
 			export { authenticateApiKeyValue, authenticateApiRequest } from "./src/lib/api/key-auth.ts";
 			export { authenticateMcpRequest } from "./src/lib/mcp/auth.ts";
 			export { hashPassword, verifyPassword } from "./src/lib/auth/password.ts";
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 			export { getDb } from "./src/db/index.ts";
 		`,
 		resolveDir: root,
@@ -32,7 +32,7 @@ await build({
 	target: "node22",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 

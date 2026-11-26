@@ -2,7 +2,6 @@
 
 # dependencies
 /node_modules
-/deploy/cloudflare-email-relay/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -18,14 +17,11 @@ playwright-report/
 
 # next.js
 /.next/
-/.next-node/
 /out/
 
 # production
 /build
 /dist
-/data
-.env.docker
 
 # misc
 .DS_Store

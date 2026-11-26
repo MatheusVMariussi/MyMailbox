@@ -11,8 +11,8 @@ after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: {
 		contents: `
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 			export { getDb } from "./src/db/index.ts";
 			export { blockContact } from "./src/lib/contacts/service.ts";
 			export {

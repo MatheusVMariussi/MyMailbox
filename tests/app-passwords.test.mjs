@@ -20,8 +20,8 @@ await build({
 			export { appPasswordGuessKey } from "./src/lib/auth/app-passwords.ts";
 			export { deleteUserSessions } from "./src/lib/auth/session.ts";
 			export { API_KEY_SCOPES, APP_PASSWORD_PROTOCOLS } from "./src/lib/api/scopes.ts";
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "app-passwords-entry.ts",
@@ -33,7 +33,7 @@ await build({
 	target: "node22",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 

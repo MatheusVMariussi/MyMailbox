@@ -50,8 +50,7 @@ export function readTrustedDmarcResult(headers?: Record<string, string>, verdict
 
 /**
  * SPF, DKIM and DMARC results. Verdicts from the receiving provider (SES) win; otherwise only an
- * Authentication-Results clause written by Cloudflare is read. Self-hosted SMTP verifies SPF, DKIM
- * and DMARC itself (server/runtime/smtp-auth.ts) and passes the outcome in as verdicts.
+ * Authentication-Results clause written by Cloudflare is read.
  */
 export function analyzeAuthentication(headers?: Record<string, string>, verdicts?: ProviderVerdicts): SpamSignal[] {
 	const signals: SpamSignal[] = [];

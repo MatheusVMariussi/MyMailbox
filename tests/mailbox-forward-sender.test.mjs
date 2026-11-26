@@ -15,8 +15,8 @@ after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: {
 		contents: `
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 			export { getDb } from "./src/db/index.ts";
 			export { resolveInboundAddress, resolveInboxRuleDestination } from "./src/lib/email/routing.ts";
 		`,
@@ -30,7 +30,7 @@ await build({
 	target: "node24",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 const { SqliteDatabase, applyMigrations, getDb, resolveInboundAddress, resolveInboxRuleDestination } = await import(

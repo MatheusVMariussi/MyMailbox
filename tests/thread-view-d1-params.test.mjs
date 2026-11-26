@@ -13,8 +13,8 @@ const directory = mkdtempSync(join(root, "node_modules", "mailflare-thread-view-
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: { contents: `
-		export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-		export { applyMigrations } from "./server/runtime/migrate.ts";
+		export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+		export { applyMigrations } from "./tests/helpers/migrate.ts";
 		export { getDb, schema } from "./src/db/index.ts";
 		export { getMessageThreadForUser } from "./src/lib/email/thread-view.ts";
 	`, resolveDir: root, sourcefile: "thread-entry.ts" },

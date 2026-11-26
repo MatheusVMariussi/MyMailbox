@@ -12,8 +12,8 @@ after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({
 	entryPoints: {
 		processor: join(root, "src/lib/jmap/processor.ts"),
-		database: join(root, "server/runtime/sqlite-database.ts"),
-		migrate: join(root, "server/runtime/migrate.ts"),
+		database: join(root, "tests/helpers/sqlite-database.ts"),
+		migrate: join(root, "tests/helpers/migrate.ts"),
 		dbIndex: join(root, "src/db/index.ts"),
 	},
 	outdir: outDir,

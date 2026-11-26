@@ -13,7 +13,7 @@ export async function loadRoutes(name, contents, mocks = {}) {
 	after(() => rmSync(directory, { recursive: true, force: true }));
 	await build({
 		stdin: {
-			contents: `export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";\nexport { applyMigrations } from "./server/runtime/migrate.ts";\n${contents}`,
+			contents: `export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";\nexport { applyMigrations } from "./tests/helpers/migrate.ts";\n${contents}`,
 			resolveDir: root,
 			sourcefile: `${name}-entry.ts`,
 		},
@@ -24,7 +24,7 @@ export async function loadRoutes(name, contents, mocks = {}) {
 		target: "node24",
 		tsconfig: join(root, "tsconfig.json"),
 		packages: "external",
-		alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+		alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 		plugins: [{
 			name: "session",
 			setup(builder) {

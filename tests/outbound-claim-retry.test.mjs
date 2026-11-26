@@ -14,13 +14,13 @@ const directory = mkdtempSync(join(root, "node_modules", "mailflare-outbound-cla
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: { contents: `
-		export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-		export { applyMigrations } from "./server/runtime/migrate.ts";
+		export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+		export { applyMigrations } from "./tests/helpers/migrate.ts";
 		export { processOutboundQueue } from "./src/lib/email/send.ts";
 	`, resolveDir: root, sourcefile: "entry.ts" },
 	outfile: join(directory, "entry.mjs"), bundle: true, platform: "node", format: "esm", target: "node24",
 	tsconfig: join(root, "tsconfig.json"), packages: "external", logLevel: "silent",
-	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "next/headers": "next/headers.js", "next/server": "next/server.js", "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 });
 const { SqliteDatabase, applyMigrations, processOutboundQueue } = await import(pathToFileURL(join(directory, "entry.mjs")).href);
 

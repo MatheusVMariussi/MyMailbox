@@ -17,7 +17,7 @@ async function bundle(entry, outfile) {
 
 const { storeUpload, readUpload, readBlob } = await bundle("src/lib/jmap/blobs.ts", "blobs.mjs");
 const { decodeBlobId } = await bundle("src/lib/jmap/ids.ts", "ids.mjs");
-const { openFileBucket } = await bundle("server/runtime/file-bucket.ts", "file-bucket.mjs");
+const { openFileBucket } = await bundle("tests/helpers/file-bucket.ts", "file-bucket.mjs");
 const { B2Bucket } = await bundle("src/lib/storage/b2-bucket.ts", "b2-bucket.mjs");
 
 function context(userId) {

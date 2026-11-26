@@ -1,5 +1,5 @@
 // Bundle a TypeScript script (resolving the `@/` alias) with esbuild and run it under Node.
-// Usage: node scripts/run-ts.mjs scripts/db-smoke.ts [args...]
+// Usage: node scripts/run-ts.mjs scripts/passkey-recovery-link.ts [args...]
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { basename, resolve } from "node:path";

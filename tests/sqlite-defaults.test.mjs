@@ -10,7 +10,7 @@ const outDir = mkdtempSync(join(root, "tests", ".tmp-sqlite-defaults-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 
 await build({
-	entryPoints: [join(root, "server/runtime/sqlite-database.ts")],
+	entryPoints: [join(root, "tests/helpers/sqlite-database.ts")],
 	outfile: join(outDir, "entry.mjs"),
 	bundle: true,
 	platform: "node",
@@ -36,7 +36,7 @@ test("node sqlite keeps stock durability and cache defaults", () => {
 });
 
 test("upstream sqlite setup does not mention a private mailbox size or host cache knobs", () => {
-	const source = readFileSync(join(root, "server/runtime/sqlite-database.ts"), "utf8");
+	const source = readFileSync(join(root, "tests/helpers/sqlite-database.ts"), "utf8");
 	assert.equal(source.includes("13GB"), false);
 	const route = readFileSync(join(root, "src/app/api/messages/route.ts"), "utf8");
 	assert.equal(route.includes("13GB"), false);

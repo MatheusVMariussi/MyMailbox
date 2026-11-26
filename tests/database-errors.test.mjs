@@ -13,7 +13,7 @@ await build({
 	entryPoints: {
 		errors: join(root, "src/lib/database-errors.ts"),
 		tracking: join(root, "src/lib/tracking/open-tracking.ts"),
-		database: join(root, "server/runtime/sqlite-database.ts"),
+		database: join(root, "tests/helpers/sqlite-database.ts"),
 	},
 	outdir: outDir,
 	outExtension: { ".js": ".mjs" },

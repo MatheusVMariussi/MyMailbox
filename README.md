@@ -5,7 +5,7 @@
 
 A self-hosted alternative to Google Workspace. Setup **custom domain Emails**, **Calendar, Drive, Booking** and **built-in AI agents**.
 
-Self-host it on Cloudflare or Docker. **Or try [Mailflare Cloud](https://cloud.mailflare.co?ref=github) with high-deliverable emails** from $4​
+Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.co?ref=github) with high-deliverable emails** from $4​
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
@@ -39,7 +39,7 @@ Self-host it on Cloudflare or Docker. **Or try [Mailflare Cloud](https://cloud.m
 
 - **Databases**: Cloudflare D1 (default), PostgreSQL, MySQL, Turso / libSQL, or a local SQLite file. Set `DATABASE_URL` to switch. Works with Supabase, Neon, PlanetScale, TiDB and more. See [Databases](docs/databases.md).
 - **File storage**: Cloudflare R2, Backblaze B2 or AWS S3.
-- **Hosting**: Cloudflare Workers or a single Docker container.
+- **Hosting**: Cloudflare Workers.
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
 - **Import**: Bring in mail from IMAP, Gmail Takeout, `.eml` and `.mbox` files, and Google Calendar events, Google Contacts and Google Drive files from Takeout. See [Importing from Google Takeout](docs/import.md).
 
@@ -88,19 +88,6 @@ Install Mailflare for me from https://github.com/hieunc229/mailflare on my Cloud
 ```
 
 Token permissions and more options: [deployment guide](docs/deployment.md#deploy-with-an-ai-coding-agent).
-
-### Self-host with Docker
-
-Runs as one container on any server, with SQLite and local files.
-
-```bash
-cp .env.docker.example .env.docker
-docker compose up -d --build
-```
-
-Or skip the build and run the prebuilt image: `docker compose -f docker-compose.image.yml up -d`.
-
-See [self-hosting](docs/self-hosting.md).
 
 ## Local development
 

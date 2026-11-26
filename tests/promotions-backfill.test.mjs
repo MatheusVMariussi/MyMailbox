@@ -13,8 +13,8 @@ await build({
 	entryPoints: {
 		backfill: join(root, "src/lib/promotions/backfill.ts"),
 		utils: join(root, "src/lib/promotions/backfill-utils.ts"),
-		database: join(root, "server/runtime/sqlite-database.ts"),
-		migrate: join(root, "server/runtime/migrate.ts"),
+		database: join(root, "tests/helpers/sqlite-database.ts"),
+		migrate: join(root, "tests/helpers/migrate.ts"),
 	},
 	outdir: outDir,
 	outExtension: { ".js": ".mjs" },

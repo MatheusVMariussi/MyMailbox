@@ -20,7 +20,7 @@ The driver is inferred from the URL. Set `DATABASE_DRIVER` only to override it. 
 | `DATABASE_DRIVER` | Optional driver override, see the table above. |
 | `DATABASE_AUTH_TOKEN` | Auth token for libSQL / Turso. |
 
-On Cloudflare Workers set them as Worker variables or secrets (`npx wrangler secret put DATABASE_URL`). Self-hosted, put them in the container environment (`.env.docker`).
+On Cloudflare Workers set them as Worker variables or secrets (`npx wrangler secret put DATABASE_URL`).
 
 ### Per database
 
@@ -96,38 +96,3 @@ Other things to know:
 - **Case sensitivity.** SQLite and PostgreSQL compare text case-sensitively; MySQL's default collations do not, so on MySQL two accounts whose emails differ only by case collide on the unique index.
 - **Reserved words.** All SQL is generated with quoted identifiers; hand-written SQL in your own migrations should quote `key`, `read`, `repeat`, `change` and friends for MySQL.
 - **Not covered:** SingleStore and other Drizzle dialects outside SQLite, PostgreSQL and MySQL.
-
-## Trying it locally
-
-```bash
-# PostgreSQL without a server
-npm run db:smoke -- pglite://memory
-
-# Against real servers
-docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=mailflare postgres:17
-docker run -d -p 3306:3306 -e MYSQL_ROOT_PASSWORD=pw -e MYSQL_DATABASE=mailflare mysql:8.4
-MAILFLARE_DB_DIALECT=postgres npm run db:smoke -- postgres://postgres:pw@127.0.0.1:5432/mailflare
-MAILFLARE_DB_DIALECT=mysql npm run db:smoke -- mysql://root:pw@127.0.0.1:3306/mailflare
-```
-
-`db:smoke` applies the migrations and exercises the query shapes the app relies on (inserts, upserts, `returning`, triggers, batches, search, backups, bookings). Set `MAILFLARE_DB_DIALECT` to match the URL when running it (the app derives it from `DATABASE_URL` by itself).
-
-Self-hosted with Docker Compose and PostgreSQL (add next to the `mailflare` service, then set `DATABASE_URL=postgres://mailflare:change-me@db:5432/mailflare` in `.env.docker`):
-
-```yaml
-  db:
-    image: postgres:17
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: mailflare
-      POSTGRES_PASSWORD: change-me
-      POSTGRES_DB: mailflare
-    volumes:
-      - mailflare-db:/var/lib/postgresql/data
-```
-
-Run the app itself against another database:
-
-```bash
-DATABASE_URL=postgres://postgres:pw@127.0.0.1:5432/mailflare npm run dev:node
-```

@@ -25,7 +25,7 @@ await build({
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
 	alias: {
-		"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
+		"cloudflare:workers": "./tests/helpers/cloudflare-workers.ts",
 	},
 	logLevel: "silent",
 });

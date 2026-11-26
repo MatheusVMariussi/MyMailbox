@@ -11,7 +11,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * The modules under test import through the `@/*` alias and are TypeScript, so
- * they are bundled with the esbuild already used by `scripts/build-server.mjs`
+ * they are bundled with esbuild (a dev dependency)
  * rather than loaded directly. Nothing here touches a Workers binding: the
  * import helpers are pure and the query layer only builds SQL.
  */

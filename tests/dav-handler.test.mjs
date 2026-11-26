@@ -17,8 +17,8 @@ await build({
 			export { generateAppPassword, generateApiKey } from "./src/lib/api-keys.ts";
 			export { clearApiKeyVerificationCache } from "./src/lib/api/find-api-key.ts";
 			export { availableAppPasswordProtocols } from "./src/lib/auth/app-passwords.ts";
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "dav-handler-entry.ts",
@@ -30,7 +30,7 @@ await build({
 	target: "node22",
 	tsconfig: join(root, "tsconfig.json"),
 	packages: "external",
-	alias: { "cloudflare:workers": "./server/runtime/cloudflare-workers.ts" },
+	alias: { "cloudflare:workers": "./tests/helpers/cloudflare-workers.ts" },
 	logLevel: "silent",
 });
 

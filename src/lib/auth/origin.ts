@@ -5,8 +5,7 @@ import { getNodeEnv } from "@/lib/runtime";
  *
  * On Workers `request.url` is the public URL. On the self-hosted Node server Next builds it from the
  * bind address (`http://0.0.0.0:3000`), so the expected origin is APP_URL when set, otherwise the
- * Host header, with https only when a trusted reverse proxy (TRUST_PROXY) says so, exactly as the
- * realtime upgrade check does (server/runtime/realtime-origin.ts).
+ * Host header, with https only when a trusted reverse proxy (TRUST_PROXY) says so.
  */
 export function expectedRequestOrigin(request: Request): string {
 	const env = getNodeEnv();

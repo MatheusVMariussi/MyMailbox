@@ -15,8 +15,8 @@ export async function loadApp(name, exportLines, { mocks = {} } = {}) {
 	await build({
 		stdin: {
 			contents: `
-				export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-				export { applyMigrations } from "./server/runtime/migrate.ts";
+				export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+				export { applyMigrations } from "./tests/helpers/migrate.ts";
 				export { getDb } from "./src/db/index.ts";
 				${exportLines}
 			`,
@@ -33,7 +33,7 @@ export async function loadApp(name, exportLines, { mocks = {} } = {}) {
 		alias: {
 			"next/headers": "next/headers.js",
 			"next/server": "next/server.js",
-			"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
+			"cloudflare:workers": "./tests/helpers/cloudflare-workers.ts",
 		},
 		logLevel: "silent",
 		plugins: [{

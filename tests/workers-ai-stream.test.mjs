@@ -28,7 +28,7 @@ await build({
 	packages: "external",
 	alias: {
 		"next/headers": "next/headers.js",
-		"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
+		"cloudflare:workers": "./tests/helpers/cloudflare-workers.ts",
 	},
 	logLevel: "silent",
 });

@@ -9,7 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = mkdtempSync(join(root, "tests", ".tmp-daily-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({
-	entryPoints: { daily: join(root, "src/lib/deliverability/daily.ts"), ingest: join(root, "src/lib/deliverability/ingest.ts"), alerts: join(root, "src/lib/deliverability/alerts.ts"), database: join(root, "server/runtime/sqlite-database.ts"), migrate: join(root, "server/runtime/migrate.ts") },
+	entryPoints: { daily: join(root, "src/lib/deliverability/daily.ts"), ingest: join(root, "src/lib/deliverability/ingest.ts"), alerts: join(root, "src/lib/deliverability/alerts.ts"), database: join(root, "tests/helpers/sqlite-database.ts"), migrate: join(root, "tests/helpers/migrate.ts") },
 	outdir: outDir, outExtension: { ".js": ".mjs" }, bundle: true, platform: "node", format: "esm", target: "node22", tsconfig: join(root, "tsconfig.json"),
 	external: ["better-sqlite3", "drizzle-orm", "drizzle-orm/*", "postal-mime", "cloudflare:workers"], logLevel: "silent",
 });

@@ -12,8 +12,8 @@ const bundleDirectory = mkdtempSync(join(root, "node_modules", "mailflare-agent-
 await build({
 	stdin: {
 		contents: `
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { SqliteDatabase } from "./tests/helpers/sqlite-database.ts";
+			export { applyMigrations } from "./tests/helpers/migrate.ts";
 			export { createAgentChatStream } from "./src/lib/agent/chat.ts";
 			export { runEmailTool } from "./src/lib/agent/tools.ts";
 			export { requestAgentSend } from "./src/lib/agent/approvals/utils.ts";
@@ -32,7 +32,7 @@ await build({
 	packages: "external",
 	alias: {
 		"next/headers": "next/headers.js",
-		"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
+		"cloudflare:workers": "./tests/helpers/cloudflare-workers.ts",
 	},
 	logLevel: "silent",
 });

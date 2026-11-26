@@ -9,7 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = mkdtempSync(join(root, "tests", ".tmp-dmarc-stats-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({
-	entryPoints: { stats: join(root, "src/lib/deliverability/dmarc-stats.ts"), database: join(root, "server/runtime/sqlite-database.ts"), migrate: join(root, "server/runtime/migrate.ts") },
+	entryPoints: { stats: join(root, "src/lib/deliverability/dmarc-stats.ts"), database: join(root, "tests/helpers/sqlite-database.ts"), migrate: join(root, "tests/helpers/migrate.ts") },
 	outdir: outDir, outExtension: { ".js": ".mjs" }, bundle: true, platform: "node", format: "esm", target: "node22", tsconfig: join(root, "tsconfig.json"),
 	external: ["better-sqlite3", "drizzle-orm", "drizzle-orm/*"], logLevel: "silent",
 });
