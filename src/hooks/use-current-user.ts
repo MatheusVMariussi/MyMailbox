@@ -13,7 +13,6 @@ export type CurrentUser = {
 	canManageDomains: boolean;
 	canManageUsers: boolean;
 	calendarEnabled: boolean;
-	driveEnabled: boolean;
 	hasAvatar: boolean;
 };
 

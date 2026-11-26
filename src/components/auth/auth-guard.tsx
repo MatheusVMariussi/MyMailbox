@@ -61,8 +61,7 @@ export function AuthGuard({ children, mode = "protected", requireMailbox, requir
 					return;
 				}
 
-				if ((requireFeature === "calendar" && data.user?.calendarEnabled === false)
-					|| (requireFeature === "drive" && data.user?.driveEnabled === false)) {
+				if (requireFeature === "calendar" && data.user?.calendarEnabled === false) {
 					router.replace("/inbox");
 					return;
 				}

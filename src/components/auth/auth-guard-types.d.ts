@@ -9,7 +9,7 @@ export type AuthGuardProps = {
 	requireRole?: "admin";
 	requirePrimary?: boolean;
 	/** Redirect to /inbox when the account's admin turned this app off. */
-	requireFeature?: "calendar" | "drive";
+	requireFeature?: "calendar";
 	/** Public page that stays usable while signed in (adding another account). */
 	allowAuthenticated?: boolean;
 };

@@ -9,7 +9,6 @@ export type ManagedAccount = {
 	canManageDomains: boolean;
 	canManageUsers: boolean;
 	calendarEnabled: boolean;
-	driveEnabled: boolean;
 	forwardingEmail: string | null;
 	hasAvatar: boolean;
 	/** False for a passkey-only account, which cannot be given a password here. */

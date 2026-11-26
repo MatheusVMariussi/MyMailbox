@@ -7,7 +7,6 @@ export type MailboxSelectorUser = {
 	role: "admin" | "user";
 	hasAvatar: boolean;
 	calendarEnabled: boolean;
-	driveEnabled: boolean;
 };
 
 export type MailboxSelectorProps = {

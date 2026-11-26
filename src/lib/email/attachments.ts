@@ -14,7 +14,7 @@ import type {
 } from "./attachment-types";
 import { DEFAULT_OUTBOUND_ATTACHMENT_MAX_MB, outgoingSizeError } from "./attachment-limits";
 import { getOutboundAttachmentMaxMb } from "./attachment-policy";
-import { deleteUnreferencedObjects } from "@/lib/drive/shared-objects";
+import { deleteAttachmentObjects } from "./attachment-objects";
 
 export const MAX_ATTACHMENT_SIZE = 25_000_000;
 export const MAX_TOTAL_ATTACHMENT_SIZE = 25_000_000;
@@ -195,8 +195,7 @@ export async function deleteMessageAttachment(
 		.limit(1);
 	if (!row) return false;
 	await db.delete(messageAttachments).where(eq(messageAttachments.id, attachmentId));
-	// A Drive item saved from this attachment keeps the object alive.
-	await deleteUnreferencedObjects(env, db, [row.r2Key], { attachmentIds: [attachmentId] });
+	await deleteAttachmentObjects(env, [row.r2Key]);
 	return true;
 }
 
@@ -204,11 +203,10 @@ export async function deleteMessageAttachment(
 export async function deleteMessageAttachmentObjects(env: CloudflareEnv, messageId: string): Promise<void> {
 	const db = getDb(env);
 	const rows = await db
-		.select({ id: messageAttachments.id, r2Key: messageAttachments.r2Key })
+		.select({ r2Key: messageAttachments.r2Key })
 		.from(messageAttachments)
 		.where(eq(messageAttachments.messageId, messageId));
-	// A Drive item saved from this attachment keeps the object alive.
-	await deleteUnreferencedObjects(env, db, rows.map((row) => row.r2Key), { attachmentIds: rows.map((row) => row.id) });
+	await deleteAttachmentObjects(env, rows.map((row) => row.r2Key));
 }
 
 export async function listMessageAttachments(

@@ -35,7 +35,6 @@ export async function GET(request: Request, { params }: AccountRouteParams) {
 			canManageDomains: account.canManageDomains,
 			canManageUsers: account.canManageUsers,
 			calendarEnabled: account.calendarEnabled,
-			driveEnabled: account.driveEnabled,
 			...(canManageUsers(actor) ? { forwardingEmail: account.forwardingEmail } : {}),
 			hasAvatar: !!account.avatarKey,
 			passwordSet: hasPasswordHash(account.passwordHash),
@@ -139,7 +138,6 @@ export async function PATCH(request: Request, { params }: AccountRouteParams) {
 		...(actorIsPrimary && parsed.data.canManageDomains !== undefined ? { canManageDomains: parsed.data.canManageDomains } : {}),
 		...(actorIsPrimary && parsed.data.canManageUsers !== undefined ? { canManageUsers: parsed.data.canManageUsers } : {}),
 		...(parsed.data.calendarEnabled !== undefined ? { calendarEnabled: parsed.data.calendarEnabled } : {}),
-		...(parsed.data.driveEnabled !== undefined ? { driveEnabled: parsed.data.driveEnabled } : {}),
 		...(parsed.data.forwardingEmail !== undefined ? { forwardingEmail: parsed.data.forwardingEmail } : {}),
 	}).where(eq(users.id, id));
 	// Proofs issued before the address moved no longer apply to this account.

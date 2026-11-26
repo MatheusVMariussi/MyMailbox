@@ -47,7 +47,7 @@ const { deleteMessageAttachment } = await load("attachments");
 const { SqliteDatabase } = await load("database");
 const { applyMigrations } = await load("migrate");
 
-async function fixture(t, { sharedWithDrive }) {
+async function fixture(t) {
 	const database = new SqliteDatabase(join(outDir, `${crypto.randomUUID()}.sqlite`));
 	t.after(() => database.db.close());
 	await applyMigrations(database, join(root, "drizzle/migrations"));
@@ -58,22 +58,13 @@ async function fixture(t, { sharedWithDrive }) {
 	run("INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ('mb', 'u', 'd', 'me', 'personal', ?)", now);
 	run("INSERT INTO messages (id, mailbox_id, user_id, direction, from_addr, to_addr, subject, status, created_at) VALUES ('draft', 'mb', 'u', 'outbound', 'me@example.com', 'a@b.test', 's', 'draft', ?)", now);
 	run("INSERT INTO message_attachments (id, message_id, filename, content_type, size, r2_key, created_at) VALUES ('att', 'draft', 'a.pdf', 'application/pdf', 3, 'attachments/k1', ?)", now);
-	if (sharedWithDrive) {
-		run("INSERT INTO drive_items (id, owner_id, kind, name, r2_key, size, created_at, updated_at) VALUES ('item', 'u', 'file', 'a.pdf', 'attachments/k1', 3, ?, ?)", now, now);
-	}
 	const deleted = [];
 	const env = { DB: database, BUCKET: { delete: async (keys) => { deleted.push(...(Array.isArray(keys) ? keys : [keys])); } } };
 	return { env, deleted };
 }
 
-test("removing a draft attachment deletes its object when nothing else uses it", async (t) => {
-	const { env, deleted } = await fixture(t, { sharedWithDrive: false });
+test("removing a draft attachment deletes its object", async (t) => {
+	const { env, deleted } = await fixture(t);
 	assert.equal(await deleteMessageAttachment(env, "draft", "att"), true);
 	assert.deepEqual(deleted, ["attachments/k1"]);
-});
-
-test("removing a draft attachment keeps an object a Drive item still points at", async (t) => {
-	const { env, deleted } = await fixture(t, { sharedWithDrive: true });
-	assert.equal(await deleteMessageAttachment(env, "draft", "att"), true);
-	assert.deepEqual(deleted, []);
 });

@@ -13,7 +13,6 @@ const mocks = {
 	"@/lib/auth/admin": "export function isPrimaryAdmin(user){return user.admin===true}",
 	"@/lib/auth/origin": "export function hasValidSessionMutationOrigin(){return true}",
 	"@/lib/email/attachment-policy": "export const MAX_OUTBOUND_ATTACHMENT_MAX_MB=25; export async function getOutboundAttachmentMaxMb(){return 25} export function getOutboundAttachmentCeilingMb(){return 25}",
-	"@/lib/drive/storage": "export async function getDriveStorageLimit(){return null}",
 };
 const fixture = await loadFixture({ name: "admin-general-dav", entryPoint: "src/app/api/admin/general/utils.ts", mocks });
 const { GET, PUT } = await fixture.import();

@@ -15,7 +15,6 @@ export type SessionUser = {
 	canManageDomains: boolean;
 	canManageUsers: boolean;
 	calendarEnabled: boolean;
-	driveEnabled: boolean;
 	keyboardShortcutsEnabled: boolean;
 	spamProtectionEnabled: boolean;
 	spamStrictness: "relaxed" | "normal" | "strict";

@@ -44,7 +44,7 @@ interface CloudflareEnv {
 	/** "off" disables the RDAP domain-age check in spam analysis. */
 	SPAM_DOMAIN_AGE_CHECK?: string;
 	/**
-	 * Backblaze B2 storage. When all four are set, B2 replaces the R2 binding for raw mail, attachments, Drive,
+	 * Backblaze B2 storage. When all four are set, B2 replaces the R2 binding for raw mail, attachments,
 	 * avatars, branding and backups. B2_ENDPOINT is the S3-compatible host, e.g. s3.us-west-004.backblazeb2.com.
 	 */
 	B2_KEY_ID?: string;

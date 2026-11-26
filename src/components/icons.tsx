@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
 	ActivityIcon as HugeActivityIcon,
-	AlertCircleIcon as HugeAlertCircleIcon,
 	Archive03Icon as HugeArchiveIcon,
 	ArchiveRestoreIcon as HugeArchiveRestoreIcon,
 	ArrowDownIcon as HugeArrowDownIcon,
@@ -34,7 +33,6 @@ import {
 	Clock03Icon as HugeClock03Icon,
 	ClockIcon as HugeClockIcon,
 	CloudIcon as HugeCloudIcon,
-	CloudUploadIcon as HugeCloudUploadIcon,
 	CopyIcon as HugeCopyIcon,
 	CornerDownLeftIcon as HugeCornerDownLeftIcon,
 	DatabaseBackupIcon as HugeDatabaseBackupIcon,
@@ -45,22 +43,17 @@ import {
 	EyeIcon as HugeEyeIcon,
 	EyeOffIcon as HugeEyeOffIcon,
 	FileArchiveIcon as HugeFileArchiveIcon,
-	FileAudioIcon as HugeFileAudioIcon,
 	FileCodeCornerIcon as HugeFileCodeCornerIcon,
 	FileCodeIcon as HugeFileCodeIcon,
 	FileExclamationPointIcon as HugeFileExclamationPointIcon,
 	FileIcon as HugeFileIcon,
-	FileImageIcon as HugeFileImageIcon,
 	FileSpreadsheetIcon as HugeFileSpreadsheetIcon,
 	FileTextIcon as HugeFileTextIcon,
 	FileTypeIcon as HugeFileTypeIcon,
 	FileVideoCameraIcon as HugeFileVideoCameraIcon,
-	FileVideoIcon as HugeFileVideoIcon,
 	FolderIcon as HugeFolderIcon,
 	FolderInputIcon as HugeFolderInputIcon,
-	FolderPlusIcon as HugeFolderPlusIcon,
 	GlobalIcon as HugeGlobeIcon,
-	HardDriveIcon as HugeHardDriveIcon,
 	HelpCircleIcon as HugeHelpCircleIcon,
 	ImageIcon as HugeImageIcon,
 	ImagePlusIcon as HugeImagePlusIcon,
@@ -114,7 +107,6 @@ import {
 	SendIcon as HugeSendIcon,
 	ServerIcon as HugeServerIcon,
 	SettingsIcon as HugeSettingsIcon,
-	Share02Icon as HugeShare02Icon,
 	ShieldAlertIcon as HugeShieldAlertIcon,
 	ShieldCheckIcon as HugeShieldCheckIcon,
 	ShieldIcon as HugeShieldIcon,
@@ -177,7 +169,6 @@ function createIcon(icon: IconSvgElement, displayName: string): LucideIcon {
 }
 
 export const Activity = createIcon(HugeActivityIcon, "Activity");
-export const AlertCircle = createIcon(HugeAlertCircleIcon, "AlertCircle");
 export const AlertTriangle = createIcon(HugeTriangleAlertIcon, "AlertTriangle");
 export const AlignLeft = createIcon(HugeTextAlignLeftIcon, "AlignLeft");
 export const Archive = createIcon(HugeArchiveIcon, "Archive");
@@ -221,25 +212,20 @@ export const Eye = createIcon(HugeEyeIcon, "Eye");
 export const EyeOff = createIcon(HugeEyeOffIcon, "EyeOff");
 export const File = createIcon(HugeFileIcon, "File");
 export const FileArchive = createIcon(HugeFileArchiveIcon, "FileArchive");
-export const FileAudio = createIcon(HugeFileAudioIcon, "FileAudio");
 export const FileCode = createIcon(HugeFileCodeIcon, "FileCode");
 export const FileCode2 = createIcon(HugeFileCodeCornerIcon, "FileCode2");
-export const FileImage = createIcon(HugeFileImageIcon, "FileImage");
 export const FileSpreadsheet = createIcon(HugeFileSpreadsheetIcon, "FileSpreadsheet");
 export const FileText = createIcon(HugeFileTextIcon, "FileText");
 export const FileType = createIcon(HugeFileTypeIcon, "FileType");
-export const FileVideo = createIcon(HugeFileVideoIcon, "FileVideo");
 export const FileVideoCamera = createIcon(HugeFileVideoCameraIcon, "FileVideoCamera");
 export const FileWarning = createIcon(HugeFileExclamationPointIcon, "FileWarning");
 export const Folder = createIcon(HugeFolderIcon, "Folder");
 export const FolderInput = createIcon(HugeFolderInputIcon, "FolderInput");
-export const FolderPlus = createIcon(HugeFolderPlusIcon, "FolderPlus");
 // Created once: building the icon component inside render gives React a new type every time and remounts the SVG.
 const ForwardBase = createIcon(HugeReplyIcon, "Forward");
 export const Forward: LucideIcon = (props) =>
 	createElement(ForwardBase, { ...props, className: cn(props.className, "scale-x-[-1]") });
 export const Globe2 = createIcon(HugeGlobeIcon, "Globe2");
-export const HardDrive = createIcon(HugeHardDriveIcon, "HardDrive");
 export const HelpCircle = createIcon(HugeHelpCircleIcon, "HelpCircle");
 export const Image = createIcon(HugeImageIcon, "Image");
 export const ImagePlus = createIcon(HugeImagePlusIcon, "ImagePlus");
@@ -293,7 +279,6 @@ export const Search = createIcon(HugeSearchIcon, "Search");
 export const Send = createIcon(HugeSendIcon, "Send");
 export const Server = createIcon(HugeServerIcon, "Server");
 export const Settings = createIcon(HugeSettingsIcon, "Settings");
-export const Share2 = createIcon(HugeShare02Icon, "Share2");
 export const Shield = createIcon(HugeShieldIcon, "Shield");
 export const ShieldAlert = createIcon(HugeShieldAlertIcon, "ShieldAlert");
 export const ShieldCheck = createIcon(HugeShieldCheckIcon, "ShieldCheck");
@@ -308,7 +293,6 @@ export const Trash2 = createIcon(HugeDelete02Icon, "Trash2");
 export const Underline = createIcon(HugeUnderlineIcon, "Underline");
 export const Undo2 = createIcon(HugeUndo02Icon, "Undo2");
 export const Upload = createIcon(HugeUploadIcon, "Upload");
-export const UploadCloud = createIcon(HugeCloudUploadIcon, "UploadCloud");
 export const User = createIcon(HugeUserIcon, "User");
 export const UserPlus = createIcon(HugeUserPlusIcon, "UserPlus");
 export const UserRound = createIcon(HugeUserRoundIcon, "UserRound");

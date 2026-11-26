@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: AdminAccountRouteParams)
 	return NextResponse.json({ account: {
 		id: account.id, email: account.email, name: account.name, role: account.role,
 		disabled: account.disabled, canManageMailboxes: account.canManageMailboxes,
-		calendarEnabled: account.calendarEnabled, driveEnabled: account.driveEnabled,
+		calendarEnabled: account.calendarEnabled,
 		forwardingEmail: account.forwardingEmail, hasAvatar: !!account.avatarKey,
 	} });
 }
@@ -72,7 +72,6 @@ export async function PATCH(request: Request, { params }: AdminAccountRouteParam
 		...(isPrimaryAdmin(auth.user) && parsed.data.canManageDomains !== undefined ? { canManageDomains: parsed.data.canManageDomains } : {}),
 		...(isPrimaryAdmin(auth.user) && parsed.data.canManageUsers !== undefined ? { canManageUsers: parsed.data.canManageUsers } : {}),
 		...(parsed.data.calendarEnabled !== undefined ? { calendarEnabled: parsed.data.calendarEnabled } : {}),
-		...(parsed.data.driveEnabled !== undefined ? { driveEnabled: parsed.data.driveEnabled } : {}),
 		...(parsed.data.forwardingEmail !== undefined ? { forwardingEmail: parsed.data.forwardingEmail } : {}),
 	}).where(eq(users.id, id));
 	return NextResponse.json({ ok: true });

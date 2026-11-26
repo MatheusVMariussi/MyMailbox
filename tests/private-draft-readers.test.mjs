@@ -3,15 +3,13 @@ import test from "node:test";
 import { loadApp, sharedMailboxSeed } from "./helpers/real-db.mjs";
 
 // Another user's draft that its author filed under Archive or a folder is still private: the
-// thread view, the list's conversation counts and Drive's attachment list must all leave it out,
-// for everyone but its author.
+// thread view and the list's conversation counts must both leave it out, for everyone but its author.
 const mocks = {
 	"@/lib/cloudflare": "export function getEnv(){return globalThis.prEnv}",
 	"@/lib/auth/cookies": "export async function getCurrentUser(){return globalThis.prUser} export async function requireUser(){return globalThis.prUser}",
 };
 const { app, newDatabase } = await loadApp("private-draft-readers", `
 	export { getMessageThreadForUser } from "./src/lib/email/thread-view.ts";
-	export { listDriveAttachments } from "./src/lib/drive/attachments.ts";
 	export * as list from "./src/app/api/messages/route.ts";
 `, { mocks });
 
@@ -47,11 +45,4 @@ test("conversation counts in the list exclude another user's archived draft", as
 	globalThis.prUser = user("author");
 	const mine = await (await app.list.GET(new Request("http://localhost/api/messages?mailboxId=mb-team&status=received"))).json();
 	assert.equal(mine.messages.find((m) => m.id === "in-1").threadCount, 2);
-});
-
-test("Drive lists attachments of visible mail, not of another user's archived draft", async (t) => {
-	const { db } = await setup(t, "delegate");
-	const names = async (id) => (await app.listDriveAttachments(db, user(id), [])).map((item) => item.name).sort();
-	assert.deepEqual(await names("delegate"), ["ok.pdf"]);
-	assert.deepEqual(await names("author"), ["ok.pdf", "secret.pdf"]);
 });

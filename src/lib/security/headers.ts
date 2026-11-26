@@ -8,7 +8,7 @@ const csp = [
 	"img-src 'self' data: blob: https:",
 	"font-src 'self' data:",
 	"connect-src 'self' ws: wss: https://challenges.cloudflare.com",
-	// 'self' lets the Drive preview show PDFs and text files in an iframe.
+	// 'self' lets the attachment viewer show PDFs in an iframe.
 	"frame-src 'self' https://challenges.cloudflare.com",
 	"object-src 'none'",
 	"base-uri 'self'",

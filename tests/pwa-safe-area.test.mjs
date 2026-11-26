@@ -18,7 +18,7 @@ function layouts(dir) {
 // so its root must take the safe-area padding from the shared `safe-area` utility in globals.css.
 test("every full-viewport app shell uses the safe-area utility", () => {
 	const shells = layouts(join(root, "src/app")).filter((file) => /[" ]h-dvh[" ]|[" ]h-\[100dvh\][" ]/.test(readFileSync(file, "utf8")));
-	assert.ok(shells.length >= 5, "expected the dashboard, admin, calendar, drive and settings shells");
+	assert.ok(shells.length >= 4, "expected the dashboard, admin, calendar and settings shells");
 	for (const file of shells) {
 		assert.match(readFileSync(file, "utf8"), /className="safe-area /, relative(root, file));
 	}
@@ -36,7 +36,6 @@ test("the safe-area utility pads all four sides from env(safe-area-inset-*)", ()
 // Each must use the `safe-area` utility or its own env(safe-area-inset-*) padding on the root element.
 test("layout-less pages, auth shell, skeletons and the mobile drawer clear the safe areas", () => {
 	const files = [
-		["src/app/d/[token]/page.tsx", /safe-area-inset-top/, /safe-area-inset-bottom/],
 		["src/app/book/[userId]/page.tsx", /safe-area-inset-top/, /safe-area-inset-bottom/],
 		["src/app/book/[userId]/[eventId]/page.tsx", /safe-area-inset-top/, /safe-area-inset-bottom/],
 		["src/components/auth/auth-shell.tsx", /pt-\[env\(safe-area-inset-top\)\]/, /pl-\[env\(safe-area-inset-left\)\]/],

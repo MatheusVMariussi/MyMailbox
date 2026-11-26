@@ -3,7 +3,7 @@
 
 # Mailflare
 
-A self-hosted alternative to Google Workspace. Setup **custom domain Emails**, **Calendar, Drive** and **Booking**.
+A self-hosted alternative to Google Workspace. Setup **custom domain Emails**, **Calendar** and **Booking**.
 
 Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.co?ref=github) with high-deliverable emails** from $4​
 
@@ -17,7 +17,6 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 - **Routing rules**: Store, forward, reject or sort incoming mail, including a one-rule filter for newsletters and promotions.
 - **Calendar**: Repeating events with time zones. Attendees get email invitations.
 - **Booking**: Share a public link so anyone can book a free time on your calendar.
-- **Drive**: Store and share files.
 
 ### Technical
 
@@ -25,7 +24,7 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 - **File storage**: Cloudflare R2, Backblaze B2 or AWS S3.
 - **Hosting**: Cloudflare Workers.
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
-- **Import**: Bring in mail from IMAP, Gmail Takeout, `.eml` and `.mbox` files, and Google Calendar events, Google Contacts and Google Drive files from Takeout. See [Importing from Google Takeout](docs/import.md).
+- **Import**: Bring in mail from IMAP, Gmail Takeout, `.eml` and `.mbox` files, and Google Calendar events and Google Contacts from Takeout. See [Importing from Google Takeout](docs/import.md).
 
 Mailflare is available in English and Português (Brasil).
 
