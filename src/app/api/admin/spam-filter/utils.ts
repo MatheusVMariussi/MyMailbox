@@ -38,10 +38,6 @@ export async function PUT(request: Request) {
 	const parsed = schema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return Response.json({ error: "Check the keys and brands you entered" }, { status: 400 });
 	const input = parsed.data;
-	if (!(await getSpamIntelligenceStatus(access.env)).available) {
-		return Response.json({ error: "Apply the pending database update first" }, { status: 409 });
-	}
-
 	if (input.spamhausDqsKey) {
 		const valid = await checkSpamhausKey(input.spamhausDqsKey).catch(() => null);
 		if (valid === null) return Response.json({ error: "Could not reach Spamhaus to check the key" }, { status: 502 });

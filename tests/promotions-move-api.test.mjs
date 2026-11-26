@@ -113,15 +113,12 @@ test("preference validates input, origin, session, mailbox access and mode", asy
 	assert.equal((await prefer(ok)).status, 401);
 });
 
-test("preference answers 409 PROMOTIONS_OFF when the mailbox mode is off, and MIGRATION_REQUIRED without the tables", async (t) => {
+test("preference answers 409 PROMOTIONS_OFF when the mailbox mode is off", async (t) => {
 	const { database } = await fixture(t, { mode: null });
 	const ok = { mailboxId: "a", senderAddress: "news@acme.com", category: "promotions" };
 	assert.equal((await prefer(ok)).body.code, "PROMOTIONS_OFF");
 	database.db.exec("INSERT INTO mailbox_promotion_settings (mailbox_id, mode, updated_at) VALUES ('a', 'off', 1)");
 	assert.deepEqual([(await prefer(ok)).status, (await prefer(ok)).body.code], [409, "PROMOTIONS_OFF"]);
-	database.db.exec("UPDATE mailbox_promotion_settings SET mode = 'show'; DROP TABLE mailbox_sender_preferences");
-	const missing = await prefer(ok);
-	assert.deepEqual([missing.status, missing.body.code], [409, "MIGRATION_REQUIRED"]);
 });
 
 test("moving one message to Promotions and back to Inbox", async (t) => {

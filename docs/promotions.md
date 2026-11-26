@@ -40,7 +40,3 @@ Each message moved writes change-log rows on the database, so the limits keep on
 ## Database write budget
 
 D1 Free allows 100,000 row writes a day. Each promoted message costs about 6 writes: the row, its indexes and the change-log entry. The background sort therefore reads at most 25 messages per run and at most 2,000 messages a day for the whole installation, whatever the number of mailboxes: 2,000 x 6 = 12,000 writes, about an eighth of the allowance, so mail arriving that day keeps its room. The day is the UTC day, counted in `mailbox_promotion_settings.backfill_day` and `backfill_day_rows`. When the allowance is used up, jobs stay queued and continue after midnight UTC. Move to Promotions and Trash all are bounded by 500 messages per request for the same reason.
-
-## Upgrading
-
-The feature needs the pending database migrations. Before they are applied, every mailbox behaves as Off and the settings route answers with `MIGRATION_REQUIRED`.

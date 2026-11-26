@@ -119,12 +119,3 @@ test("reminders that are not yet due stay pending; snooze and dismiss belong to 
 	const again = await service.getMessageFollowUp(env, "u1", "fresh");
 	assert.ok(new Date(again.dueAt).getTime() > Date.now() + 2 * DAY);
 });
-
-test("without migration 0071 reminders are absent instead of failing", async (t) => {
-	const database = new SqliteDatabase(join(outDir, `${crypto.randomUUID()}.sqlite`));
-	t.after(() => database.db.close());
-	const env = { DB: database };
-	await service.runFollowUpReminders(env, new Date());
-	assert.deepEqual(await service.listDueFollowUps(env, "u1"), []);
-	assert.equal(await service.getMessageFollowUp(env, "u1", "m1"), null);
-});

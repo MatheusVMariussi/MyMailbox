@@ -337,7 +337,7 @@ async function deliverEmail(env: CloudflareEnv, delivery: PreparedDelivery): Pro
 
 /**
  * The sender domain's own pixel host wins over APP_URL so the pixel matches the From domain.
- * A missing origin or an unapplied migration sends the message untracked rather than failing it.
+ * A missing origin or any failure here sends the message untracked rather than failing it.
  */
 async function withTrackingPixel(env: CloudflareEnv, messageId: string, from: string, html: string, publicOrigin: string | undefined): Promise<string> {
 	try {

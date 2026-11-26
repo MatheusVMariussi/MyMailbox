@@ -2,7 +2,6 @@ import { and, asc, count, countDistinct, desc, eq, gte, inArray, isNotNull, max,
 import type { getDb } from "@/db";
 import { mailboxSenderPreferences, messages } from "@/db/schema";
 import { newId } from "@/lib/ids";
-import { isMissingTableError } from "@/lib/database-errors";
 import { getEmailDisplayName } from "@/lib/email/address";
 import { senderSweepCondition } from "@/lib/email/sender-sweep";
 import { chunk, isStillSending, MAX_SWEEP_ROWS, SUBSCRIPTION_WINDOW_DAYS, SUBSCRIPTIONS_PAGE_SIZE, SWEEP_CHUNK_SIZE, SWEEP_WINDOW_DAYS, windowStart } from "@/lib/promotions/subscriptions-utils";
@@ -95,17 +94,12 @@ export async function listSubscriptions(db: Db, input: { mailboxId: string; offs
 /** Overrides and unsubscribe records for one page: mailbox plus at most 50 addresses is 51 binds. */
 async function loadPreferences(db: Db, mailboxId: string, addresses: string[]) {
 	type Preference = { senderAddress: string; categoryOverride: "inbox" | "promotions" | null; unsubscribedAt: Date | null };
-	try {
-		const rows = await db.select({
-			senderAddress: mailboxSenderPreferences.senderAddress,
-			categoryOverride: mailboxSenderPreferences.categoryOverride,
-			unsubscribedAt: mailboxSenderPreferences.unsubscribedAt,
-		}).from(mailboxSenderPreferences).where(and(eq(mailboxSenderPreferences.mailboxId, mailboxId), inArray(mailboxSenderPreferences.senderAddress, addresses)));
-		return new Map<string, Preference>(rows.map((row) => [row.senderAddress, row]));
-	} catch (error) {
-		if (isMissingTableError(error)) return new Map<string, Preference>();
-		throw error;
-	}
+	const rows = await db.select({
+		senderAddress: mailboxSenderPreferences.senderAddress,
+		categoryOverride: mailboxSenderPreferences.categoryOverride,
+		unsubscribedAt: mailboxSenderPreferences.unsubscribedAt,
+	}).from(mailboxSenderPreferences).where(and(eq(mailboxSenderPreferences.mailboxId, mailboxId), inArray(mailboxSenderPreferences.senderAddress, addresses)));
+	return new Map<string, Preference>(rows.map((row) => [row.senderAddress, row]));
 }
 
 /** What "Trash all" would do: rows of the last 90 days (at most 500 move per request) and the rows older than that, which stay. */
@@ -140,7 +134,7 @@ export async function trashSenderMessages(db: Db, input: { mailboxId: string; se
 	return { changed, remaining: Number(n) };
 }
 
-/** Remembers that the user unsubscribed from this sender. Never throws: a missing table or any failure must not undo the unsubscribe. */
+/** Remembers that the user unsubscribed from this sender. Never throws: a failure here must not undo the unsubscribe. */
 export async function recordUnsubscribed(db: Db, input: { mailboxId: string; senderAddress: string; userId: string; now?: Date }): Promise<void> {
 	const unsubscribedAt = input.now ?? new Date();
 	try {
@@ -148,6 +142,6 @@ export async function recordUnsubscribed(db: Db, input: { mailboxId: string; sen
 			.values({ id: newId("msp"), mailboxId: input.mailboxId, senderAddress: input.senderAddress, unsubscribedAt, updatedByUserId: input.userId, updatedAt: unsubscribedAt })
 			.onConflictDoUpdate({ target: [mailboxSenderPreferences.mailboxId, mailboxSenderPreferences.senderAddress], set: { unsubscribedAt, updatedAt: unsubscribedAt } });
 	} catch (error) {
-		if (!isMissingTableError(error)) console.error(`Recording unsubscribe failed for mailbox ${input.mailboxId}`, error);
+		console.error(`Recording unsubscribe failed for mailbox ${input.mailboxId}`, error);
 	}
 }

@@ -3,7 +3,6 @@ import { getDb } from "@/db";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { parseLimit, parseOffset } from "@/lib/api/query-params";
 import { getEnv } from "@/lib/cloudflare";
-import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { loadPromotionModes } from "@/lib/promotions/settings";
 import { listSubscriptions } from "@/lib/promotions/subscriptions";
@@ -27,15 +26,9 @@ export async function GET(request: Request) {
 	if (!(await getMailboxAccessLevel(db, user, mailboxId))?.canRead) return NextResponse.json(EMPTY);
 	if (((await loadPromotionModes(db, [mailboxId])).get(mailboxId) ?? "off") === "off") return NextResponse.json({ ...EMPTY, mode: "off" });
 
-	try {
-		return NextResponse.json(await listSubscriptions(db, {
-			mailboxId,
-			offset: parseOffset(params.get("offset")),
-			limit: parseLimit(params.get("limit"), SUBSCRIPTIONS_PAGE_SIZE, SUBSCRIPTIONS_PAGE_SIZE),
-		}));
-	} catch (error) {
-		// The category and sender columns arrive with the migration; before it there is nothing to list.
-		if (isMissingTableError(error) || isMissingColumnError(error)) return NextResponse.json(EMPTY);
-		throw error;
-	}
+	return NextResponse.json(await listSubscriptions(db, {
+		mailboxId,
+		offset: parseOffset(params.get("offset")),
+		limit: parseLimit(params.get("limit"), SUBSCRIPTIONS_PAGE_SIZE, SUBSCRIPTIONS_PAGE_SIZE),
+	}));
 }

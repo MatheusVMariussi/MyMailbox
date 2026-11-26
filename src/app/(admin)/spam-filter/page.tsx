@@ -34,7 +34,7 @@ export default function SpamFilterSettingsPage() {
 		return () => { active = false; };
 	}, [t]);
 
-	const editable = Boolean(settings?.available);
+	const editable = Boolean(settings);
 	const parsedBrands = parseBrandLines(brandText);
 
 	async function saveBrands(event: React.FormEvent<HTMLFormElement>) {
@@ -64,7 +64,6 @@ export default function SpamFilterSettingsPage() {
 	return <div className="space-y-6">
 		<div><h1 className="text-2xl md:text-3xl font-medium text-neutral-900">{t("spamFilter.title")}</h1><p className="mt-2 text-sm text-neutral-500">{t("spamFilter.description")}</p></div>
 		{loadError && <p role="alert" className="text-sm text-red-700">{loadError}</p>}
-		{settings && !settings.available && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{t("spamFilter.needsUpdate")}</p>}
 
 		<Card className="rounded-3xl border-0 bg-white p-6">
 			<CardHeader className="py-0"><CardTitle>{t("spamFilter.blocklists")}</CardTitle><CardDescription>{t("spamFilter.blocklistsHint")}</CardDescription></CardHeader>

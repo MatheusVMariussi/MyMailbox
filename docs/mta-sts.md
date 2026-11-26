@@ -79,8 +79,6 @@ RFC 8461 asks for a removal period: "Turn off MTA-STS" publishes a policy with `
 
 Columns on `domain_deliverability` (`tls_rpt_enabled`, `mta_sts_mode`, `mta_sts_policy_id`, `mta_sts_mx`, `mta_sts_max_age`, `mta_sts_served_max_age`, `mta_sts_verified_at`, `mta_sts_retire_after`), a `kind` column on `deliverability_reports` (`dmarc` or `tlsrpt`) and the table `tls_daily_stats`. `tls_daily_stats` has one row per day, verified reporter, policy type, mail server and result type, with integer counts, and is backed up without its serial `id` like `dmarc_daily_stats`. Retention is 180 days.
 
-Before the migration is applied, report mail is dropped with a log line (providers send reports again), the policy host answers 404 and the routes answer 409 `MIGRATION_REQUIRED`.
-
 ## Known limitations
 
 - **Alerts.** There is no alert for TLS failures yet.

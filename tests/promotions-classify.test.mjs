@@ -52,12 +52,11 @@ test("decideCategory: overrides beat headers, correspondents beat marketing, lis
 	assert.equal(m.decideCategory({ verdict: none }), null);
 });
 
-async function fixture(t, { migrate = true } = {}) {
+async function fixture(t) {
 	const database = new m.SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
-	if (migrate) await m.applyMigrations(database, join(root, "drizzle/migrations"));
-	else database.db.exec("CREATE TABLE users (id text)");
-	if (migrate) database.db.exec(`
+	await m.applyMigrations(database, join(root, "drizzle/migrations"));
+	database.db.exec(`
 		INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES ('admin', 'owner@one.test', 'hash', 'Owner', 'admin', 1, 1);
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('one', 'admin', 'one.test', 'zone-one', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at) VALUES ('box', 'admin', 'one', 'me', 1);
@@ -92,11 +91,6 @@ test("a stored sender override wins, and only for that mailbox and exact address
 	assert.equal((await m.classifyInboundCategory(db, { ...base, from: "othernews@acme.com" })).category, "promotions");
 	raw.exec(`UPDATE mailbox_sender_preferences SET category_override = 'promotions'`);
 	assert.equal((await m.classifyInboundCategory(db, { ...base, headers: {} })).category, "promotions");
-});
-
-test("before the migration, classification falls back to headers only and never throws", async (t) => {
-	const { db } = await fixture(t, { migrate: false });
-	assert.deepEqual(await m.classifyInboundCategory(db, base), { category: "promotions", senderAddress: "news@acme.com" });
 });
 
 test("an unexpected database error classifies as unclassified instead of losing the mail", async () => {

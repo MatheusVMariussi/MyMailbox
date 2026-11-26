@@ -4,11 +4,9 @@ import { getEnv } from "@/lib/cloudflare";
 import { requireSessionUser } from "@/lib/api/auth";
 import { canManageDomains, isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { isMissingColumnError } from "@/lib/database-errors";
 import { getResendEventsSecret } from "@/lib/deliverability/provider-events";
 import { getSuppressionMode, setSuppressionMode } from "@/lib/deliverability/suppression";
 
-const MIGRATION_REQUIRED = { error: "Apply pending database migrations first", code: "MIGRATION_REQUIRED" };
 const schema = z.object({ suppressionMode: z.enum(["off", "record", "enforce"]) });
 
 async function view(env: CloudflareEnv, canEdit: boolean) {
@@ -33,11 +31,6 @@ export async function PUT(request: Request) {
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const parsed = schema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
-	try {
-		await setSuppressionMode(env, parsed.data.suppressionMode);
-	} catch (error) {
-		if (isMissingColumnError(error)) return NextResponse.json(MIGRATION_REQUIRED, { status: 409 });
-		throw error;
-	}
+	await setSuppressionMode(env, parsed.data.suppressionMode);
 	return NextResponse.json(await view(env, true));
 }

@@ -58,11 +58,10 @@ test("a failed backfill carries the error and offers a retry", () => {
 	assert.deepEqual(u.getBackfillNotice({ status: "failed", scanned: 5 }), { kind: "failed", key: "settings.promotions.backfillFailed", error: null, retry: true });
 });
 
-test("a 409 MIGRATION_REQUIRED maps to its own message", () => {
-	assert.equal(u.getModeErrorKey(409, "MIGRATION_REQUIRED"), "settings.promotions.migrationRequired");
-	assert.equal(u.getModeErrorKey(403, undefined), "settings.promotions.forbidden");
-	assert.equal(u.getModeErrorKey(500, undefined), "settings.promotions.saveFailed");
-	assert.equal(u.getModeErrorKey(409, "OTHER"), "settings.promotions.saveFailed");
+test("a failed mode save maps to its message", () => {
+	assert.equal(u.getModeErrorKey(403), "settings.promotions.forbidden");
+	assert.equal(u.getModeErrorKey(500), "settings.promotions.saveFailed");
+	assert.equal(u.getModeErrorKey(409), "settings.promotions.saveFailed");
 });
 
 test("the Promotions folder config", () => {

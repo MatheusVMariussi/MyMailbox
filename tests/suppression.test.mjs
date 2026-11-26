@@ -170,11 +170,6 @@ test("getSuppressionMode defaults to off, with and without a settings row", asyn
 	assert.equal(await service.getSuppressionMode(withRow.env), "enforce");
 });
 
-test("getSuppressionMode reads off when the migration is not applied", async () => {
-	const failing = { DB: { prepare() { throw new Error("no such column: suppression_mode"); } } };
-	assert.equal(await service.getSuppressionMode(failing), "off");
-});
-
 test("recordSuppressionEvents does nothing in mode off", async (t) => {
 	const { env, rows } = await createFixture(t, "off");
 	const count = await service.recordSuppressionEvents(env, { sender: "kevin@example.com", source: "resend", entries: [{ email: "anna@example.org", reason: "hard_bounce" }] });

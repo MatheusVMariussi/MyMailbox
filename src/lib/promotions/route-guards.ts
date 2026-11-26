@@ -2,14 +2,10 @@ import { NextResponse } from "next/server";
 import type { getDb } from "@/db";
 import { requireSessionUser } from "@/lib/api/auth";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { loadPromotionModes } from "@/lib/promotions/settings";
 
 type Db = ReturnType<typeof getDb>;
-
-export const MIGRATION_REQUIRED = { error: "Apply pending database migrations first", code: "MIGRATION_REQUIRED" };
-export const isMissingSchema = (error: unknown) => isMissingTableError(error) || isMissingColumnError(error);
 
 /** Session user plus the same-origin check every promotions mutation needs. */
 export async function authorizeMutation(env: CloudflareEnv, request: Request) {

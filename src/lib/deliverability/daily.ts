@@ -1,7 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, lt, lte, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { deliverabilityAlerts, deliverabilityReports, dmarcDailyStats as stats, domainDeliverability, domains, tlsDailyStats, users } from "@/db/schema";
-import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
 import type { SystemMailInput } from "@/lib/email/system-mail-types";
 import { retireMtaSts, type MtaStsDeps } from "./mta-sts-admin";
 import { evaluateNoReports, evaluateSourceAlerts, mergeReporterAlerts, type AlertKind, type EvaluatedAlert, type SourceTotals } from "./daily-utils";
@@ -165,10 +164,10 @@ async function runRetention(env: CloudflareEnv, now: Date) {
 
 /**
  * The daily deliverability job (02:00 UTC): DMARC alerts for domains with reporting on, retention, and the end of MTA-STS removal periods. Alerts are deduplicated by
- * (domain, kind, day), so a re-run never repeats one or its email. Does nothing before the migration is applied.
+ * (domain, kind, day), so a re-run never repeats one or its email.
  */
 export async function runDeliverabilityDaily(env: CloudflareEnv, now: Date = new Date(), deps: { sendMail?: SendMail; mtaStsDeps?: MtaStsDeps } = {}): Promise<void> {
-	// Independent steps: one failing (or one whose migration is not applied yet) never skips the others.
+	// Independent steps: one failing never skips the others; the first failure is rethrown at the end.
 	let failure: unknown;
 	for (const step of [
 		() => runAlerts(env, now, deps.sendMail ?? defaultSendMail),
@@ -178,7 +177,7 @@ export async function runDeliverabilityDaily(env: CloudflareEnv, now: Date = new
 		try {
 			await step();
 		} catch (error) {
-			if (!isMissingTableError(error) && !isMissingColumnError(error)) failure ??= error;
+			failure ??= error;
 		}
 	}
 	if (failure) throw failure;

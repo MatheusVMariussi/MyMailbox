@@ -3,7 +3,6 @@ import { getEnv } from "@/lib/cloudflare";
 import { requireSessionUser } from "@/lib/api/auth";
 import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { isMissingColumnError } from "@/lib/database-errors";
 import { removeResendFeed, setupResendFeed } from "@/lib/deliverability/resend-feed";
 
 const originOf = (env: CloudflareEnv, request: Request) => env.APP_URL?.trim() || new URL(request.url).origin;
@@ -18,7 +17,6 @@ async function authorize(request: Request) {
 }
 
 function failure(error: unknown) {
-	if (isMissingColumnError(error)) return NextResponse.json({ error: "Apply pending database migrations first", code: "MIGRATION_REQUIRED" }, { status: 409 });
 	return NextResponse.json({ error: error instanceof Error ? error.message : "Resend setup failed" }, { status: 502 });
 }
 

@@ -135,7 +135,7 @@ test("a domain without a policy id is not served; one in its removal period serv
 	assert.equal((await f.get("mta-sts.example.com")).status, 404);
 });
 
-test("a stored policy that no longer validates is not served, and a missing table is a 404", async (t) => {
+test("a stored policy that no longer validates is not served", async (t) => {
 	const f = await fixture(t, { d1: { mx: '["bad host"]' } });
 	assert.equal((await f.get("mta-sts.example.com")).status, 404);
 	f.set("d1", { mx: "not json" });
@@ -143,8 +143,6 @@ test("a stored policy that no longer validates is not served, and a missing tabl
 	f.set("d1", { mx: "[]" });
 	assert.equal((await f.get("mta-sts.example.com")).status, 404);
 	f.set("d1", { maxAge: 5 });
-	assert.equal((await f.get("mta-sts.example.com")).status, 404);
-	f.raw.exec("DROP TABLE domain_deliverability");
 	assert.equal((await f.get("mta-sts.example.com")).status, 404);
 });
 

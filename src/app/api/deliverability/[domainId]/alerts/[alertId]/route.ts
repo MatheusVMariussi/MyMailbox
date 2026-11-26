@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { acknowledgeAlert } from "@/lib/deliverability/alerts";
 import { authorizeDomainAdmin } from "@/lib/deliverability/access";
-import { migrationRequired } from "@/lib/deliverability/route-utils";
 
 type Params = { params: Promise<{ domainId: string; alertId: string }> };
 
@@ -12,10 +11,6 @@ export async function PATCH(request: Request, { params }: Params) {
 	const env = getEnv();
 	const access = await authorizeDomainAdmin(env, request, domainId, true);
 	if (access.error) return access.error;
-	try {
-		if (!await acknowledgeAlert(env, domainId, alertId, access.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-		return NextResponse.json({ ok: true });
-	} catch (error) {
-		return migrationRequired(error);
-	}
+	if (!await acknowledgeAlert(env, domainId, alertId, access.user.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+	return NextResponse.json({ ok: true });
 }

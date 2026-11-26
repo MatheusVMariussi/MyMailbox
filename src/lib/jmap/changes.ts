@@ -3,7 +3,6 @@ import { getDb, type AppDatabase } from "@/db";
 import { jmapChangeFloor, jmapChanges, mailboxPromotionSettings, messages } from "@/db/schema";
 import { greatest } from "@/db/sql";
 import { DRAFT_FILTER_PARAMS, draftsVisibleTo } from "@/lib/email/draft-access";
-import { isMissingTableError } from "@/lib/database-errors";
 import { listFoldersByMailbox, listJmapMailboxes } from "./access";
 import { encodeMailboxRef, SYSTEM_ROLES } from "./ids";
 import type { AccessibleMailbox, JmapContext } from "./types";
@@ -26,13 +25,8 @@ async function accessFingerprint(ctx: JmapContext, mailboxes: AccessibleMailbox[
 
 /** Sorted ids, among `accessible`, whose Promotions mode is not off. One unbound query: the table holds a row per mailbox at most. */
 async function promotingMailboxIds(ctx: JmapContext, accessible: Set<string>): Promise<string[]> {
-	try {
-		const rows = await ctx.db.select({ id: mailboxPromotionSettings.mailboxId }).from(mailboxPromotionSettings).where(sql`${mailboxPromotionSettings.mode} <> 'off'`);
-		return rows.map((row) => row.id).filter((id) => accessible.has(id)).sort();
-	} catch (error) {
-		if (isMissingTableError(error)) return [];
-		throw error;
-	}
+	const rows = await ctx.db.select({ id: mailboxPromotionSettings.mailboxId }).from(mailboxPromotionSettings).where(sql`${mailboxPromotionSettings.mode} <> 'off'`);
+	return rows.map((row) => row.id).filter((id) => accessible.has(id)).sort();
 }
 
 async function floorSeq(ctx: JmapContext): Promise<number> {

@@ -582,7 +582,7 @@ export const messageTracking = sqliteTable(
 	(t) => [uniqueIndex("message_tracking_message_idx").on(t.messageId)],
 );
 
-/** Hostname under a domain that serves its read-receipt pixels, so the pixel matches the sender. Kept out of `domains` so sending works before the migration. */
+/** Hostname under a domain that serves its read-receipt pixels, so the pixel matches the sender. */
 export const domainTrackingHosts = sqliteTable(
 	"domain_tracking_hosts",
 	{
@@ -765,7 +765,7 @@ export const messageOpens = sqliteTable(
 
 /**
  * Per-user composer defaults. Kept out of `users` because every session
- * lookup selects the whole users row, which would fail before the migration.
+ * lookup selects the whole users row.
  */
 export const userComposePreferences = sqliteTable("user_compose_preferences", {
 	userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),

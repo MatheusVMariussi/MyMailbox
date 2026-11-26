@@ -9,7 +9,7 @@ import { ROW_GRID, StatusBadge } from "./status-row";
 import { probeTrackingHost } from "./tracking-host-utils";
 import type { Domain } from "./types";
 
-type TrackingHostResponse = { hostname: string | null; available: boolean };
+type TrackingHostResponse = { hostname: string | null };
 
 /** The hostname that serves this domain's read-receipt pixels, so they match the sender domain. */
 export default function TrackingHostSection({ domain }: { domain: Domain }) {
@@ -28,7 +28,11 @@ export default function TrackingHostSection({ domain }: { domain: Domain }) {
 				setSaved(data);
 				setValue(data.hostname ?? "");
 			})
-			.catch(() => { if (active) setSaved({ hostname: null, available: false }); });
+			.catch((err) => {
+				if (!active) return;
+				setSaved({ hostname: null });
+				setError(err instanceof Error ? err.message : "");
+			});
 		return () => { active = false; };
 	}, [domain.id]);
 
@@ -78,32 +82,28 @@ export default function TrackingHostSection({ domain }: { domain: Domain }) {
 						<span className="block text-xs text-neutral-500">{t("domains.tracking.hostHint")}</span>
 					</span>
 					<div className="min-w-0 break-words text-neutral-500">
-						{saved.available ? (
-							<div className="space-y-2">
-								<form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void save(value); }}>
-									<Input
-										aria-label={t("domains.tracking.host")}
-										placeholder={`mail.${domain.hostname}`}
-										value={value}
-										onChange={(event) => setValue(event.target.value)}
-										className="max-w-xs bg-white"
-										autoComplete="off"
-										spellCheck={false}
-									/>
-									<Button type="submit" size="sm" disabled={busy || !value.trim() || value.trim().toLowerCase() === saved.hostname}>
-										{t("domains.tracking.save")}
+						<div className="space-y-2">
+							<form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void save(value); }}>
+								<Input
+									aria-label={t("domains.tracking.host")}
+									placeholder={`mail.${domain.hostname}`}
+									value={value}
+									onChange={(event) => setValue(event.target.value)}
+									className="max-w-xs bg-white"
+									autoComplete="off"
+									spellCheck={false}
+								/>
+								<Button type="submit" size="sm" disabled={busy || !value.trim() || value.trim().toLowerCase() === saved.hostname}>
+									{t("domains.tracking.save")}
+								</Button>
+								{saved.hostname && (
+									<Button type="button" size="sm" variant="outline" className="bg-white" disabled={busy} onClick={() => void save(null)}>
+										{t("domains.tracking.remove")}
 									</Button>
-									{saved.hostname && (
-										<Button type="button" size="sm" variant="outline" className="bg-white" disabled={busy} onClick={() => void save(null)}>
-											{t("domains.tracking.remove")}
-										</Button>
-									)}
-								</form>
-								<p className={failed ? "text-xs text-amber-700" : "text-xs text-neutral-500"}>{status}</p>
-							</div>
-						) : (
-							t("domains.tracking.migrationRequired")
-						)}
+								)}
+							</form>
+							<p className={failed ? "text-xs text-amber-700" : "text-xs text-neutral-500"}>{status}</p>
+						</div>
 					</div>
 				</li>
 			</ul>

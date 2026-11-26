@@ -80,8 +80,6 @@ export type SpamBrand = { name: string; domains: string[] };
 export type SpamKeySource = "settings" | "env" | null;
 
 export type SpamIntelligenceStatus = {
-	/** False until the database migration adding these settings has run. */
-	available: boolean;
 	spamhaus: { source: SpamKeySource };
 	abusech: { source: SpamKeySource };
 	domainAge: boolean;

@@ -33,9 +33,6 @@ export async function readNoteHtml(request: Request): Promise<{ html: string; at
 	return { html, attachToMessage: body?.attachToMessage === true };
 }
 
-export const migrationRequired = () =>
-	NextResponse.json({ error: "Apply pending database migrations first", code: "MIGRATION_REQUIRED" }, { status: 409 });
-
 export function noteChangeError(error: "not_found" | "forbidden") {
 	return error === "forbidden"
 		? NextResponse.json({ error: "You cannot change this note" }, { status: 403 })

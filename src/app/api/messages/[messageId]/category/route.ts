@@ -5,7 +5,7 @@ import { messages } from "@/db/schema";
 import { getEnv } from "@/lib/cloudflare";
 import { refileSenderMessages, setSenderOverride } from "@/lib/promotions/refile";
 import { parseCategoryMoveBody, targetOf } from "@/lib/promotions/refile-utils";
-import { authorizeMutation, checkManagedMailbox, isMissingSchema, MIGRATION_REQUIRED } from "@/lib/promotions/route-guards";
+import { authorizeMutation, checkManagedMailbox } from "@/lib/promotions/route-guards";
 
 /**
  * Moves one message to Promotions or back to Inbox (stored as the explicit `primary`, which the backfill leaves alone).
@@ -29,19 +29,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ me
 	if (parsed.applyToSender && !message.senderAddress) return NextResponse.json({ error: "This message has no sender address to remember" }, { status: 400 });
 
 	const target = targetOf(parsed.category);
-	try {
-		await db.update(messages).set({ category: target }).where(eq(messages.id, messageId));
-		let changed = message.category === target ? 0 : 1;
-		let remainingOlder = 0;
-		if (parsed.applyToSender && message.senderAddress) {
-			await setSenderOverride(db, { mailboxId: message.mailboxId, senderAddress: message.senderAddress, override: parsed.category, userId: auth.user.id });
-			const refiled = await refileSenderMessages(db, { mailboxId: message.mailboxId, senderAddress: message.senderAddress, target });
-			changed += refiled.changed;
-			remainingOlder = refiled.remainingOlder;
-		}
-		return NextResponse.json({ category: parsed.category, changed, remainingOlder });
-	} catch (error) {
-		if (isMissingSchema(error)) return NextResponse.json(MIGRATION_REQUIRED, { status: 409 });
-		throw error;
+	await db.update(messages).set({ category: target }).where(eq(messages.id, messageId));
+	let changed = message.category === target ? 0 : 1;
+	let remainingOlder = 0;
+	if (parsed.applyToSender && message.senderAddress) {
+		await setSenderOverride(db, { mailboxId: message.mailboxId, senderAddress: message.senderAddress, override: parsed.category, userId: auth.user.id });
+		const refiled = await refileSenderMessages(db, { mailboxId: message.mailboxId, senderAddress: message.senderAddress, target });
+		changed += refiled.changed;
+		remainingOlder = refiled.remainingOlder;
 	}
+	return NextResponse.json({ category: parsed.category, changed, remainingOlder });
 }

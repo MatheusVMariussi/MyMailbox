@@ -20,12 +20,6 @@ test("GET is open to a read-only delegate and 404s for a mailbox the user cannot
 	assert.equal((await get("a")).status, 404);
 });
 
-test("GET reports off when the table is missing", async (t) => {
-	const database = await seed(t, m);
-	database.db.exec("DROP TABLE mailbox_promotion_settings");
-	assert.deepEqual((await get("a")).body, { mode: "off", backfill: { status: "idle", scanned: 0 } });
-});
-
 test("PUT validates the body", async (t) => {
 	await seed(t, m);
 	for (const body of [{ mode: "on" }, {}, null]) assert.equal((await put("a", body)).status, 400);
@@ -82,12 +76,4 @@ test("show and separate keep a running backfill's claim (updated_at is its fence
 	await put("a", { mode: "separate" });
 	assert.notEqual(stamp(), 1000, "a restart is a new job");
 	assert.equal(row(database).backfill_status, "pending");
-});
-
-test("PUT answers 409 MIGRATION_REQUIRED when the table is missing", async (t) => {
-	const database = await seed(t, m);
-	database.db.exec("DROP TABLE mailbox_promotion_settings");
-	const result = await put("a", { mode: "show" });
-	assert.equal(result.status, 409);
-	assert.equal(result.body.code, "MIGRATION_REQUIRED");
 });

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { authorizeDomainAdmin } from "@/lib/deliverability/access";
 import { getDmarcStats, normalizeDays } from "@/lib/deliverability/dmarc-stats";
-import { migrationRequired } from "@/lib/deliverability/route-utils";
 
 type Params = { params: Promise<{ domainId: string }> };
 
@@ -13,9 +12,5 @@ export async function GET(request: Request, { params }: Params) {
 	const access = await authorizeDomainAdmin(env, request, domainId, false);
 	if (access.error) return access.error;
 	const query = new URL(request.url).searchParams;
-	try {
-		return NextResponse.json(await getDmarcStats(env, domainId, { days: normalizeDays(query.get("days")) }));
-	} catch (error) {
-		return migrationRequired(error);
-	}
+	return NextResponse.json(await getDmarcStats(env, domainId, { days: normalizeDays(query.get("days")) }));
 }

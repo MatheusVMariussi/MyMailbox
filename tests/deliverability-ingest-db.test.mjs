@@ -375,12 +375,6 @@ test("matchReportAddress finds only the reserved local part on a domain with rep
 	assert.equal(await matchReportAddress(off.env, "mailflare-reports@example.com"), null);
 });
 
-test("matchReportAddress is off when the migration has not been applied", async () => {
-	const failing = { DB: { prepare() { throw new Error("no such table: domain_deliverability"); } } };
-	assert.equal(await matchReportAddress(failing, "mailflare-reports@example.com"), null);
-	assert.equal(await matchReportAddress(failing, "kevin@example.com"), null);
-});
-
 test("the reserved local part is refused for a mailbox or alias only while reports are on for that domain", async (t) => {
 	const f = await fixture(t);
 	assert.equal(await isReportAddressReserved(f.env, "d1", "mailflare-reports"), true);
@@ -389,5 +383,4 @@ test("the reserved local part is refused for a mailbox or alias only while repor
 	assert.equal(await isReportAddressReserved(f.env, "d2", "mailflare-reports"), false, "reports were never turned on for d2");
 	const off = await fixture(t, { enabled: false });
 	assert.equal(await isReportAddressReserved(off.env, "d1", "mailflare-reports"), false);
-	assert.equal(await isReportAddressReserved({ DB: { prepare() { throw new Error("no such table: domain_deliverability"); } } }, "d1", "mailflare-reports"), false);
 });

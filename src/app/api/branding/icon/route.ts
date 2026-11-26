@@ -41,7 +41,7 @@ export async function GET() {
 			}
 		}
 	} catch {
-		// Use the packaged icon until the branding migration is available.
+		// An unreadable setting or icon object falls back to the packaged icon.
 	}
 	return getDefaultIcon(env);
 }

@@ -4,13 +4,11 @@ import { requireSessionUser } from "@/lib/api/auth";
 import { canManageDomains } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { getDomainForUser } from "@/lib/domains/service";
-import { getDomainTrackingHost, setDomainTrackingHost, TrackingHostsUnavailableError } from "@/lib/tracking/open-tracking";
+import { getDomainTrackingHost, setDomainTrackingHost } from "@/lib/tracking/open-tracking";
 import { normalizeTrackingHost } from "@/lib/tracking/open-tracking-utils";
 import { isUniqueConstraintError } from "@/lib/database-errors";
 
 type Params = { params: Promise<{ id: string }> };
-
-const MIGRATION_REQUIRED = { error: "Apply pending database migrations first", code: "MIGRATION_REQUIRED" };
 
 export async function GET(request: Request, { params }: Params) {
 	const { id } = await params;
@@ -20,12 +18,7 @@ export async function GET(request: Request, { params }: Params) {
 	if (!canManageDomains(auth.user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	const domain = await getDomainForUser(env, auth.user.id, id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
-	try {
-		return NextResponse.json({ hostname: await getDomainTrackingHost(env, id), available: true });
-	} catch (error) {
-		if (error instanceof TrackingHostsUnavailableError) return NextResponse.json({ hostname: null, available: false });
-		throw error;
-	}
+	return NextResponse.json({ hostname: await getDomainTrackingHost(env, id) });
 }
 
 /** Sets (or clears, with an empty hostname) the host that serves this domain's read-receipt pixels. */
@@ -54,9 +47,8 @@ export async function PUT(request: Request, { params }: Params) {
 	try {
 		await setDomainTrackingHost(env, id, hostname);
 	} catch (error) {
-		if (error instanceof TrackingHostsUnavailableError) return NextResponse.json(MIGRATION_REQUIRED, { status: 409 });
 		if (isUniqueConstraintError(error)) return NextResponse.json({ error: "Another domain already uses this hostname" }, { status: 409 });
 		throw error;
 	}
-	return NextResponse.json({ hostname, available: true });
+	return NextResponse.json({ hostname });
 }

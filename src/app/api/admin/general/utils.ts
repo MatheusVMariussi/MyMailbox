@@ -7,7 +7,6 @@ import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { OUTBOUND_ATTACHMENT_CEILING_MB, clampOutboundAttachmentMb } from "@/lib/email/attachment-limits";
 import { getOutboundAttachmentMaxMb } from "@/lib/email/attachment-policy";
-import { isMissingColumnError } from "@/lib/database-errors";
 
 const schema = z.object({
 	outboundAttachmentMaxMb: z.number().int().min(1),
@@ -34,11 +33,6 @@ export async function PUT(request: Request) {
 	const parsed = schema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return Response.json({ error: `Enter a valid attachment limit (1 to ${OUTBOUND_ATTACHMENT_CEILING_MB} MB)` }, { status: 400 });
 	const values = { updatedAt: new Date(), outboundAttachmentMaxMb: clampOutboundAttachmentMb(parsed.data.outboundAttachmentMaxMb) };
-	try {
-		await getDb(env).insert(appSettings).values({ id: "default", ...values }).onConflictDoUpdate({ target: appSettings.id, set: values });
-	} catch (error) {
-		if (!isMissingColumnError(error)) throw error;
-		return Response.json({ error: "Apply pending database migrations first." }, { status: 500 });
-	}
+	await getDb(env).insert(appSettings).values({ id: "default", ...values }).onConflictDoUpdate({ target: appSettings.id, set: values });
 	return Response.json(await readSettings(env), { headers: { "Cache-Control": "no-store" } });
 }

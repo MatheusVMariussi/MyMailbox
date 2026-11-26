@@ -18,14 +18,10 @@ const DSN_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_DSN_ENTRIES = 50;
 const STRENGTH: Record<SuppressionReason, number> = { manual: 0, hard_bounce: 1, complaint: 2 };
 
-/** Installation-wide mode. Reads "off" until the migration that adds the column is applied. */
+/** Installation-wide mode; "off" without a settings row. */
 export async function getSuppressionMode(env: CloudflareEnv): Promise<SuppressionMode> {
-	try {
-		const [row] = await getDb(env).select({ mode: appSettings.suppressionMode }).from(appSettings).where(eq(appSettings.id, SETTINGS_ID)).limit(1);
-		return row?.mode === "record" || row?.mode === "enforce" ? row.mode : "off";
-	} catch {
-		return "off";
-	}
+	const [row] = await getDb(env).select({ mode: appSettings.suppressionMode }).from(appSettings).where(eq(appSettings.id, SETTINGS_ID)).limit(1);
+	return row?.mode === "record" || row?.mode === "enforce" ? row.mode : "off";
 }
 
 export async function setSuppressionMode(env: CloudflareEnv, mode: SuppressionMode): Promise<void> {

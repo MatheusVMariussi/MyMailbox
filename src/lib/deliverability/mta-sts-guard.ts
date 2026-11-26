@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { domainDeliverability, domains } from "@/db/schema";
-import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
 import { deleteMtaStsRecord, mtaStsDeps, updateMtaSts, type MtaStsDeps } from "./mta-sts-admin";
 import { isManual, reportsDeps, type ReportsDeps } from "./reports-admin";
 import { updateTlsRpt } from "./tls-rpt-admin";
@@ -22,15 +21,9 @@ export class ForceDeleteConfirmError extends Error {
 }
 
 async function readPolicy(env: CloudflareEnv, domainId: string) {
-	try {
-		const [row] = await getDb(env).select({ mode: domainDeliverability.mtaStsMode, policyId: domainDeliverability.mtaStsPolicyId, tlsRpt: domainDeliverability.tlsRptEnabled, maxAge: domainDeliverability.mtaStsMaxAge, servedMaxAge: domainDeliverability.mtaStsServedMaxAge })
-			.from(domainDeliverability).where(eq(domainDeliverability.domainId, domainId)).limit(1);
-		return row ?? null;
-	} catch (error) {
-		// Before the migration nothing is published, so nothing can be broken.
-		if (isMissingTableError(error) || isMissingColumnError(error)) return null;
-		throw error;
-	}
+	const [row] = await getDb(env).select({ mode: domainDeliverability.mtaStsMode, policyId: domainDeliverability.mtaStsPolicyId, tlsRpt: domainDeliverability.tlsRptEnabled, maxAge: domainDeliverability.mtaStsMaxAge, servedMaxAge: domainDeliverability.mtaStsServedMaxAge })
+		.from(domainDeliverability).where(eq(domainDeliverability.domainId, domainId)).limit(1);
+	return row ?? null;
 }
 
 /**

@@ -18,7 +18,6 @@ import { getMessageListColumns, loadConversationPage } from "./utils";
 import type { ListMessage } from "./types";
 import { getOpenCounts } from "@/lib/tracking/open-tracking";
 import { summarizeNotesForRows } from "@/lib/notes/service";
-import { isMissingTableError } from "@/lib/database-errors";
 import { parseLimit, parseOffset } from "@/lib/api/query-params";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { categoryScopeCondition } from "@/lib/promotions/settings";
@@ -197,11 +196,7 @@ export async function GET(request: Request) {
 				.where(and(inArray(outboundJobs.messageId, batch), eq(outboundJobs.status, "queued"), isNotNull(outboundJobs.scheduledAt))))
 			: [],
 		getOpenCounts(env, rows.filter((row) => row.direction === "outbound").map((row) => row.id)),
-		// Optional: a database without the notes migration has no notes to show.
-		summarizeNotesForRows(db, rows).catch((error) => {
-			if (isMissingTableError(error)) return new Map<string, { count: number; preview: string }>();
-			throw error;
-		}),
+		summarizeNotesForRows(db, rows),
 		Promise.all(
 			Array.from(new Set(rows.map((message) => message.userId))).map(async (userId) => [
 				userId,

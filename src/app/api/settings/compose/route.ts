@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/api/auth";
 import { getEnv } from "@/lib/cloudflare";
 import { parseUndoSendSeconds } from "@/lib/compose/compose-utils";
-import { ComposePreferencesUnavailableError, getComposePreferences, updateComposePreferences } from "@/lib/compose/preferences";
+import { getComposePreferences, updateComposePreferences } from "@/lib/compose/preferences";
 import type { ComposePreferences } from "@/lib/compose/types";
 
 export async function GET(request: Request) {
@@ -28,12 +28,5 @@ export async function PATCH(request: Request) {
 		patch.undoSendSeconds = seconds;
 	}
 	if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-	try {
-		return NextResponse.json(await updateComposePreferences(env, auth.user.id, patch));
-	} catch (error) {
-		if (error instanceof ComposePreferencesUnavailableError) {
-			return NextResponse.json({ error: error.message, code: "MIGRATION_REQUIRED" }, { status: 409 });
-		}
-		throw error;
-	}
+	return NextResponse.json(await updateComposePreferences(env, auth.user.id, patch));
 }

@@ -304,9 +304,13 @@ test("a failed one-click or mailto records nothing", async (t) => {
 	assert.deepEqual(unsubscribedRows(database), []);
 });
 
-test("recording the unsubscribe never fails it: a missing table is tolerated, so is a read-only delegate", async (t) => {
+test("recording the unsubscribe never fails it, even when the write fails", async (t) => {
 	const { database } = await unsubscribeFixture(t, mailtoRaw);
+	// Any write failure will do; a dropped table is the simplest to cause.
 	database.db.exec("DROP TABLE mailbox_sender_preferences");
+	const quiet = console.error;
+	console.error = () => {};
+	t.after(() => { console.error = quiet; });
 	const result = await unsubscribe("msg");
 	assert.deepEqual([result.status, result.body.method], [200, "mailto"]);
 });

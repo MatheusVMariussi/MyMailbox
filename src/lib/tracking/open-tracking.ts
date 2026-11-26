@@ -5,7 +5,6 @@ import { domains, domainTrackingHosts, messageOpens, messageTracking, messages }
 import { newId } from "@/lib/ids";
 import { classifyOpen, createTrackingToken, isDuplicateOpen, MAX_STORED_OPENS } from "./open-tracking-utils";
 import type { MessageTrackingSummary } from "./types";
-import { isMissingTableError } from "@/lib/database-errors";
 
 /** Returns the message's pixel token, creating it on the first delivery attempt. */
 export async function ensureTrackingToken(env: CloudflareEnv, messageId: string): Promise<string> {
@@ -89,16 +88,11 @@ export async function getMessageTrackingSummary(env: CloudflareEnv, messageId: s
 export async function getOpenCounts(env: CloudflareEnv, messageIds: string[]): Promise<Map<string, number>> {
 	const counts = new Map<string, number>();
 	if (messageIds.length === 0) return counts;
-	try {
-		const rows = await getDb(env)
-			.select({ messageId: messageTracking.messageId, openCount: messageTracking.openCount })
-			.from(messageTracking)
-			.where(inArray(messageTracking.messageId, messageIds));
-		for (const row of rows) counts.set(row.messageId, row.openCount);
-	} catch (error) {
-		// Lists keep working before migration 0068 is applied.
-		if (!isMissingTableError(error)) throw error;
-	}
+	const rows = await getDb(env)
+		.select({ messageId: messageTracking.messageId, openCount: messageTracking.openCount })
+		.from(messageTracking)
+		.where(inArray(messageTracking.messageId, messageIds));
+	for (const row of rows) counts.set(row.messageId, row.openCount);
 	return counts;
 }
 
@@ -106,55 +100,33 @@ export async function getOpenCounts(env: CloudflareEnv, messageIds: string[]): P
 export async function getTrackingHostForSender(env: CloudflareEnv, from: string): Promise<string | null> {
 	const domain = getEmailAddress(from).split("@")[1]?.toLowerCase();
 	if (!domain) return null;
-	try {
-		const [row] = await getDb(env)
-			.select({ hostname: domainTrackingHosts.hostname })
-			.from(domainTrackingHosts)
-			.innerJoin(domains, eq(domains.id, domainTrackingHosts.domainId))
-			.where(eq(domains.hostname, domain))
-			.limit(1);
-		return row?.hostname ?? null;
-	} catch (error) {
-		if (isMissingTableError(error)) return null;
-		throw error;
-	}
+	const [row] = await getDb(env)
+		.select({ hostname: domainTrackingHosts.hostname })
+		.from(domainTrackingHosts)
+		.innerJoin(domains, eq(domains.id, domainTrackingHosts.domainId))
+		.where(eq(domains.hostname, domain))
+		.limit(1);
+	return row?.hostname ?? null;
 }
 
-/** Null when unset; throws `TrackingHostsUnavailableError` before migration 0069. */
+/** Null when unset. */
 export async function getDomainTrackingHost(env: CloudflareEnv, domainId: string): Promise<string | null> {
-	try {
-		const [row] = await getDb(env)
-			.select({ hostname: domainTrackingHosts.hostname })
-			.from(domainTrackingHosts)
-			.where(eq(domainTrackingHosts.domainId, domainId))
-			.limit(1);
-		return row?.hostname ?? null;
-	} catch (error) {
-		if (isMissingTableError(error)) throw new TrackingHostsUnavailableError();
-		throw error;
-	}
+	const [row] = await getDb(env)
+		.select({ hostname: domainTrackingHosts.hostname })
+		.from(domainTrackingHosts)
+		.where(eq(domainTrackingHosts.domainId, domainId))
+		.limit(1);
+	return row?.hostname ?? null;
 }
 
 export async function setDomainTrackingHost(env: CloudflareEnv, domainId: string, hostname: string | null): Promise<void> {
 	const db = getDb(env);
-	try {
-		if (!hostname) {
-			await db.delete(domainTrackingHosts).where(eq(domainTrackingHosts.domainId, domainId));
-			return;
-		}
-		await db
-			.insert(domainTrackingHosts)
-			.values({ domainId, hostname })
-			.onConflictDoUpdate({ target: domainTrackingHosts.domainId, set: { hostname } });
-	} catch (error) {
-		if (isMissingTableError(error)) throw new TrackingHostsUnavailableError();
-		throw error;
+	if (!hostname) {
+		await db.delete(domainTrackingHosts).where(eq(domainTrackingHosts.domainId, domainId));
+		return;
 	}
-}
-
-export class TrackingHostsUnavailableError extends Error {
-	constructor() {
-		super("Apply pending database migrations to set a read-receipt address");
-		this.name = "TrackingHostsUnavailableError";
-	}
+	await db
+		.insert(domainTrackingHosts)
+		.values({ domainId, hostname })
+		.onConflictDoUpdate({ target: domainTrackingHosts.domainId, set: { hostname } });
 }

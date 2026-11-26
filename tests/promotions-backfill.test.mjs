@@ -321,9 +321,3 @@ test("a message moved to Inbox while the run reads it is not overwritten", async
 	assert.deepEqual(promoted(), ["m002"]);
 	assert.equal(database.db.prepare("SELECT category FROM messages WHERE id = 'm001'").get().category, "primary");
 });
-
-test("before the migration the run does nothing and does not throw", async (t) => {
-	const { database, env } = await fixture(t);
-	database.db.exec("DROP TABLE mailbox_promotion_settings");
-	assert.equal((await backfill.runPromotionsBackfill(env, at())).claimed, false);
-});

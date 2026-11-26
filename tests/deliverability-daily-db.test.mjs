@@ -181,10 +181,6 @@ test("deletes bind at most 90 ids per statement", async (t) => {
 	assert.equal(f.q("SELECT count(*) AS n FROM deliverability_reports")[0].n, 0);
 });
 
-test("the job does nothing before the migration is applied", async () => {
-	await runDeliverabilityDaily({ DB: { prepare() { throw new Error("no such table: domain_deliverability"); } } }, NOW, {});
-});
-
 test("listOpenAlerts returns unacknowledged alerts of one domain, newest first, and acknowledgeAlert marks one", async (t) => {
 	const f = await fixture(t);
 	f.raw.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, created_at) VALUES ('d2', 'u1', 'other.org', 'z', ?)").run(seconds(NOW));

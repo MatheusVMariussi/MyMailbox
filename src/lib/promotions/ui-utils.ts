@@ -35,9 +35,8 @@ export function getBackfillNotice(backfill: BackfillState | null | undefined): B
 	return { kind: "none" };
 }
 
-/** Message for a failed mode save. 409 MIGRATION_REQUIRED happens on servers that have not applied the promotions migration yet. */
-export function getModeErrorKey(status: number, code: string | undefined): TranslationKey {
-	if (status === 409 && code === "MIGRATION_REQUIRED") return "settings.promotions.migrationRequired";
+/** Message for a failed mode save. */
+export function getModeErrorKey(status: number): TranslationKey {
 	if (status === 403) return "settings.promotions.forbidden";
 	return "settings.promotions.saveFailed";
 }

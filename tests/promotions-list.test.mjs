@@ -32,12 +32,11 @@ await build({
 });
 const m = await import(pathToFileURL(join(directory, "entry.mjs")).href);
 
-async function fixture(t, { migrate = true } = {}) {
+async function fixture(t) {
 	const database = new m.SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
-	if (migrate) await m.applyMigrations(database, join(root, "drizzle/migrations"));
-	else database.db.exec("CREATE TABLE unrelated (id text)");
-	if (migrate) database.db.exec(`
+	await m.applyMigrations(database, join(root, "drizzle/migrations"));
+	database.db.exec(`
 		INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES ('u', 'o@one.test', 'h', 'O', 'admin', 1, 1);
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('d', 'u', 'one.test', 'z', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at) VALUES ('a', 'u', 'd', 'a', 1), ('b', 'u', 'd', 'b', 1), ('c', 'u', 'd', 'c', 1);
@@ -59,11 +58,6 @@ test("loadPromotionModes returns only mailboxes with a row; a missing row is off
 	const modes = await m.loadPromotionModes(db, ["a", "b", "c"]);
 	assert.deepEqual([...modes].sort(), [["a", "separate"], ["b", "show"]]);
 	assert.equal((await m.loadPromotionModes(db, [])).size, 0);
-});
-
-test("before the migration every mailbox is off", async (t) => {
-	const db = await fixture(t, { migrate: false });
-	assert.equal((await m.loadPromotionModes(db, ["a"])).size, 0);
 });
 
 test("the Inbox hides promotions only in separate mailboxes", async (t) => {

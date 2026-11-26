@@ -28,7 +28,7 @@ type MailboxState = {
 	error: string | null;
 };
 
-type PromotionsResponse = { mode?: PromotionModeValue; backfill?: BackfillState; error?: string; code?: string };
+type PromotionsResponse = { mode?: PromotionModeValue; backfill?: BackfillState; error?: string };
 
 const POLL_MS = 5000;
 const INITIAL_STATE: MailboxState = { status: "loading", mode: "off", backfill: null, saving: false, error: null };
@@ -94,7 +94,7 @@ export function PromotionsSettings() {
 			});
 			const data = (await response.json().catch(() => ({}))) as PromotionsResponse;
 			if (!response.ok || !data.mode) {
-				patch(id, { saving: false, error: t(getModeErrorKey(response.status, data.code)) });
+				patch(id, { saving: false, error: t(getModeErrorKey(response.status)) });
 				return;
 			}
 			patch(id, { saving: false, mode: data.mode, backfill: data.backfill ?? null });

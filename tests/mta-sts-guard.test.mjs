@@ -53,13 +53,6 @@ test("MX changes are refused while the policy is enforce, and only then", async 
 	}
 });
 
-test("before the migration there is nothing to protect and nothing blocks", async (t) => {
-	const f = await fixture(t, { row: { mode: "enforce", policyId: "20251119000000" } });
-	f.raw.exec("DROP TABLE domain_deliverability");
-	assert.equal(await code(guard.assertMxChangeAllowed(f.env, { id: "d1" })), null);
-	assert.equal(await code(guard.assertDomainRemovable(f.env, f.domain, f.deps)), null);
-});
-
 test("in testing mode an MX change republishes the policy with the zone's MX list under a new id", async (t) => {
 	const f = await fixture(t, { row: { mode: "testing", policyId: "20251119000000" } });
 	await guard.republishMtaStsAfterMxChange(f.env, f.domain, f.deps, NOW);

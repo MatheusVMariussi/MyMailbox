@@ -109,12 +109,6 @@ test("the brand list round-trips through its one-brand-per-line text form", () =
 	assert.equal(spam.formatBrandLines(parsed.brands), "PostFinance = postfinance.ch, postfinance.com\nSwisscom = swisscom.ch");
 });
 
-test("before the settings migration runs, lookups fall back to environment variables", async () => {
-	const DB = { prepare() { throw new Error("no such column: spamhaus_dqs_key"); } };
-	const config = await spam.getSpamIntelligenceConfig({ DB, SPAMHAUS_DQS_KEY: " dqs-key ", SPAM_DOMAIN_AGE_CHECK: "off" });
-	assert.deepEqual(config, { spamhausDqsKey: "dqs-key", abuseChAuthKey: undefined, domainAge: false, brands: [] });
-});
-
 function stubFetch(routes) {
 	const calls = [];
 	const fetcher = async (input, init) => {

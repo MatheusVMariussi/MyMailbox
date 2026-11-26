@@ -1,7 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, gte, ne, or, sum } from "drizzle-orm";
 import { getDb } from "@/db";
 import { contacts, mailboxPromotionSettings, mailboxSenderPreferences, messages } from "@/db/schema";
-import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
 import { detectBulkMail } from "@/lib/email/bulk-mail";
 import { readHeaderMap } from "@/lib/email/provider-trace";
 import { decideCategory, toSenderAddress } from "@/lib/promotions/classify-utils";
@@ -28,20 +27,13 @@ const NOT_CLAIMED: BackfillResult = { claimed: false, scanned: 0, promoted: 0 };
 export async function claimBackfill(db: Db, now: Date): Promise<BackfillClaim | null> {
 	const today = backfillDay(now);
 	const staleBefore = new Date(now.getTime() - BACKFILL_STALE_MS);
-	let candidate;
-	try {
-		[candidate] = await db.select().from(mailboxPromotionSettings)
-			.where(and(
-				ne(mailboxPromotionSettings.mode, "off"),
-				or(eq(mailboxPromotionSettings.backfillStatus, "pending"), and(eq(mailboxPromotionSettings.backfillStatus, "running"), lt(mailboxPromotionSettings.updatedAt, staleBefore))),
-			))
-			.orderBy(asc(mailboxPromotionSettings.updatedAt))
-			.limit(1);
-	} catch (error) {
-		// Before the migration there is no table (or column) and nothing to do.
-		if (isMissingTableError(error) || isMissingColumnError(error)) return null;
-		throw error;
-	}
+	const [candidate] = await db.select().from(mailboxPromotionSettings)
+		.where(and(
+			ne(mailboxPromotionSettings.mode, "off"),
+			or(eq(mailboxPromotionSettings.backfillStatus, "pending"), and(eq(mailboxPromotionSettings.backfillStatus, "running"), lt(mailboxPromotionSettings.updatedAt, staleBefore))),
+		))
+		.orderBy(asc(mailboxPromotionSettings.updatedAt))
+		.limit(1);
 	if (!candidate) return null;
 
 	const expected = and(
@@ -63,15 +55,10 @@ export async function claimBackfill(db: Db, now: Date): Promise<BackfillClaim | 
 	return { mailboxId: candidate.mailboxId, cursor: parseCursor(candidate.backfillCursor), scanned: candidate.backfillScanned, claimedAt: now, dayRows: candidate.backfillDay === today ? candidate.backfillDayRows : 0 };
 }
 
-/** What is left of today's installation-wide allowance. A database before the migration has nothing to count, and nothing to backfill. */
+/** What is left of today's installation-wide allowance. */
 async function remainingToday(db: Db, now: Date): Promise<number> {
-	try {
-		const [row] = await db.select({ rows: sum(mailboxPromotionSettings.backfillDayRows) }).from(mailboxPromotionSettings).where(eq(mailboxPromotionSettings.backfillDay, backfillDay(now)));
-		return Math.max(0, BACKFILL_DAILY_CAP - Number(row?.rows ?? 0));
-	} catch (error) {
-		if (isMissingTableError(error) || isMissingColumnError(error)) return 0;
-		throw error;
-	}
+	const [row] = await db.select({ rows: sum(mailboxPromotionSettings.backfillDayRows) }).from(mailboxPromotionSettings).where(eq(mailboxPromotionSettings.backfillDay, backfillDay(now)));
+	return Math.max(0, BACKFILL_DAILY_CAP - Number(row?.rows ?? 0));
 }
 
 /** The next page of rows to classify: only unclassified (`category IS NULL`, so a manual `primary` is never touched), newest first, after the cursor. */
@@ -103,13 +90,9 @@ async function loadDecisionContext(db: Db, mailboxId: string, rows: Candidate[])
 	const overrides = new Map<string, "inbox" | "promotions">();
 	const correspondents = new Set<string>();
 	if (addresses.length === 0) return { overrides, correspondents };
-	try {
-		const found = await db.select({ address: mailboxSenderPreferences.senderAddress, override: mailboxSenderPreferences.categoryOverride }).from(mailboxSenderPreferences)
-			.where(and(eq(mailboxSenderPreferences.mailboxId, mailboxId), inArray(mailboxSenderPreferences.senderAddress, addresses)));
-		for (const row of found) if (row.override) overrides.set(row.address, row.override);
-	} catch (error) {
-		if (!isMissingTableError(error)) throw error;
-	}
+	const found = await db.select({ address: mailboxSenderPreferences.senderAddress, override: mailboxSenderPreferences.categoryOverride }).from(mailboxSenderPreferences)
+		.where(and(eq(mailboxSenderPreferences.mailboxId, mailboxId), inArray(mailboxSenderPreferences.senderAddress, addresses)));
+	for (const row of found) if (row.override) overrides.set(row.address, row.override);
 	const known = await db.select({ email: contacts.email, source: contacts.source }).from(contacts)
 		.where(and(eq(contacts.userId, rows[0].userId), inArray(contacts.email, addresses)));
 	for (const contact of known) if (contact.source === "manual" || contact.source === "outbound") correspondents.add(contact.email);

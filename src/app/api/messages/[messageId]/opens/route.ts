@@ -4,7 +4,6 @@ import { getDb } from "@/db";
 import { messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
-import { isMissingTableError } from "@/lib/database-errors";
 import { isOthersDraft } from "@/lib/email/draft-access";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { getMessageTrackingSummary } from "@/lib/tracking/open-tracking";
@@ -29,10 +28,5 @@ export async function GET(
 	if (!access?.canRead) return NextResponse.json({ error: "Message not found" }, { status: 404 });
 	if (message.direction !== "outbound") return NextResponse.json({ tracking: null });
 
-	try {
-		return NextResponse.json({ tracking: await getMessageTrackingSummary(env, messageId) });
-	} catch (error) {
-		if (isMissingTableError(error)) return NextResponse.json({ tracking: null });
-		throw error;
-	}
+	return NextResponse.json({ tracking: await getMessageTrackingSummary(env, messageId) });
 }

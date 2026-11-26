@@ -12,8 +12,6 @@ after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({
 	entryPoints: {
 		errors: join(root, "src/lib/database-errors.ts"),
-		tracking: join(root, "src/lib/tracking/open-tracking.ts"),
-		database: join(root, "tests/helpers/sqlite-database.ts"),
 	},
 	outdir: outDir,
 	outExtension: { ".js": ".mjs" },
@@ -28,8 +26,6 @@ await build({
 
 const load = (name) => import(pathToFileURL(join(outDir, `${name}.mjs`)).href);
 const { isMissingColumnError, isMissingTableError, isUniqueConstraintError } = await load("errors");
-const { getOpenCounts } = await load("tracking");
-const { SqliteDatabase } = await load("database");
 
 test("driver errors are found through drizzle's wrapper", () => {
 	const wrapped = new Error("Failed query: select 1\nparams: ", { cause: new Error("no such table: message_tracking") });
@@ -47,11 +43,4 @@ test("missing column wording", () => {
 	]) assert.equal(isMissingColumnError(new Error("Failed query", { cause: new Error(message) })), true, message);
 	assert.equal(isMissingColumnError(new Error("ambiguous column name: id")), false);
 	assert.equal(isMissingColumnError(new Error("syntax error")), false);
-});
-
-test("message lists with sent mail keep working before migration 0068", async (t) => {
-	const database = new SqliteDatabase(join(outDir, "empty.sqlite"));
-	t.after(() => database.db.close());
-	const counts = await getOpenCounts({ DB: database }, ["m1"]);
-	assert.equal(counts.size, 0);
 });

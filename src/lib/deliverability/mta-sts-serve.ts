@@ -1,7 +1,6 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { domainDeliverability, domains } from "@/db/schema";
-import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
 import { buildMtaStsPolicy, mtaStsHostDomain, normalizeMx, parseMaxAge } from "./mta-sts";
 
 const notFound = () => new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -23,16 +22,9 @@ export async function serveMtaStsPolicy(env: Pick<CloudflareEnv, "DB">, request:
 	// The request's host name, as the Worker's host guard reads it.
 	const domain = mtaStsHostDomain(new URL(request.url).hostname);
 	if (!domain) return notFound();
-	let row: { mode: string; mx: string | null; maxAge: number } | undefined;
-	try {
-		[row] = await getDb(env).select({ mode: domainDeliverability.mtaStsMode, mx: domainDeliverability.mtaStsMx, maxAge: domainDeliverability.mtaStsMaxAge })
-			.from(domainDeliverability).innerJoin(domains, eq(domains.id, domainDeliverability.domainId))
-			.where(and(eq(domains.hostname, domain), isNotNull(domainDeliverability.mtaStsPolicyId))).limit(1);
-	} catch (error) {
-		// Before the migration nothing is published.
-		if (isMissingTableError(error) || isMissingColumnError(error)) return notFound();
-		throw error;
-	}
+	const [row] = await getDb(env).select({ mode: domainDeliverability.mtaStsMode, mx: domainDeliverability.mtaStsMx, maxAge: domainDeliverability.mtaStsMaxAge })
+		.from(domainDeliverability).innerJoin(domains, eq(domains.id, domainDeliverability.domainId))
+		.where(and(eq(domains.hostname, domain), isNotNull(domainDeliverability.mtaStsPolicyId))).limit(1);
 	const mx = storedMx(row?.mx ?? null);
 	if (!row || !mx || mx.length === 0 || parseMaxAge(row.maxAge) === null) return notFound();
 	let body: string;

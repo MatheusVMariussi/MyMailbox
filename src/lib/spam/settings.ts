@@ -15,19 +15,15 @@ export const spamBrandSchema = z.object({
 
 type StoredSettings = { spamhausDqsKey: string | null; abusechAuthKey: string | null; spamDomainAgeCheck: boolean; spamBrands: string | null };
 
-/** Null until migration 0070 adds the columns, so spam analysis keeps running on env vars alone. */
-async function readStoredSettings(env: CloudflareEnv): Promise<StoredSettings | null> {
-	try {
-		const [row] = await getDb(env).select({
-			spamhausDqsKey: appSettings.spamhausDqsKey,
-			abusechAuthKey: appSettings.abusechAuthKey,
-			spamDomainAgeCheck: appSettings.spamDomainAgeCheck,
-			spamBrands: appSettings.spamBrands,
-		}).from(appSettings).where(eq(appSettings.id, SPAM_SETTINGS_ID)).limit(1);
-		return row ?? { spamhausDqsKey: null, abusechAuthKey: null, spamDomainAgeCheck: true, spamBrands: null };
-	} catch {
-		return null;
-	}
+/** The stored settings, or the defaults when there is no settings row. */
+async function readStoredSettings(env: CloudflareEnv): Promise<StoredSettings> {
+	const [row] = await getDb(env).select({
+		spamhausDqsKey: appSettings.spamhausDqsKey,
+		abusechAuthKey: appSettings.abusechAuthKey,
+		spamDomainAgeCheck: appSettings.spamDomainAgeCheck,
+		spamBrands: appSettings.spamBrands,
+	}).from(appSettings).where(eq(appSettings.id, SPAM_SETTINGS_ID)).limit(1);
+	return row ?? { spamhausDqsKey: null, abusechAuthKey: null, spamDomainAgeCheck: true, spamBrands: null };
 }
 
 function parseBrands(value: string | null | undefined): SpamBrand[] {
@@ -47,10 +43,10 @@ function envFlagOff(value: string | undefined) {
 export async function getSpamIntelligenceConfig(env: CloudflareEnv): Promise<SpamIntelligenceConfig> {
 	const stored = await readStoredSettings(env);
 	return {
-		spamhausDqsKey: stored?.spamhausDqsKey || env.SPAMHAUS_DQS_KEY?.trim() || undefined,
-		abuseChAuthKey: stored?.abusechAuthKey || env.ABUSECH_AUTH_KEY?.trim() || undefined,
-		domainAge: (stored?.spamDomainAgeCheck ?? true) && !envFlagOff(env.SPAM_DOMAIN_AGE_CHECK),
-		brands: parseBrands(stored?.spamBrands),
+		spamhausDqsKey: stored.spamhausDqsKey || env.SPAMHAUS_DQS_KEY?.trim() || undefined,
+		abuseChAuthKey: stored.abusechAuthKey || env.ABUSECH_AUTH_KEY?.trim() || undefined,
+		domainAge: stored.spamDomainAgeCheck && !envFlagOff(env.SPAM_DOMAIN_AGE_CHECK),
+		brands: parseBrands(stored.spamBrands),
 	};
 }
 
@@ -58,12 +54,11 @@ export async function getSpamIntelligenceStatus(env: CloudflareEnv): Promise<Spa
 	const stored = await readStoredSettings(env);
 	const source = (saved: string | null | undefined, fromEnv: string | undefined) => saved ? "settings" as const : fromEnv?.trim() ? "env" as const : null;
 	return {
-		available: stored !== null,
-		spamhaus: { source: source(stored?.spamhausDqsKey, env.SPAMHAUS_DQS_KEY) },
-		abusech: { source: source(stored?.abusechAuthKey, env.ABUSECH_AUTH_KEY) },
-		domainAge: stored?.spamDomainAgeCheck ?? true,
+		spamhaus: { source: source(stored.spamhausDqsKey, env.SPAMHAUS_DQS_KEY) },
+		abusech: { source: source(stored.abusechAuthKey, env.ABUSECH_AUTH_KEY) },
+		domainAge: stored.spamDomainAgeCheck,
 		domainAgeForcedOff: envFlagOff(env.SPAM_DOMAIN_AGE_CHECK),
-		brands: parseBrands(stored?.spamBrands),
+		brands: parseBrands(stored.spamBrands),
 	};
 }
 

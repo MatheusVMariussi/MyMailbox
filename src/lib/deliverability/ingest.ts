@@ -1,7 +1,7 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { deliverabilityReports, dmarcDailyStats, domainDeliverability, tlsDailyStats } from "@/db/schema";
-import { isMissingColumnError, isUniqueConstraintError } from "@/lib/database-errors";
+import { isUniqueConstraintError } from "@/lib/database-errors";
 import { queryDns, reverseName } from "@/lib/dns-query";
 import { parseRawMime } from "@/lib/email/parse";
 import { addressOrganisation } from "./org-domain";
@@ -130,24 +130,15 @@ export async function ingestReportMail(env: CloudflareEnv, target: Target, input
 	}
 
 	const reportId = crypto.randomUUID();
-	let placeholder: { id: string } | undefined;
-	try {
-		[placeholder] = await db.insert(reports).values({
-			id: reportId,
-			domainId: target.domainId,
-			reportKey: await rawReportKey(input.rawR2Key),
-			authenticated: input.authenticated,
-			senderDomain,
-			status: "processing",
-			receivedAt: now,
-		}).onConflictDoNothing({ target: [reports.domainId, reports.reportKey] }).returning({ id: reports.id });
-	} catch (error) {
-		// The `kind` column arrives with migration 0100. Until it is applied a report cannot be recorded; providers send them again.
-		if (!isMissingColumnError(error)) throw error;
-		console.warn(`Report for ${target.hostname} dropped: apply the pending database migration`);
-		await dropRaw();
-		return;
-	}
+	const [placeholder] = await db.insert(reports).values({
+		id: reportId,
+		domainId: target.domainId,
+		reportKey: await rawReportKey(input.rawR2Key),
+		authenticated: input.authenticated,
+		senderDomain,
+		status: "processing",
+		receivedAt: now,
+	}).onConflictDoNothing({ target: [reports.domainId, reports.reportKey] }).returning({ id: reports.id });
 	if (!placeholder) {
 		// A previous run for this very mail was killed before it finished. It may have written some aggregates, so it is not repeated.
 		await db.update(reports).set({ status: "failed", error: "Processing was interrupted" }).where(and(eq(reports.domainId, target.domainId), eq(reports.reportKey, await rawReportKey(input.rawR2Key)), eq(reports.status, "processing")));

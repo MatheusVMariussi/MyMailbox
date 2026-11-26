@@ -6,7 +6,6 @@ import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { isOthersDraft } from "@/lib/email/draft-access";
 import { parseFollowUpDays } from "@/lib/follow-ups/follow-up-utils";
-import { isMissingTableError } from "@/lib/database-errors";
 import { getMessageFollowUp, setFollowUp, updateFollowUp } from "@/lib/follow-ups/service";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 
@@ -45,12 +44,7 @@ export async function PUT(request: Request, context: RouteContext) {
 	const body = (await request.json().catch(() => null)) as { days?: unknown } | null;
 	const days = parseFollowUpDays(body?.days);
 	if (!days) return NextResponse.json({ error: "Choose a reminder delay" }, { status: 400 });
-	try {
-		return NextResponse.json({ followUp: await setFollowUp(loaded.env, { messageId: loaded.message.id, userId: loaded.user.id, days }) });
-	} catch (error) {
-		if (isMissingTableError(error)) return NextResponse.json({ error: "Apply pending database migrations first", code: "MIGRATION_REQUIRED" }, { status: 409 });
-		throw error;
-	}
+	return NextResponse.json({ followUp: await setFollowUp(loaded.env, { messageId: loaded.message.id, userId: loaded.user.id, days }) });
 }
 
 export async function DELETE(request: Request, context: RouteContext) {

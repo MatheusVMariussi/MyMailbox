@@ -205,16 +205,3 @@ test("when writing the rows fails the report is marked failed and a redelivery d
 	await f.ingest("raw/1", gz(tlsJson));
 	assert.equal(f.q("SELECT count(*) AS n FROM tls_daily_stats")[0].n, 0);
 });
-
-test("before the MTA-STS migration (no kind column) a report is dropped with a warning instead of failing the queue", async (t) => {
-	const f = await fixture(t);
-	f.raw.exec("ALTER TABLE deliverability_reports DROP COLUMN kind");
-	const warn = console.warn;
-	const warnings = [];
-	console.warn = (...args) => warnings.push(args.join(" "));
-	t.after(() => { console.warn = warn; });
-	await f.ingest("raw/1", gz(tlsJson));
-	assert.equal(f.q("SELECT count(*) AS n FROM deliverability_reports")[0].n, 0);
-	assert.deepEqual(f.deleted, ["raw/1"]);
-	assert.match(warnings.join("\n"), /migration/i);
-});

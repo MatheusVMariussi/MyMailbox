@@ -30,7 +30,6 @@ test("error codes map to the keys of their own tab, and unknown ones to null", (
 	assert.equal(tlsErrorKey("NO_MX"), null);
 	assert.equal(mtaStsErrorKey("NO_MX"), "mtasts.error.NO_MX");
 	assert.equal(mtaStsErrorKey("ACKNOWLEDGE_REQUIRED"), "mtasts.error.ACKNOWLEDGE_REQUIRED");
-	assert.equal(mtaStsErrorKey("MIGRATION_REQUIRED"), "mtasts.error.MIGRATION_REQUIRED");
 	assert.equal(mtaStsErrorKey("REPORTS_REQUIRED"), null);
 	assert.equal(mtaStsErrorKey(undefined), null);
 });

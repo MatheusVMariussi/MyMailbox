@@ -3,23 +3,17 @@ import type { SQL } from "drizzle-orm";
 import type { getDb } from "@/db";
 import { mailboxPromotionSettings, messages } from "@/db/schema";
 import { matchNothing } from "@/db/sql";
-import { isMissingTableError } from "@/lib/database-errors";
 
 type Db = ReturnType<typeof getDb>;
 export type PromotionMode = "off" | "show" | "separate";
 
-/** Modes of the mailboxes that have a settings row. A mailbox without a row is `off`, and so is every mailbox before the migration. */
+/** Modes of the mailboxes that have a settings row. A mailbox without a row is `off`. */
 export async function loadPromotionModes(db: Db, mailboxIds: string[]): Promise<Map<string, PromotionMode>> {
 	if (mailboxIds.length === 0) return new Map();
-	try {
-		const rows = await db.select({ mailboxId: mailboxPromotionSettings.mailboxId, mode: mailboxPromotionSettings.mode })
-			.from(mailboxPromotionSettings)
-			.where(inArray(mailboxPromotionSettings.mailboxId, mailboxIds));
-		return new Map(rows.map((row) => [row.mailboxId, row.mode]));
-	} catch (error) {
-		if (isMissingTableError(error)) return new Map();
-		throw error;
-	}
+	const rows = await db.select({ mailboxId: mailboxPromotionSettings.mailboxId, mode: mailboxPromotionSettings.mode })
+		.from(mailboxPromotionSettings)
+		.where(inArray(mailboxPromotionSettings.mailboxId, mailboxIds));
+	return new Map(rows.map((row) => [row.mailboxId, row.mode]));
 }
 
 /**

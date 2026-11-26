@@ -40,9 +40,9 @@ export function ComposeDefaultsSettings() {
 		setError(null);
 		void updateComposePreferences(patch)
 			.then(setPreferences)
-			.catch((saveError) => {
+			.catch(() => {
 				setPreferences(previous);
-				setError(saveError instanceof Error && saveError.message === "MIGRATION_REQUIRED" ? t("settings.compose.migrationRequired") : t("settings.compose.failed"));
+				setError(t("settings.compose.failed"));
 			})
 			.finally(() => setSaving(false));
 	}
