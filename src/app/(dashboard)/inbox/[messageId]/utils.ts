@@ -1,6 +1,7 @@
 import { authFetch } from "@/lib/auth/client";
 import { fetchCachedMessageDetail, getCachedMessageDetail } from "@/lib/messages/detail-cache";
 import { getEmailAddress, getEmailAddressList, normalizeEmailAddress } from "@/lib/email/address";
+import { parseRecipientAddress } from "@/lib/email/recipient-address";
 import { formatRecipientAddressList } from "@/lib/email/recipient-display";
 import { getDisplayNameForAddress } from "@/lib/contacts/utils";
 import { htmlToReadableText, splitRepliedEmailContent } from "@/lib/email/reply-content-utils";
@@ -36,15 +37,28 @@ export function getMessageHeaderParties(message: Message, currentAccountName?: s
 }
 
 /**
- * The mailbox address this message reached, used as the reply sender and to
- * tell "sent" from "received" in quoted history. With several recipients the
- * mailbox's own address is whichever of them it can send as.
+ * The mailbox address this message reached, used as the reply sender and to tell "sent" from "received" in
+ * quoted history. A reply leaves from the address the message was delivered to: (1) the envelope recipient
+ * when the mailbox can send as it (exactly, or ignoring dots and plus tags); (2) a To/Cc address it can send
+ * as; (3) its first sender address on the delivered domain; (4) its first sender address.
  */
 export function getOwnAddressForMessage(message: Message, ownAddresses: string[]): string {
 	if (message.direction === "outbound") return getEmailAddress(message.fromAddr);
-	const own = new Set(ownAddresses.map((address) => normalizeEmailAddress(address)));
+	const own = ownAddresses.map((address) => normalizeEmailAddress(address));
+	const ownSet = new Set(own);
+	const delivered = message.deliveredTo ? normalizeEmailAddress(message.deliveredTo) : "";
+	if (delivered) {
+		if (ownSet.has(delivered)) return delivered;
+		const normalized = parseRecipientAddress(delivered)?.normalizedAddress;
+		const match = normalized ? own.find((address) => parseRecipientAddress(address)?.normalizedAddress === normalized) : undefined;
+		if (match) return match;
+	}
 	const listed = [...getEmailAddressList(message.toAddr), ...getEmailAddressList(message.ccAddr)];
-	return listed.find((address) => own.has(address)) ?? ownAddresses[0] ?? getEmailAddress(message.toAddr);
+	const listedMatch = listed.find((address) => ownSet.has(address));
+	if (listedMatch) return listedMatch;
+	const domain = delivered.slice(delivered.lastIndexOf("@") + 1);
+	const onDomain = delivered ? own.find((address) => address.endsWith(`@${domain}`)) : undefined;
+	return onDomain ?? ownAddresses[0] ?? getEmailAddress(message.toAddr);
 }
 
 export function getMessageBodyDisplay(

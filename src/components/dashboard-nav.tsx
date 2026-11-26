@@ -32,7 +32,10 @@ import {
   moveMessagesToSystemFolder,
 } from "./dashboard-nav-utils";
 import { LabelDialog } from "./labels/label-dialog";
-import { useMailboxLabels } from "./messages/use-mailbox-labels";
+import { useListScope } from "./list-scope-provider";
+import { useScopeLabels } from "./messages/use-scope-labels";
+import { ProjectsNav } from "./projects/projects-nav";
+import { sumLabelCounts } from "@/lib/labels/group-utils";
 import { NavSectionHeader, useSectionOpen } from "./nav-section-header";
 import { ReorderableList } from "./reorderable-list";
 import { readStorage, writeStorage } from "./reorderable-list-utils";
@@ -97,9 +100,13 @@ export function DashboardNav({ className }: { className?: string }) {
   const moreOpen = moreOpenChoice ?? (hydrated && readStorage(MORE_OPEN_KEY, false));
   const labelsOpen = labelsOpenChoice ?? (hydrated && readStorage(LABELS_OPEN_KEY, false));
   const [labelsSectionOpen, toggleLabelsSection] = useSectionOpen("mymailbox:nav:labels-section-open");
-  const { selectedMailbox, isLoading } = useSelectedMailbox();
-  const { counts } = useMessageCounts(selectedMailbox?.id, !isLoading);
-  const labels = useMailboxLabels(selectedMailbox?.id);
+  const { selectedMailbox } = useSelectedMailbox();
+  // Counts and labels follow the list scope (every mailbox by default); new labels go to the scoped mailbox,
+  // or to the selected one in the unified view.
+  const scope = useListScope();
+  const { counts } = useMessageCounts(scope.mailboxId, !scope.isLoading, scope.projectId);
+  const { groups: labels } = useScopeLabels();
+  const labelMailboxId = scope.mailboxId ?? selectedMailbox?.id;
   // The dialog is keyed by what it edits, so opening it again starts from that label's current values.
   const [dialog, setDialog] = useState<{ key: number; label: NavLabel | null } | null>(null);
   const promotionsOn = hasActivePromotions(counts.promotionModes);
@@ -189,9 +196,10 @@ export function DashboardNav({ className }: { className?: string }) {
         ]}
       />
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
+      <ProjectsNav counts={counts} minimal={minimal} />
       {!minimal && (
         <NavSectionHeader label={t("navigation.labels")} open={labelsSectionOpen} onToggle={toggleLabelsSection}>
-          {selectedMailbox && (
+          {labelMailboxId && (
             <button
               type="button"
               onClick={() => setDialog({ key: Date.now(), label: null })}
@@ -203,12 +211,12 @@ export function DashboardNav({ className }: { className?: string }) {
           )}
         </NavSectionHeader>
       )}
-      {selectedMailbox && dialog && (
+      {labelMailboxId && dialog && (
         <LabelDialog
           key={dialog.key}
           open
           onOpenChange={(open) => { if (!open) setDialog(null); }}
-          mailboxId={selectedMailbox.id}
+          mailboxId={dialog.label?.mailboxId ?? labelMailboxId}
           label={dialog.label}
         />
       )}
@@ -228,28 +236,30 @@ export function DashboardNav({ className }: { className?: string }) {
             const active = ordered.slice(MAX_VISIBLE_LABELS).find((id) => isActiveHref(`/labels/${id}`));
             return active ? [...first, active] : first;
           },
+          // In the unified view same-named labels of different mailboxes are one entry (`filter` joins their ids).
           items: labels.map((label) => ({
-            id: label.id,
+            id: label.filter,
             node: (
-              <div className="group/label relative" data-label-id={label.id}>
+              <div className="group/label relative" data-label-id={label.filter}>
                 <NavItem
                   wrap
                   link={{
-                    href: `/labels/${label.id}`,
+                    href: `/labels/${label.filter}`,
                     label: label.name,
                     icon: Tag,
                     preloadMessages: true,
                     iconColor: label.color,
-                    count: counts.labels?.[label.id]?.unread,
-                    // Dropping mail on a label is "Move to": the label, and out of the inbox.
+                    count: sumLabelCounts(label.filter, counts.labels)?.unread,
+                    // Dropping mail on a label is "Move to": the label (each mailbox's of that name), and out of the inbox.
                     onMessageDrop: (messageIds: string[]) =>
                       void moveMessagesToLabel(messageIds, label.id),
                   }}
                 />
-                {!minimal && (
+                {/* A grouped label spans mailboxes; it is edited per mailbox, from that mailbox's own view. */}
+                {!minimal && label.ids.length === 1 && (
                   <button
                     type="button"
-                    onClick={() => setDialog({ key: Date.now(), label })}
+                    onClick={() => setDialog({ key: Date.now(), label: { id: label.id, mailboxId: label.mailboxId, name: label.name, color: label.color } })}
                     className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 text-neutral-500 opacity-0 transition-opacity hover:bg-neutral-200 hover:text-neutral-800 focus-visible:opacity-100 group-hover/label:opacity-100 max-md:opacity-100"
                     aria-label={t("labels.options", { name: label.name })}
                     title={t("labels.edit")}

@@ -13,6 +13,8 @@ import { ContactDetailsTrigger } from "@/components/contacts/contact-details";
 import { ContactAvatar } from "@/components/contacts/contact-avatar";
 import { MessageActions } from "@/components/message-actions/message-actions";
 import { ReaderLabelChips } from "@/components/labels/label-chips";
+import { ProjectDot } from "@/components/projects/project-dot";
+import { useProjects } from "@/components/projects/use-projects";
 import { MessageAttachmentViewer } from "@/components/message-attachment-viewer";
 import { MessageAttachmentCard } from "@/components/message-attachment-card";
 import { MessageInviteCard } from "@/components/message-invite-card";
@@ -72,6 +74,7 @@ export default function MessageDetailPage() {
 function MessageDetailContent({ messageId }: { messageId: string }) {
   const { t } = useLanguage();
   const { selectedMailbox, mailboxes } = useSelectedMailbox();
+  const { projects } = useProjects();
   const [data, setData] = useState<MessageDetailResponse | null>(
     () => getCachedMessageDetailForDisplay(messageId) ?? null,
   );
@@ -248,6 +251,7 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
       : [`${messageMailbox.localPart}@${messageMailbox.hostname}`]
     : [];
   const ownAddress = message ? getOwnAddressForMessage(message, ownAddresses) : "";
+  const readerProject = message?.projectId ? projects.find((project) => project.id === message.projectId) : undefined;
   const canUnsubscribe = message?.direction === "inbound" && message.status !== "spam" && !!message.hasUnsubscribe;
   const bodyDisplay = useMemo(
     () => getMessageBodyDisplay(body?.textBody, body?.htmlBody, message?.snippet, ownAddress),
@@ -437,6 +441,18 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
                 {bccEntries.length > 0 && (
                   <p className="text-xs text-neutral-500">
                     {t("message.bcc")} <RecipientList entries={bccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
+                  </p>
+                )}
+                {(readerProject || message.deliveredTo) && (
+                  <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-neutral-500" data-reader-project="">
+                    {readerProject && (
+                      <>
+                        <ProjectDot name={readerProject.name} color={readerProject.color} />
+                        <span className="font-medium text-neutral-700">{readerProject.name}</span>
+                      </>
+                    )}
+                    {readerProject && message.deliveredTo && <span aria-hidden="true">·</span>}
+                    {message.deliveredTo && <span>{t("projects.deliveredTo", { address: message.deliveredTo })}</span>}
                   </p>
                 )}
               </div>

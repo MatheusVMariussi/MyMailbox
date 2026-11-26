@@ -71,6 +71,15 @@ export function useMailSearch() {
   return { query: globalThis.__testQuery ?? "", input: "", setQuery() {} };
 }
 `],
+	["@/components/list-scope-provider", `
+export function useListScope() {
+  const scope = globalThis.__testListScope ?? { mailboxId: globalThis.__testMailboxState?.selectedMailbox?.id ?? null, projectId: null };
+  return { ...scope, isLoading: !!globalThis.__testMailboxState?.isLoading, setMailboxScope() {}, setProjectFilter() {} };
+}
+`],
+	["@/components/projects/use-projects", `
+export function useProjects() { return { projects: [], domains: [], isLoading: false }; }
+`],
 	["@/components/mailbox-provider", `
 export function useSelectedMailbox() {
   return globalThis.__testMailboxState;

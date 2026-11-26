@@ -22,10 +22,12 @@ const emptyCounts: MessageCounts = {
 		trash: { total: 0, unread: 0 },
 	},
 	labels: {},
+	projects: {},
 	mailboxes: [],
 };
 
-export function useMessageCounts(mailboxId?: string | null, enabled = true) {
+/** Counts for one mailbox or all (null); a project narrows the folder counts, never the per-project ones. */
+export function useMessageCounts(mailboxId?: string | null, enabled = true, projectId?: string | null) {
 	const [counts, setCounts] = useState<MessageCounts>(emptyCounts);
 	const [isLoading, setIsLoading] = useState(enabled);
 	if (!enabled && isLoading) setIsLoading(false);
@@ -42,7 +44,7 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 			const currentRequest = ++requestNumber;
 			if (showLoading) setIsLoading(true);
 			try {
-				const nextCounts = await fetchMessageCounts(mailboxId, force);
+				const nextCounts = await fetchMessageCounts(mailboxId, force, projectId);
 				if (!cancelled && currentRequest === requestNumber && !hasPending()) {
 					setCounts(nextCounts ?? emptyCounts);
 				}
@@ -108,7 +110,7 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 			unsubscribeMembership();
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 		};
-	}, [enabled, mailboxId]);
+	}, [enabled, mailboxId, projectId]);
 
 	return { counts, isLoading };
 }

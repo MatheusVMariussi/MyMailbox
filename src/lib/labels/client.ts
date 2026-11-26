@@ -13,6 +13,9 @@ let listenersInstalled = false;
 
 export type LabelListResponse = { labels?: unknown[]; error?: string };
 
+/** Pass as the mailbox id to load the labels of every accessible mailbox (the unified inbox). */
+export const ALL_MAILBOXES = "*";
+
 /** Fired after a label is created, renamed, recolored or deleted. */
 export const LABELS_CHANGED_EVENT = "mymailbox:labels-changed";
 
@@ -41,7 +44,7 @@ export function invalidateLabelCache(): void {
 	if (typeof window !== "undefined") window.dispatchEvent(new window.Event(LABELS_CHANGED_EVENT));
 }
 
-/** The labels of one mailbox, cached briefly and shared between concurrent callers. */
+/** The labels of one mailbox (or of all, with `ALL_MAILBOXES`), cached briefly and shared between concurrent callers. */
 export async function getMailboxLabels<T extends LabelListResponse = LabelListResponse>(
 	mailboxId: string,
 ): Promise<T> {
@@ -66,8 +69,9 @@ export async function getMailboxLabels<T extends LabelListResponse = LabelListRe
 		let request = requests.get(key);
 		if (!request) {
 			request = (async () => {
-				const params = new URLSearchParams({ mailboxId });
-				const response = await authFetch(`/api/labels?${params.toString()}`, { cache: "no-store" });
+				const params = new URLSearchParams(mailboxId === ALL_MAILBOXES ? {} : { mailboxId });
+				const query = params.toString();
+				const response = await authFetch(`/api/labels${query ? `?${query}` : ""}`, { cache: "no-store" });
 				const data = (await response.json()) as LabelListResponse;
 				if (!response.ok) throw new Error(data.error ?? "Unable to load labels");
 				if (requestEpoch !== epoch || sessionEpoch !== requestSessionEpoch ||

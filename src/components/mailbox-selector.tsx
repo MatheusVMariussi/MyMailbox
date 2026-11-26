@@ -9,6 +9,7 @@ import { useDismissible } from "@/components/use-dismissible";
 import { AppsMenu } from "@/components/apps-menu";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
+import { useListScope } from "@/components/list-scope-provider";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
 import { isIdentityMailbox } from "@/components/mailbox-provider-utils";
 import { useMessageCounts } from "@/hooks/use-message-counts";
@@ -103,7 +104,7 @@ function AccountAvatar({
 	);
 }
 
-function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAccountRowProps) {
+function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect, active = false }: MailboxAccountRowProps) {
 	const { t } = useLanguage();
 	const name = getMailboxName(mailbox);
 
@@ -111,6 +112,7 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 		<button
 			type="button"
 			onClick={onSelect}
+			aria-pressed={active}
 			className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-blue-50 active:bg-blue-50"
 		>
 			<AccountAvatar
@@ -137,6 +139,7 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 					{unread > 99 ? "99+" : unread}
 				</span>
 			)}
+			{active && <Check className="h-4 w-4 shrink-0 text-blue-600" />}
 		</button>
 	);
 }
@@ -144,6 +147,8 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 	const { t } = useLanguage();
 	const { selectedMailbox, setSelectedMailbox, mailboxes, isLoading } = useSelectedMailbox();
+	// Picking an inbox here narrows the lists to it; "All inboxes" is the unified inbox (the default).
+	const listScope = useListScope();
 	const pathname = usePathname();
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -249,7 +254,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 		? selectedMailboxAvatarUrl ?? `/api/mailboxes/${selectedMailbox.id}/avatar`
 		: avatarUrl;
 	const identityPending = isLoading && !selectedMailbox;
-	const otherMailboxes = mailboxes.filter((mailbox) => mailbox.id !== selectedMailbox?.id);
+	const unifiedUnread = counts.mailboxes.reduce((total, count) => total + count.unread, 0);
 	const adminActive = isAdminPath(pathname);
 
 	async function logout() {
@@ -353,7 +358,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							</div>
 							<Check className="h-5 w-5 shrink-0 text-blue-600" />
 						</Link>
-						{otherMailboxes.length > 0 && (
+						{mailboxes.length > 1 && (
 							<div className="mt-3 border-t border-neutral-100 pt-2">
 								<button
 									type="button"
@@ -361,10 +366,37 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 									aria-expanded={inboxesOpen}
 									className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:bg-[#f2f6fc]"
 								>
-									{t("account.inboxes", { count: otherMailboxes.length })}
+									{t("account.inboxes", { count: mailboxes.length })}
 									<ChevronDown size={16} className={`transition-transform ${inboxesOpen ? "rotate-180" : ""}`} />
 								</button>
-								{inboxesOpen && otherMailboxes.map((mailbox) => {
+								{inboxesOpen && (
+									<button
+										type="button"
+										onClick={() => {
+											listScope.setMailboxScope(null);
+											setOpen(false);
+											router.push("/inbox");
+										}}
+										aria-pressed={listScope.mailboxId === null}
+										data-all-inboxes=""
+										className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-blue-50 active:bg-blue-50"
+									>
+										<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700" aria-hidden="true">
+											<UsersRound className="h-5 w-5" />
+										</span>
+										<span className="min-w-0 flex-1">
+											<span className="block truncate text-sm font-semibold text-neutral-900">{t("account.allInboxes")}</span>
+											<span className="block truncate text-xs text-neutral-500">{t("account.allInboxesHint")}</span>
+										</span>
+										{unifiedUnread > 0 && (
+											<span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+												{unifiedUnread > 99 ? "99+" : unifiedUnread}
+											</span>
+										)}
+										{listScope.mailboxId === null && <Check className="h-4 w-4 shrink-0 text-blue-600" />}
+									</button>
+								)}
+								{inboxesOpen && mailboxes.map((mailbox) => {
 									const mailboxCount = counts.mailboxes.find((count) => count.mailboxId === mailbox.id);
 									return (
 										<MailboxAccountRow
@@ -372,8 +404,10 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 											mailbox={mailbox}
 											unread={mailboxCount?.unread ?? 0}
 											avatarUrl={mailboxAvatarUrls[mailbox.id]}
+											active={listScope.mailboxId === mailbox.id}
 											onSelect={() => {
 												setSelectedMailbox(mailbox);
+												listScope.setMailboxScope(mailbox.id);
 												setOpen(false);
 												router.push("/inbox");
 											}}

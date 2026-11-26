@@ -6,8 +6,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { LabelMenu } from "@/components/labels/label-menu";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
-import { useSelectedMailbox } from "@/components/mailbox-provider";
-import { useMailboxLabels } from "./use-mailbox-labels";
+import { useScopeLabels } from "./use-scope-labels";
 import { Tooltip } from "@/components/ui/tooltip";
 import { supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
@@ -56,8 +55,9 @@ export function BulkMessageToolbar({
 		{ value: "spam", label: t("navigation.spam"), Icon: ShieldAlert, hidden: folder === "spam" },
 		{ value: "trash", label: t("navigation.trash"), Icon: Trash2, hidden: folder === "trash" },
 	].filter((option) => !option.hidden);
-	const { selectedMailbox } = useSelectedMailbox();
-	const labels = useMailboxLabels(selectedMailbox?.id);
+	// The listed mailboxes' labels; in the unified inbox same-named labels are one entry, and the server applies
+	// each message's own mailbox label of that name.
+	const { groups: labels } = useScopeLabels();
 	return (
 		<div className="flex min-w-0 items-center gap-2 text-neutral-600 w-full" data-bulk-toolbar="">
 			{!hideSelectedCount && (

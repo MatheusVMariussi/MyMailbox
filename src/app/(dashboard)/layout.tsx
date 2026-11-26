@@ -7,6 +7,7 @@ import { FloatingComposer } from "@/components/compose/floating-composer";
 import { MailSearchInput } from "@/components/mail-search/mail-search-input";
 import { MailSearchProvider } from "@/components/mail-search/mail-search-context";
 import { MailboxProvider } from "@/components/mailbox-provider";
+import { ListScopeProvider } from "@/components/list-scope-provider";
 import { MailboxSelector } from "@/components/mailbox-selector";
 import { DnsSkippedBanner } from "@/components/dns-skipped-banner";
 import { DashboardNav } from "@/components/dashboard-nav";
@@ -36,6 +37,7 @@ export default function DashboardLayout({
     <AuthGuard>
       <SidebarProvider mobileOverlay>
         <MailboxProvider>
+          <ListScopeProvider>
           <ComposeProvider>
             <MailSearchProvider>
               <ShortcutsProvider>
@@ -76,6 +78,7 @@ export default function DashboardLayout({
               </ShortcutsProvider>
             </MailSearchProvider>
           </ComposeProvider>
+          </ListScopeProvider>
         </MailboxProvider>
       </SidebarProvider>
     </AuthGuard>

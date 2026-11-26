@@ -1,5 +1,6 @@
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageStateSnapshot } from "./actions/types";
+import { labelFilterMatches } from "@/lib/labels/label-utils";
 
 /** The fields that decide which folder lists still contain a message. */
 export type MessageMembershipFields = Pick<
@@ -33,8 +34,9 @@ export function messageMatchesFolder(
 ): boolean {
 	if (labelId) {
 		// A label view lists every direction and status except Trash and Spam; snoozed mail stays listed.
+		// `labelId` may be a comma-separated group of same-named labels (the unified sidebar).
 		if (OUTSIDE_LABEL_VIEWS.has(state.status)) return false;
-		return state.labelIds === undefined || state.labelIds.includes(labelId);
+		return state.labelIds === undefined || labelFilterMatches(state.labelIds, labelId);
 	}
 	if (folder === "starred") return state.starred;
 	// Labels never take mail out of the inbox: only status and snooze decide.

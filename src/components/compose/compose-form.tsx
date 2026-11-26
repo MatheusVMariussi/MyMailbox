@@ -11,6 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
+import { useListScope } from "@/components/list-scope-provider";
+import { useProjects } from "@/components/projects/use-projects";
+import { pickComposerSender } from "./composer-sender-utils";
 import { authFetch } from "@/lib/auth/client";
 import { formatEmailAddress, getEmailAddress } from "@/lib/email/address";
 import { clearMessageDetailCache } from "@/lib/messages/detail-cache";
@@ -58,7 +61,11 @@ export function ComposeForm({
 	const { t } = useLanguage();
 	const router = useRouter();
 	const { showNotice, openDraftComposer, isCurrentNotice } = useCompose();
-	const { selectedMailbox, setSelectedMailbox, mailboxes } = useSelectedMailbox();
+	// The composer keeps its own sender: it starts from the draft, the list's project or the selected mailbox,
+	// and never writes the global selection, so composing or replying leaves the lists as they are.
+	const { selectedMailbox: preferredMailbox, mailboxes } = useSelectedMailbox();
+	const { projectId: activeProjectId } = useListScope();
+	const { projects } = useProjects();
 	const [draftId, setDraftId] = useState<string | null>(null);
 	const [saveFailed, setSaveFailed] = useState(false);
 	// Recipients handed in by the caller (Contacts "Send email", etc.) seed a fresh composer.
@@ -88,6 +95,7 @@ export function ComposeForm({
 	const [followUpDays, setFollowUpDays] = useState<number | null>(null);
 	const [loadedDraftMailboxId, setLoadedDraftMailboxId] = useState<string | null>(null);
 	const [loadedDraftFrom, setLoadedDraftFrom] = useState<string | null>(null);
+	const [chosenMailboxId, setChosenMailboxId] = useState<string | null>(null);
 	const [selectedFrom, setSelectedFrom] = useState("");
 	const formRef = useRef<HTMLFormElement>(null);
 	useSheetViewport(formRef, mode === "popup");
@@ -129,10 +137,6 @@ export function ComposeForm({
 	const previousSignature = useRef("");
 
 	useEffect(() => {
-		if (!selectedMailbox && mailboxes.length === 1) setSelectedMailbox(mailboxes[0]);
-	}, [mailboxes, selectedMailbox, setSelectedMailbox]);
-
-	useEffect(() => {
 		let active = true;
 		void authFetch("/api/attachment-policy", { cache: "no-store" }).then(async (response) => {
 			if (response.ok && active) setAttachmentPolicy((await response.json()) as ComposeAttachmentPolicy);
@@ -140,12 +144,6 @@ export function ComposeForm({
 		return () => { active = false; };
 	}, []);
 
-	const senderAddresses = useMemo(() => {
-		if (!selectedMailbox) return [];
-		return selectedMailbox.senderAddresses?.length
-			? selectedMailbox.senderAddresses
-			: [`${selectedMailbox.localPart}@${selectedMailbox.hostname}`];
-	}, [selectedMailbox]);
 	const senderOptions = useMemo(
 		() => mailboxes.flatMap((mailbox) => {
 			const addresses = mailbox.senderAddresses?.length
@@ -155,6 +153,23 @@ export function ComposeForm({
 		}),
 		[mailboxes],
 	);
+	const projectMappings = useMemo(
+		() => projects.flatMap((project) => project.addresses.map((address) => ({ projectId: project.id, hostname: address.hostname, localPart: address.localPart }))),
+		[projects],
+	);
+	// Where a composer starts: a loaded draft's sender (replies open as drafts), else the active project's first
+	// sender option, else the selected mailbox.
+	const defaultSender = useMemo(() => pickComposerSender(
+		senderOptions.map((option) => ({ mailboxId: option.mailbox.id, address: option.address })),
+		{ draftMailboxId: loadedDraftMailboxId, draftFrom: loadedDraftFrom, projectId: activeProjectId, mappings: projectMappings, preferredMailboxId: preferredMailbox?.id },
+	), [activeProjectId, loadedDraftFrom, loadedDraftMailboxId, preferredMailbox?.id, projectMappings, senderOptions]);
+	const selectedMailbox = mailboxes.find((mailbox) => mailbox.id === (chosenMailboxId ?? defaultSender?.mailboxId)) ?? null;
+	const senderAddresses = useMemo(() => {
+		if (!selectedMailbox) return [];
+		return selectedMailbox.senderAddresses?.length
+			? selectedMailbox.senderAddresses
+			: [`${selectedMailbox.localPart}@${selectedMailbox.hostname}`];
+	}, [selectedMailbox]);
 	// Keep the sender on an address the mailbox can send as. A loaded draft's
 	// sender wins whenever it or the mailbox's addresses change.
 	const [prevSenderSync, setPrevSenderSync] = useState({ loadedDraftFrom, senderAddresses });
@@ -164,7 +179,9 @@ export function ComposeForm({
 		if (loadedDraftFrom && senderAddresses.includes(loadedDraftFrom)) nextFrom = loadedDraftFrom;
 	}
 	if (!senderAddresses.length) nextFrom = "";
-	else if (!senderAddresses.includes(nextFrom)) nextFrom = senderAddresses[0];
+	else if (!senderAddresses.includes(nextFrom)) {
+		nextFrom = defaultSender && senderAddresses.includes(defaultSender.address) ? defaultSender.address : senderAddresses[0];
+	}
 	if (nextFrom !== selectedFrom) setSelectedFrom(nextFrom);
 	const fromAddr = selectedMailbox && selectedFrom
 		? formatEmailAddress(selectedFrom, selectedMailbox.displayName)
@@ -225,14 +242,6 @@ export function ComposeForm({
 			cancelled = true;
 		};
 	}, [draftIdToLoad]);
-
-	useEffect(() => {
-		if (!loadedDraftMailboxId) return;
-		if (selectedMailbox?.id === loadedDraftMailboxId) return;
-
-		const draftMailbox = mailboxes.find((mailbox) => mailbox.id === loadedDraftMailboxId);
-		if (draftMailbox) setSelectedMailbox(draftMailbox);
-	}, [loadedDraftMailboxId, mailboxes, selectedMailbox?.id, setSelectedMailbox]);
 
 	useEffect(() => {
 		if (loadingDraft) return;
@@ -684,7 +693,7 @@ export function ComposeForm({
 		const option = senderOptions.find((item) => `${item.mailbox.id}|${item.address}` === value);
 		if (!option) return;
 		setSelectedFrom(option.address);
-		if (selectedMailbox?.id !== option.mailbox.id) setSelectedMailbox(option.mailbox);
+		setChosenMailboxId(option.mailbox.id);
 	}
 
 	const attachmentContent = (attachments.length > 0 || storedAttachments.length > 0) && (

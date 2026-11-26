@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Archive, ArchiveRestore, Ban, BellOff, Clock, FileCode2, Forward, Inbox, Mail, MailOpen, MoreVertical, Note, Reply, ReplyAll, ShieldAlert, ShieldCheck, Tag, Trash2 } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
+import { useListScope } from "@/components/list-scope-provider";
 import { useMessageCounts } from "@/hooks/use-message-counts";
 import { moveMessagesToCategory } from "@/lib/promotions/move-client";
 import { canMoveCategory, moveLeavesFolder, moveTargetFor, readerFolderOf } from "@/lib/promotions/move-utils";
@@ -73,8 +74,10 @@ export function MessageActions({
 	const autoAdvance = useAutoAdvance(messageId);
 	const notes = useConversationNotes();
 	const pathname = usePathname();
-	const { selectedMailbox, mailboxes } = useSelectedMailbox();
-	const { counts } = useMessageCounts(selectedMailbox?.id);
+	const { mailboxes } = useSelectedMailbox();
+	// The open message may belong to any listed mailbox, so read the Promotions modes of the whole list scope.
+	const listScope = useListScope();
+	const { counts } = useMessageCounts(listScope.mailboxId, !listScope.isLoading, listScope.projectId);
 	const [pendingAction, setPendingAction] = useState<
 		BulkMessageAction | "unsubscribe" | ReplyMode | "forward" | "block" | "category" | null
 	>(null);

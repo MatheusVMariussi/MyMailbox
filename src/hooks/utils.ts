@@ -77,6 +77,7 @@ export function getMessageQueryParams(
 	if (filters?.limit) params.set("limit", String(filters.limit));
 	if (filters?.offset) params.set("offset", String(filters.offset));
 	if (filters?.group) params.set("group", filters.group);
+	if (filters?.projectId) params.set("projectId", filters.projectId);
 
 	return params;
 }
@@ -231,8 +232,8 @@ export function clearMessageClientState() {
 	clearMembershipState();
 }
 
-export async function fetchMessageCounts(mailboxId?: string | null, force = false): Promise<MessageCounts | undefined> {
-	const key = mailboxId ?? "all";
+export async function fetchMessageCounts(mailboxId?: string | null, force = false, projectId?: string | null): Promise<MessageCounts | undefined> {
+	const key = `${mailboxId ?? "all"}\u0000${projectId ?? ""}`;
 	if (!force && messageCountsCache.has(key)) return messageCountsCache.get(key);
 	if (!force && messageCountsRequests.has(key)) return messageCountsRequests.get(key);
 
@@ -241,6 +242,7 @@ export async function fetchMessageCounts(mailboxId?: string | null, force = fals
 	const request = (async () => {
 		const params = new URLSearchParams();
 		if (mailboxId) params.set("mailboxId", mailboxId);
+		if (projectId) params.set("projectId", projectId);
 		const query = params.toString();
 		const res = await authFetch(`/api/messages/counts${query ? `?${query}` : ""}`);
 		if (!res.ok) throw new Error(`Message counts request failed (${res.status})`);

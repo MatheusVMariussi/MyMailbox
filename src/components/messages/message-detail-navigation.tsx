@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { useSelectedMailbox } from "@/components/mailbox-provider";
+import { useListScope } from "@/components/list-scope-provider";
 import { authFetch } from "@/lib/auth/client";
 import { fetchCachedMessageDetail, getCachedMessageDetail } from "@/lib/messages/detail-cache";
 import { fetchInviteCard, getCachedInviteCard } from "@/lib/calendar/invite-cache";
@@ -29,11 +29,11 @@ function warmMessageInvite(messageId: string, detail?: CachedMessageDetail) {
 }
 
 export function MessageDetailNavigationProvider({ children, config, currentMessageId }: MessageDetailNavigationProviderProps) {
-	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
+	// Prev/next walk the list as it is scoped: every mailbox or one, optionally one project.
+	const { mailboxId, projectId, isLoading: mailboxesLoading } = useListScope();
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const mailboxId = selectedMailbox?.id;
-	const key = `${config.folder}:${config.labelId ?? ""}:${mailboxId ?? "all"}:${grouped}`;
+	const key = `${config.folder}:${config.labelId ?? ""}:${mailboxId ?? "all"}:${projectId ?? ""}:${grouped}`;
 	const [snapshot, setSnapshot] = useState<MessageDetailNavigationSnapshot>({ key: "", entries: [] });
 	const [openedUnread, setOpenedUnread] = useState<OpenedUnreadMessages>({ key: "", ids: new Set() });
 	const recordUnread = useCallback((messageId: string) => {
@@ -75,6 +75,7 @@ export function MessageDetailNavigationProvider({ children, config, currentMessa
 		const params = new URLSearchParams({ folder: config.folder });
 		if (config.labelId) params.set("labelId", config.labelId);
 		if (mailboxId) params.set("mailboxId", mailboxId);
+		if (projectId) params.set("projectId", projectId);
 		if (grouped) params.set("group", "thread");
 		params.set("around", requestAnchor);
 		void authFetch(`/api/messages/navigation?${params.toString()}`)
@@ -89,7 +90,7 @@ export function MessageDetailNavigationProvider({ children, config, currentMessa
 				if (!cancelled) setSnapshot({ key, entries: [] });
 			});
 		return () => { cancelled = true; };
-	}, [config.folder, config.labelId, grouped, key, mailboxId, mailboxesLoading, requestAnchor]);
+	}, [config.folder, config.labelId, grouped, key, mailboxId, mailboxesLoading, projectId, requestAnchor]);
 
 	const unreadIds = openedUnread.key === key ? openedUnread.ids : null;
 	const droppedIds = dropped.key === key ? dropped.ids : null;

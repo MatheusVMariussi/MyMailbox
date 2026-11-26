@@ -390,7 +390,7 @@ export function useMessages(
 			unsubscribePending();
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 		};
-	}, [enabled, filters?.group, filters?.limit, filters?.offset, filters?.query, filters?.read, filters?.title, folder, labelId, mailboxId]);
+	}, [enabled, filters?.group, filters?.limit, filters?.offset, filters?.projectId, filters?.query, filters?.read, filters?.title, folder, labelId, mailboxId]);
 
 	return { messages: list.messages, unreadCount, isLoading, total: list.total, limit: list.limit, offset: list.offset, updateMessages };
 }

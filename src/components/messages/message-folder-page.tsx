@@ -57,7 +57,11 @@ import {
 import clsx from "clsx";
 import { DueFollowUps } from "@/components/follow-ups/due-follow-ups";
 import { LabelChips } from "@/components/labels/label-chips";
-import { useMailboxLabels } from "./use-mailbox-labels";
+import { useListScope } from "@/components/list-scope-provider";
+import { ProjectDot } from "@/components/projects/project-dot";
+import { useProjects } from "@/components/projects/use-projects";
+import { sumLabelCounts } from "@/lib/labels/group-utils";
+import { useScopeLabels } from "./use-scope-labels";
 import { useHotkeys } from "@/components/shortcuts/use-hotkeys";
 import { useShortcutsActive } from "@/components/shortcuts/shortcuts-enabled-context";
 import { getUserTimeZone, zonedDateFields } from "@/lib/time/utils";
@@ -128,6 +132,7 @@ function MessageListRowComponent({
 	promotionMode,
 	canMovePromotions = false,
 	labelsById,
+	project,
 }: MessageListRowProps) {
 	const { t } = useLanguage();
 	const Icon = config.icon;
@@ -247,6 +252,7 @@ function MessageListRowComponent({
 				>
 					<span className="flex items-baseline justify-between gap-3">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
+							{project && <ProjectDot name={project.name} color={project.color} className="me-1.5 align-middle" />}
 							{unread && <span className="sr-only">{t("list.unread")} </span>}
 							{party}
 
@@ -335,6 +341,7 @@ function MessageListRowComponent({
 				<Icon className="h-4 w-4 text-neutral-300" />
 			)}
 			<span className={clsx(unread && "font-semibold", getMessagePartyClassName(rowMessage, config.folder))}>
+				{project && <ProjectDot name={project.name} color={project.color} className="me-1.5 align-middle" />}
 				{unread && <span className="sr-only">{t("list.unread")} </span>}
 				{party}
 
@@ -432,7 +439,10 @@ export function MessageFolderPage({
 }: MessageFolderPageProps) {
 	const { t } = useLanguage();
 	const title = config.titleKey ? t(config.titleKey) : config.title;
-	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
+	const { selectedMailbox, mailboxes: accessibleMailboxes } = useSelectedMailbox();
+	// What the list shows: every accessible mailbox by default, or one; optionally one project.
+	const scope = useListScope();
+	const mailboxesLoading = scope.isLoading;
 	const { query } = useMailSearch();
 	const router = useRouter();
 	const isMobile = useIsMobile();
@@ -478,17 +488,18 @@ export function MessageFolderPage({
 	const setSelectedMessages = listState?.setSelectedMessages ?? setInternalSelectedMessages;
 	const unreadOnly = listState?.unreadOnly ?? internalUnreadOnly;
 	const setUnreadOnly = listState?.setUnreadOnly ?? setInternalUnreadOnly;
-	const { messages, isLoading, total, limit, updateMessages } = useMessages(config.folder, selectedMailbox?.id, {
+	const { messages, isLoading, total, limit, updateMessages } = useMessages(config.folder, scope.mailboxId, {
 		query,
 		limit: pageSize,
 		offset,
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
+		projectId: scope.projectId,
 	}, !mailboxesLoading, config.labelId);
-	const { counts, isLoading: countsLoading } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
-	const { mailboxes: accessibleMailboxes } = useSelectedMailbox();
-	const mailboxLabels = useMailboxLabels(selectedMailbox?.id);
-	const labelsById = useMemo(() => new Map(mailboxLabels.map((label) => [label.id, label])), [mailboxLabels]);
+	const { counts, isLoading: countsLoading } = useMessageCounts(scope.mailboxId, !mailboxesLoading, scope.projectId);
+	const { labelsById, groupOf } = useScopeLabels();
+	const { projects } = useProjects();
+	const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
 	const getPromotionMode = useCallback((message: Message): "show" | "separate" | undefined => counts.promotionModes?.[message.mailboxId ?? ""], [counts.promotionModes]);
 	// Only received mail in Inbox or Promotions moves between them, in mailboxes with Promotions on that the user manages.
 	const canMovePromotions = useCallback((message: Message) => (config.folder === "promotions" || (config.folder === "inbox" && !config.labelId)) && canMoveCategory({
@@ -503,7 +514,7 @@ export function MessageFolderPage({
 	const headerIcons = config.headerIcons ?? [];
 	const hasActiveFilters = !!query.trim();
 	const folderCount = config.labelId
-		? counts.labels?.[config.labelId]
+		? sumLabelCounts(config.labelId, counts.labels)
 		: counts.folders[config.folder];
 	const titleTotal = folderCount?.total ?? total;
 	const titleUnread = folderCount?.unread ?? 0;
@@ -523,15 +534,17 @@ export function MessageFolderPage({
 		{ key: "v", label: t("common.moveTo"), category: "Actions" as const, action: () => setLabelMenuRequest({ kind: "move", key: Date.now() }) },
 	], [t]);
 	useHotkeys(selectionShortcuts, { enabled: shortcutsEnabled && selectedIds.length > 0 && !compact });
-	// How many selected rows carry each label: "Label as" checks a label every selected row has.
+	// How many selected rows carry each label (counted per same-named group, keyed by the group's first id, as
+	// the menus list them): "Label as" checks a label every selected row has.
 	const selectedLabelCounts = useMemo(() => {
 		const tally = new Map<string, number>();
 		for (const message of messages) {
 			if (!selectedIdSet.has(message.id)) continue;
-			for (const labelId of message.labelIds ?? []) tally.set(labelId, (tally.get(labelId) ?? 0) + 1);
+			const groupIds = new Set((message.labelIds ?? []).map((labelId) => groupOf.get(labelId)?.id ?? labelId));
+			for (const groupId of groupIds) tally.set(groupId, (tally.get(groupId) ?? 0) + 1);
 		}
 		return tally;
-	}, [messages, selectedIdSet]);
+	}, [groupOf, messages, selectedIdSet]);
 	const hasUnreadSelection = selectedMessages.some((message) => !message.read);
 	const allVisibleSelected = messages.length > 0 && messages.every((message) => selectedIdSet.has(message.id));
 	// In conversation view a row stands for every message of its thread in this
@@ -549,7 +562,7 @@ export function MessageFolderPage({
 		if (usesSharedListState) return;
 		setOffset(0);
 		setSelectedMessages([]);
-	}, [usesSharedListState, query, selectedMailbox?.id, config.folder, config.labelId, unreadOnly, grouped, setOffset, setSelectedMessages]);
+	}, [usesSharedListState, query, scope.mailboxId, scope.projectId, config.folder, config.labelId, unreadOnly, grouped, setOffset, setSelectedMessages]);
 
 	const previousOffset = useRef(offset);
 	useEffect(() => {
@@ -641,12 +654,16 @@ export function MessageFolderPage({
 	}
 
 	const permanentDeleteFolder = !config.labelId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	// The unified view empties the folder of every mailbox the user manages.
+	const emptyTargets = scope.mailboxId
+		? [scope.mailboxId]
+		: accessibleMailboxes.filter((mailbox) => !mailbox.permission || mailbox.permission === "full_access").map((mailbox) => mailbox.id);
 	async function emptyFolder() {
-		if (!permanentDeleteFolder || !selectedMailbox?.id) return;
+		if (!permanentDeleteFolder || emptyTargets.length === 0) return;
 		if (!await confirmDestructive(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
 		setEmptyingFolder(true);
 		try {
-			await emptyMessageFolder(selectedMailbox.id, permanentDeleteFolder);
+			for (const mailboxId of emptyTargets) await emptyMessageFolder(mailboxId, permanentDeleteFolder);
 			setOffset(0);
 		} catch (error) {
 			console.error(error);
@@ -841,7 +858,7 @@ export function MessageFolderPage({
 			)}
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
-				{config.folder === "inbox" && !config.labelId && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={selectedMailbox?.id} />}
+				{config.folder === "inbox" && !config.labelId && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={scope.mailboxId ?? undefined} />}
 				<div role="list" aria-label={title} className="divide-y divide-neutral-100">
 					{messages.map((message) => (
 						<MessageListRow
@@ -863,6 +880,7 @@ export function MessageFolderPage({
 							promotionMode={getPromotionMode(message)}
 							canMovePromotions={canMovePromotions(message)}
 							labelsById={labelsById}
+							project={message.projectId ? projectsById.get(message.projectId) : undefined}
 						/>
 					))}
 				</div>

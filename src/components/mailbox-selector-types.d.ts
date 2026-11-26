@@ -29,6 +29,8 @@ export type MailboxAccountRowProps = {
 	unread: number;
 	avatarUrl?: string;
 	onSelect: () => void;
+	/** The lists show this inbox only. */
+	active?: boolean;
 };
 
 export type AppsMenuProps = {

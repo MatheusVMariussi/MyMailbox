@@ -25,6 +25,10 @@ export const settingsNavSections: SettingsNavSection[] = [
 				labelKey: "settings.nav.appPasswords",
 			},
 			{
+				href: "/settings/projects",
+				labelKey: "settings.nav.projects",
+			},
+			{
 				href: "/settings/rules",
 				labelKey: "settings.nav.rules",
 			},

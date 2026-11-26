@@ -9,7 +9,7 @@ import type { NavLabel } from "@/components/dashboard-nav-types";
 type Props = {
 	labelIds?: string[];
 	labelsById: ReadonlyMap<string, NavLabel>;
-	/** The label being viewed; its chip would only repeat the page title. */
+	/** The label being viewed (one id, or a comma-separated same-named group); its chip would only repeat the page title. */
 	exclude?: string;
 	className?: string;
 	/** Accessible name for the group, for example "Labels". */
@@ -18,8 +18,9 @@ type Props = {
 
 /** Small colored chips for a message's labels, in the order they were added. Unknown ids are skipped. */
 function LabelChipsComponent({ labelIds, labelsById, exclude, className, ariaLabel }: Props) {
+	const excluded = exclude ? exclude.split(",") : [];
 	const labels = (labelIds ?? []).flatMap((id) => {
-		const label = id === exclude ? undefined : labelsById.get(id);
+		const label = excluded.includes(id) ? undefined : labelsById.get(id);
 		return label ? [label] : [];
 	});
 	if (labels.length === 0) return null;

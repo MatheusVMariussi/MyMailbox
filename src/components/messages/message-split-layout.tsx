@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { useSidebar } from "@/components/sidebar-state";
 import { useMailSearch } from "@/components/mail-search/mail-search-context";
-import { useSelectedMailbox } from "@/components/mailbox-provider";
+import { useListScope } from "@/components/list-scope-provider";
 import { useIsDesktop } from "@/components/sidebar-mobile-utils";
 import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "@/components/column-width-preferences";
 import { ResizeHandle } from "@/components/ui/resize-handle";
@@ -25,7 +25,7 @@ export function MessageSplitLayout({
 }: MessageSplitLayoutProps) {
 	const pathname = usePathname();
 	const { query } = useMailSearch();
-	const { selectedMailbox } = useSelectedMailbox();
+	const scope = useListScope();
 	const [conversationView] = useConversationView();
 	const [selectedMessages, setSelectedMessages] = useState<SelectedMessage[]>([]);
 	const [offset, setOffset] = useState(0);
@@ -61,7 +61,7 @@ export function MessageSplitLayout({
 	// resets the shared list here instead of from the page that happens to be
 	// mounted. Comparing keys keeps the initial mount from wiping a selection
 	// that the split view is about to show.
-	const viewKey = [query, selectedMailbox?.id ?? "", config.folder, config.labelId ?? "", grouped, unreadOnly].join("\u0000");
+	const viewKey = [query, scope.mailboxId ?? "", scope.projectId ?? "", config.folder, config.labelId ?? "", grouped, unreadOnly].join("\u0000");
 	const previousViewKey = useRef(viewKey);
 	const folderKey = `${config.folder}\u0000${config.labelId ?? ""}`;
 	const previousFolderKey = useRef(folderKey);

@@ -39,8 +39,10 @@ export type MessageListRowProps = {
 	promotionMode?: "show" | "separate";
 	/** Offer "Move to Promotions / Inbox" on this row. */
 	canMovePromotions?: boolean;
-	/** The labels of the listed mailbox, for the chips on each row. */
+	/** The labels of the listed mailboxes, for the chips on each row. */
 	labelsById?: ReadonlyMap<string, NavLabel>;
+	/** The row's project, for its colored dot; undefined when it has none (or it is not the user's). */
+	project?: { name: string; color: string };
 };
 
 export type RowMessageAction = "archive" | "trash" | "read" | "unread" | "inbox" | "delete";

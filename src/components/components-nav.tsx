@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { getMessageDragData } from "@/lib/messages/drag-utils";
 import { useMailSearch } from "@/components/mail-search/mail-search-context";
 import { useConversationView } from "@/components/messages/use-conversation-view";
-import { useSelectedMailbox } from "./mailbox-provider";
+import { useListScope } from "./list-scope-provider";
 import { useSidebar } from "./sidebar-state";
 import { useCompose } from "./compose/compose-context";
 import { Tooltip } from "./ui/tooltip";
@@ -25,7 +25,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { openComposer } = useCompose();
-  const { selectedMailbox } = useSelectedMailbox();
+  const scope = useListScope();
   const { minimal } = useSidebar();
   const { query } = useMailSearch();
   const [conversationView] = useConversationView();
@@ -101,11 +101,11 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
 
   function prefetch() {
     if (!link.preloadMessages || active || !link.href) return;
-    const key = [link.href, selectedMailbox?.id ?? "", query, conversationView].join("\u0000");
+    const key = [link.href, scope.mailboxId ?? "", scope.projectId ?? "", query, conversationView].join("\u0000");
     if (prefetchedKey.current === key) return;
     prefetchedKey.current = key;
     router.prefetch(link.href, FULL_ROUTE_PREFETCH);
-    void preloadMailboxPage(link.href, selectedMailbox?.id, { query, grouped: conversationView })
+    void preloadMailboxPage(link.href, scope.mailboxId ?? undefined, { query, grouped: conversationView, projectId: scope.projectId })
       .catch(() => { prefetchedKey.current = null; });
   }
 

@@ -24,6 +24,8 @@ const mock = new Map([
   ["next/navigation", `export function useRouter() { return { push() {}, replace() {} }; }`],
   ["@/components/language-provider", `export function useLanguage() { return { t(key) { return key; } }; }`],
   ["@/components/mailbox-provider", `export function useSelectedMailbox() { return globalThis.__signatureTestMailboxes; }`],
+  ["@/components/list-scope-provider", `export function useListScope() { return { mailboxId: null, projectId: null, isLoading: false, setMailboxScope() {}, setProjectFilter() {} }; }`],
+  ["@/components/projects/use-projects", `export function useProjects() { return { projects: [], domains: [], isLoading: false }; }`],
   ["@/components/compose/compose-context", `export function useCompose() { return { showNotice() {} }; }`],
   ["@/lib/auth/client", `export function authFetch(...args) { return globalThis.__signatureTestFetch(...args); }`],
   ["@/lib/messages/detail-cache", `export function clearMessageDetailCache() {}`],

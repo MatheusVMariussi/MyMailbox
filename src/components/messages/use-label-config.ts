@@ -3,16 +3,18 @@
 import { Tag } from "@/components/icons";
 import { useMemo } from "react";
 import { useLanguage } from "@/components/language-provider";
-import { useSelectedMailbox } from "@/components/mailbox-provider";
-import { useMailboxLabels } from "./use-mailbox-labels";
+import { splitLabelFilter } from "@/lib/labels/group-utils";
+import { useScopeLabels } from "./use-scope-labels";
 import type { MessageFolderConfig } from "./types";
 
-/** The list configuration of a label view: every message with the label, any direction, but Trash and Spam. */
+/**
+ * The list configuration of a label view: every message with the label, any direction, but Trash and Spam.
+ * `labelId` may be a comma-separated group of same-named labels (the unified sidebar's entry).
+ */
 export function useLabelConfig(labelId: string): MessageFolderConfig {
 	const { t } = useLanguage();
-	const { selectedMailbox } = useSelectedMailbox();
-	const labels = useMailboxLabels(selectedMailbox?.id);
-	const name = labels.find((label) => label.id === labelId)?.name;
+	const { labelsById } = useScopeLabels();
+	const name = splitLabelFilter(labelId).map((id) => labelsById.get(id)?.name).find(Boolean);
 
 	return useMemo(
 		() => ({

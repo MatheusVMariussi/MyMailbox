@@ -141,3 +141,27 @@ test("a missing incoming sender still cannot create a reply draft", async () => 
 	assert.deepEqual(recipients, { to: [], cc: [] });
 	await assert.rejects(createReplyDraft({ mailboxId: "mailbox-1", senderAddress: "", recipients }), /Sender address is required/);
 });
+
+// Projects: a reply leaves from the address the message was delivered to.
+const projectOwn = ["me@alpha.test", "sales@beta.test", "help@beta.test"];
+
+test("a reply leaves from the delivered-to address when the mailbox can send as it", () => {
+	const message = inbound({ toAddr: "Announcements <list@lists.test>", deliveredTo: "help@beta.test" });
+	assert.equal(getOwnAddressForMessage(message, projectOwn), "help@beta.test");
+});
+
+test("the delivered-to address matches a sender address with dots or a plus tag", () => {
+	const message = inbound({ toAddr: "Sa.les+promo@Beta.test", deliveredTo: "sa.les+promo@beta.test" });
+	assert.equal(getOwnAddressForMessage(message, projectOwn), "sales@beta.test");
+});
+
+test("an unsendable delivered-to address falls back to a To/Cc match, then the delivered domain, then the first address", () => {
+	assert.equal(getOwnAddressForMessage(inbound({ toAddr: "random@beta.test", ccAddr: "me@alpha.test", deliveredTo: "random@beta.test" }), projectOwn), "me@alpha.test");
+	assert.equal(getOwnAddressForMessage(inbound({ toAddr: "random@beta.test", deliveredTo: "random@beta.test" }), projectOwn), "sales@beta.test");
+	assert.equal(getOwnAddressForMessage(inbound({ toAddr: "random@gamma.test", deliveredTo: "random@gamma.test" }), projectOwn), "me@alpha.test");
+});
+
+test("mail stored before delivered-to keeps the To/Cc match", () => {
+	assert.equal(getOwnAddressForMessage(inbound({ toAddr: "x@y.test, help@beta.test", deliveredTo: null }), projectOwn), "help@beta.test");
+	assert.equal(getOwnAddressForMessage({ ...inbound({}), direction: "outbound", fromAddr: "Me <sales@beta.test>", deliveredTo: "ignored@alpha.test" }, projectOwn), "sales@beta.test");
+});
