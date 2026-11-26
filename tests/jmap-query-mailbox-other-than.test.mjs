@@ -64,29 +64,38 @@ async function query(ctx, args) {
 	return res.methodResponses[0][1];
 }
 
-const FOLDER = `${MAILBOX}~f~fld_work`;
+const LABEL = `${MAILBOX}~f~lbl_work`;
+const INBOX = `${MAILBOX}~inbox`;
 
-/** m_inbox stays unfiled, m_work is moved into the "Work" folder. */
-async function withFolder(t) {
-	const ctx = await fixture(t, [{ id: "m_inbox", at: 10 }, { id: "m_work", at: 20 }]);
+/** m_inbox has no label, m_work carries the "Work" label and stays in the inbox, m_filed is archived with it. */
+async function withLabel(t) {
+	const ctx = await fixture(t, [{ id: "m_inbox", at: 10 }, { id: "m_work", at: 20 }, { id: "m_filed", at: 30 }]);
 	ctx.env.DB.db.exec(`
-		INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('fld_work', 'admin', '${MAILBOX}', 'Work', 1);
-		UPDATE messages SET folder_id = 'fld_work' WHERE id = 'm_work';
+		INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('lbl_work', 'admin', '${MAILBOX}', 'Work', 1);
+		INSERT INTO message_labels (message_id, label_id) VALUES ('m_work', 'lbl_work'), ('m_filed', 'lbl_work');
+		UPDATE messages SET status = 'archived' WHERE id = 'm_filed';
 	`);
 	return ctx;
 }
 
-test("inMailboxOtherThan a folder keeps the mailbox's unfiled messages", async (t) => {
-	const ctx = await withFolder(t);
-	assert.deepEqual((await query(ctx, { filter: { inMailboxOtherThan: [FOLDER] } })).ids, ["m_inbox"]);
+test("inMailboxOtherThan a label keeps every message that is also in a system mailbox", async (t) => {
+	const ctx = await withLabel(t);
+	assert.deepEqual((await query(ctx, { filter: { inMailboxOtherThan: [LABEL] } })).ids, ["m_filed", "m_work", "m_inbox"]);
 });
 
-test("NOT inMailbox a folder keeps the mailbox's unfiled messages", async (t) => {
-	const ctx = await withFolder(t);
-	assert.deepEqual((await query(ctx, { filter: { operator: "NOT", conditions: [{ inMailbox: FOLDER }] } })).ids, ["m_inbox"]);
+test("inMailboxOtherThan the inbox and a label keeps what is elsewhere too", async (t) => {
+	const ctx = await withLabel(t);
+	assert.deepEqual((await query(ctx, { filter: { inMailboxOtherThan: [INBOX, LABEL] } })).ids, ["m_filed"]);
+	assert.deepEqual((await query(ctx, { filter: { inMailboxOtherThan: [INBOX] } })).ids, ["m_filed", "m_work"]);
 });
 
-test("inMailbox a folder still matches only that folder", async (t) => {
-	const ctx = await withFolder(t);
-	assert.deepEqual((await query(ctx, { filter: { inMailbox: FOLDER } })).ids, ["m_work"]);
+test("NOT inMailbox a label keeps the mailbox's unlabelled messages", async (t) => {
+	const ctx = await withLabel(t);
+	assert.deepEqual((await query(ctx, { filter: { operator: "NOT", conditions: [{ inMailbox: LABEL }] } })).ids, ["m_inbox"]);
+});
+
+test("inMailbox a label matches only its messages, whatever their status", async (t) => {
+	const ctx = await withLabel(t);
+	assert.deepEqual((await query(ctx, { filter: { inMailbox: LABEL } })).ids, ["m_filed", "m_work"]);
+	assert.deepEqual((await query(ctx, { filter: { inMailbox: INBOX } })).ids, ["m_work", "m_inbox"]);
 });

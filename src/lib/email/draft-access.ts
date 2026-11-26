@@ -7,8 +7,8 @@ import { jmapChanges, messages } from "@/db/schema";
  * Every message query that serves readers of a mailbox must include this predicate.
  *
  * `messages.private_draft` is set when a row is created as a draft and stays set wherever the row is
- * moved afterwards (Trash, Archive, a folder, the inbox), so the rule does not depend on `status`.
- * It is cleared only by a real send or an explicit "sent" from the author, never by a folder move. Sent mail that a teammate files or trashes
+ * moved afterwards (Trash, Archive, the inbox), so the rule does not depend on `status`.
+ * It is cleared only by a real send or an explicit "sent" from the author, never by a label move. Sent mail that a teammate labels or trashes
  * stays visible to the mailbox's readers.
  */
 

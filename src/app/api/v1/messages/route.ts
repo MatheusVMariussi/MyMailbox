@@ -66,5 +66,5 @@ export async function GET(request: Request) {
 	const labelIds = await loadMessageLabelIds(db, rows.map((row) => row.id));
 
 	// `folder_id` is a dead column since labels replaced folders; each row lists its label ids instead.
-	return NextResponse.json({ messages: rows.map(({ folderId: _folderId, ...row }) => ({ ...row, labelIds: labelIds.get(row.id) ?? [] })) });
+	return NextResponse.json({ messages: rows.map(({ legacyFolderId: _legacyFolderId, ...row }) => ({ ...row, labelIds: labelIds.get(row.id) ?? [] })) });
 }

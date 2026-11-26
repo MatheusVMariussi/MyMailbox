@@ -4,7 +4,7 @@ import type { ConversationPage, ConversationPageInput, MessageListColumns } from
 
 export function getMessageListColumns(): MessageListColumns {
 	return Object.fromEntries(
-		Object.entries(getTableColumns(messages)).filter(([name]) => name !== "textBody" && name !== "htmlBody" && name !== "folderId"),
+		Object.entries(getTableColumns(messages)).filter(([name]) => name !== "textBody" && name !== "htmlBody" && name !== "legacyFolderId"),
 	) as MessageListColumns;
 }
 

@@ -3,7 +3,7 @@ import { getDb, type AppDatabase } from "@/db";
 import { jmapChangeFloor, jmapChanges, mailboxPromotionSettings, messages } from "@/db/schema";
 import { greatest } from "@/db/sql";
 import { DRAFT_FILTER_PARAMS, draftsVisibleTo } from "@/lib/email/draft-access";
-import { listFoldersByMailbox, listJmapMailboxes } from "./access";
+import { listJmapMailboxes, listLabelsByMailbox } from "./access";
 import { encodeMailboxRef, SYSTEM_ROLES } from "./ids";
 import type { AccessibleMailbox, JmapContext } from "./types";
 import { coalesceChanges, formatState, parseState } from "./changes-utils";
@@ -206,7 +206,7 @@ export async function threadChangesSince(ctx: JmapContext, args: Record<string, 
 
 /**
  * Mailbox changes. Any message change alters counts, so every JMAP mailbox of
- * a touched address is reported updated; folder rows add creations and
+ * a touched address is reported updated; label rows add creations and
  * deletions.
  */
 export async function mailboxChangesSince(ctx: JmapContext, args: Record<string, unknown>) {
@@ -214,21 +214,21 @@ export async function mailboxChangesSince(ctx: JmapContext, args: Record<string,
 	const result = await rowsSince(ctx, args.sinceState, null, limit);
 	if (!result) return cannot();
 	const touched = new Set<string>();
-	const folderChanges: Array<{ id: string; change: string }> = [];
+	const labelChanges: Array<{ id: string; change: string }> = [];
 	for (const row of result.rows) {
 		touched.add(row.mailboxId);
 		if (row.objectType === "mailbox" && row.objectId !== row.mailboxId) {
-			folderChanges.push({ id: encodeMailboxRef({ kind: "folder", mailboxId: row.mailboxId, folderId: row.objectId }), change: row.change });
+			labelChanges.push({ id: encodeMailboxRef({ kind: "label", mailboxId: row.mailboxId, labelId: row.objectId }), change: row.change });
 		}
 	}
-	const { created, updated, destroyed } = coalesceChanges(folderChanges);
+	const { created, updated, destroyed } = coalesceChanges(labelChanges);
 	const reported = new Set([...created, ...updated, ...destroyed]);
-	const folders = await listFoldersByMailbox(ctx, [...touched]);
+	const labels = await listLabelsByMailbox(ctx, [...touched]);
 	for (const mailboxId of touched) {
 		const all = [
 			encodeMailboxRef({ kind: "account", mailboxId }),
 			...SYSTEM_ROLES.map((role) => encodeMailboxRef({ kind: "role", mailboxId, role })),
-			...(folders.get(mailboxId) ?? []).map((folder) => encodeMailboxRef({ kind: "folder", mailboxId, folderId: folder.id })),
+			...(labels.get(mailboxId) ?? []).map((label) => encodeMailboxRef({ kind: "label", mailboxId, labelId: label.id })),
 		];
 		for (const id of all) {
 			if (!reported.has(id)) {

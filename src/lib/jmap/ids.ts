@@ -3,7 +3,9 @@ import type { MailboxRef, SystemRole } from "./types";
 /**
  * JMAP Mailbox ids encode MyMailbox's model: a top-level Mailbox per MyMailbox
  * mailbox (all its mail), system children keyed by status, and one child per
- * user folder. Ids are stable strings so clients can cache them.
+ * label (`~f~`, kept from when labels were folders). An Email is in exactly
+ * one system mailbox and in every label mailbox it carries. Ids are stable
+ * strings so clients can cache them.
  */
 const SEP = "~";
 export const SYSTEM_ROLES: SystemRole[] = ["inbox", "sent", "drafts", "archive", "junk", "trash"];
@@ -11,7 +13,7 @@ export const SYSTEM_ROLES: SystemRole[] = ["inbox", "sent", "drafts", "archive",
 export function encodeMailboxRef(ref: MailboxRef): string {
 	if (ref.kind === "account") return ref.mailboxId;
 	if (ref.kind === "role") return `${ref.mailboxId}${SEP}${ref.role}`;
-	return `${ref.mailboxId}${SEP}f${SEP}${ref.folderId}`;
+	return `${ref.mailboxId}${SEP}f${SEP}${ref.labelId}`;
 }
 
 export function decodeMailboxRef(id: string): MailboxRef | null {
@@ -20,7 +22,7 @@ export function decodeMailboxRef(id: string): MailboxRef | null {
 	if (parts.length === 2 && (SYSTEM_ROLES as string[]).includes(parts[1])) {
 		return { kind: "role", mailboxId: parts[0], role: parts[1] as SystemRole };
 	}
-	if (parts.length === 3 && parts[1] === "f" && parts[2]) return { kind: "folder", mailboxId: parts[0], folderId: parts[2] };
+	if (parts.length === 3 && parts[1] === "f" && parts[2]) return { kind: "label", mailboxId: parts[0], labelId: parts[2] };
 	return null;
 }
 
@@ -52,7 +54,7 @@ export function decodeIdentityId(id: string): { mailboxId: string; address: stri
 	return { mailboxId: id.slice(0, index), address: id.slice(index + 1) };
 }
 
-/** Status/folder predicate for each system role, as a plain description the query layer turns into SQL. */
+/** Status predicate for each system role, as a plain description the query layer turns into SQL. */
 export function roleToStatus(role: SystemRole): string {
 	switch (role) {
 		case "inbox":

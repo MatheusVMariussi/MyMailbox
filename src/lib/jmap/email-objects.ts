@@ -19,11 +19,14 @@ export function toAddressObjects(value: string | null | undefined): EmailAddress
 	});
 }
 
-export function mailboxIdsFor(row: MessageRow): Record<string, boolean> {
+/** The system mailbox its status puts the message in, plus one label mailbox per label it carries. */
+export function mailboxIdsFor(row: Pick<MessageRow, "mailboxId" | "status">, labelIds: readonly string[] = []): Record<string, boolean> {
 	if (!row.mailboxId) return {};
-	if (row.folderId) return { [encodeMailboxRef({ kind: "folder", mailboxId: row.mailboxId, folderId: row.folderId })]: true };
+	const ids: Record<string, boolean> = {};
 	const role = statusToRole(row.status);
-	return role ? { [encodeMailboxRef({ kind: "role", mailboxId: row.mailboxId, role })]: true } : {};
+	if (role) ids[encodeMailboxRef({ kind: "role", mailboxId: row.mailboxId, role })] = true;
+	for (const labelId of labelIds) ids[encodeMailboxRef({ kind: "label", mailboxId: row.mailboxId, labelId })] = true;
+	return ids;
 }
 
 /** `$promotion` appears only where the mailbox's Promotions mode is not off; `modes` is `loadPromotionModes` for the rows' mailboxes. */
@@ -70,7 +73,7 @@ function attachmentPart(attachment: AttachmentRow): EmailBodyPart {
  * text and HTML MyMailbox keeps; attachments become parts with blob ids the
  * download endpoint understands. Property filtering happens in the caller.
  */
-export function buildEmailObject(row: MessageRow, attachments: AttachmentRow[], options: { fetchBodies: boolean; maxBodyValueBytes: number; promotionModes?: ReadonlyMap<string, PromotionMode> }) {
+export function buildEmailObject(row: MessageRow, attachments: AttachmentRow[], options: { fetchBodies: boolean; maxBodyValueBytes: number; promotionModes?: ReadonlyMap<string, PromotionMode>; labelIds?: readonly string[] }) {
 	const text = row.textBody ?? "";
 	const html = row.htmlBody ?? "";
 	const textSize = new TextEncoder().encode(text).length;
@@ -113,7 +116,7 @@ export function buildEmailObject(row: MessageRow, attachments: AttachmentRow[], 
 		id: row.id,
 		blobId: messageBlobId(row.id),
 		threadId: threadIdFor(row),
-		mailboxIds: mailboxIdsFor(row),
+		mailboxIds: mailboxIdsFor(row, options.labelIds),
 		keywords: keywordsFor(row, options.promotionModes),
 		size,
 		receivedAt: sentAt,

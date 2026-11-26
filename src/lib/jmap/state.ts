@@ -3,7 +3,7 @@ import { currentChangeScope } from "./changes";
 
 /**
  * States are change-log positions (see changes.ts), shared by every type:
- * any message, folder or mailbox write moves them, and `*\/changes` can
+ * any message, label or mailbox write moves them, and `*\/changes` can
  * continue from them.
  */
 export async function getEmailState(ctx: JmapContext): Promise<string> {

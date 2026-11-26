@@ -2,9 +2,9 @@ import type { getTableColumns, SQL } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
 import type { messages } from "@/db/schema";
 
-export type ListMessage = Omit<typeof messages.$inferSelect, "textBody" | "htmlBody" | "folderId">;
+export type ListMessage = Omit<typeof messages.$inferSelect, "textBody" | "htmlBody" | "legacyFolderId">;
 
-export type MessageListColumns = Omit<ReturnType<typeof getTableColumns<typeof messages>>, "textBody" | "htmlBody" | "folderId">;
+export type MessageListColumns = Omit<ReturnType<typeof getTableColumns<typeof messages>>, "textBody" | "htmlBody" | "legacyFolderId">;
 
 export type ConversationPageInput = {
 	db: AppDatabase;

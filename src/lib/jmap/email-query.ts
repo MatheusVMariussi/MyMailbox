@@ -1,24 +1,41 @@
 import { aliasedTable, and, asc, desc, eq, exists, gt, gte, inArray, isNotNull, isNull, lt, ne, not, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
-import { mailboxPromotionSettings, messageAttachments, messages } from "@/db/schema";
+import { mailboxPromotionSettings, messageAttachments, messageLabels, messages } from "@/db/schema";
 import { concatText, containsLike, escapeLike, insensitiveLike as like, matchEverything, matchNothing } from "@/db/sql";
 import { KEYWORD_DRAFT, KEYWORD_FLAGGED, KEYWORD_PROMOTION, KEYWORD_SEEN } from "./constants";
 import { invalidArguments, unsupportedFilter } from "./errors";
 import { normalizeMessageId } from "@/lib/email/threading";
 import { decodeMailboxRef, roleToStatus } from "./ids";
+import { hasLabelCondition } from "@/lib/labels/service";
 import type { Comparator, Filter, FilterCondition, MailboxRef } from "./types";
 
-/** The SQL predicate for "is in this JMAP Mailbox". */
+/** The SQL predicate for "is in this JMAP Mailbox". A label mailbox holds every message carrying the label. */
 export function mailboxRefCondition(ref: MailboxRef): SQL {
 	const base = eq(messages.mailboxId, ref.mailboxId);
 	if (ref.kind === "account") return base;
-	// isNotNull keeps the predicate false rather than NULL for unfiled rows, so a
-	// negated folder condition (inMailboxOtherThan, NOT) still matches them.
-	if (ref.kind === "folder") return and(base, isNotNull(messages.folderId), eq(messages.folderId, ref.folderId))!;
-	const status = roleToStatus(ref.role);
-	if (ref.role === "inbox") return and(base, eq(messages.status, status), isNull(messages.folderId))!;
-	if (ref.role === "sent") return and(base, inArray(messages.status, ["sent", "queued", "failed"]), isNull(messages.folderId))!;
-	return and(base, eq(messages.status, status), isNull(messages.folderId))!;
+	// EXISTS is never NULL, so a negated label condition (inMailboxOtherThan, NOT) still matches unlabelled rows.
+	if (ref.kind === "label") return and(base, hasLabelCondition(ref.labelId))!;
+	if (ref.role === "sent") return and(base, inArray(messages.status, ["sent", "queued", "failed"]))!;
+	return and(base, eq(messages.status, roleToStatus(ref.role)))!;
+}
+
+/** Statuses that put a message in a system mailbox (see `statusToRole`). */
+const ROLE_STATUSES = ["received", "sent", "queued", "failed", "draft", "archived", "spam", "trash"];
+
+/**
+ * `inMailboxOtherThan` (RFC 8621 §4.4.1): the message is in at least one mailbox not listed. A message
+ * sits in its system mailbox and in each label mailbox, so it qualifies through a system mailbox
+ * that is not listed or through any label that is not listed. A listed account excludes its mail.
+ */
+export function mailboxOtherThanCondition(refs: MailboxRef[]): SQL {
+	const roles = refs.filter((ref) => ref.kind === "role");
+	const labelIds = refs.flatMap((ref) => (ref.kind === "label" ? [ref.labelId] : []));
+	const roleElsewhere = roles.length
+		? and(inArray(messages.status, ROLE_STATUSES), not(or(...roles.map(mailboxRefCondition))!))!
+		: inArray(messages.status, ROLE_STATUSES);
+	const labelElsewhere = exists(sql`(SELECT 1 FROM ${messageLabels} WHERE ${messageLabels.messageId} = ${messages.id}${labelIds.length ? sql` AND ${messageLabels.labelId} NOT IN (${sql.join(labelIds.map((id) => sql`${id}`), sql`, `)})` : sql``})`);
+	const accounts = refs.filter((ref) => ref.kind === "account").map((ref) => not(mailboxRefCondition(ref)));
+	return and(or(roleElsewhere, labelElsewhere)!, ...accounts)!;
 }
 
 type MessagesTable = typeof messages;
@@ -88,10 +105,8 @@ function conditionToSql(condition: FilterCondition, accessible: Set<string>, vie
 		parts.push(mailboxRefCondition(ref));
 	}
 	if (condition.inMailboxOtherThan) {
-		for (const id of condition.inMailboxOtherThan) {
-			const ref = decodeMailboxRef(id);
-			if (ref && accessible.has(ref.mailboxId)) parts.push(not(mailboxRefCondition(ref)));
-		}
+		const refs = condition.inMailboxOtherThan.map(decodeMailboxRef).filter((ref): ref is MailboxRef => !!ref && accessible.has(ref.mailboxId));
+		parts.push(mailboxOtherThanCondition(refs));
 	}
 	if (condition.before) parts.push(lt(messages.createdAt, new Date(condition.before)));
 	if (condition.after) parts.push(gte(messages.createdAt, new Date(condition.after)));

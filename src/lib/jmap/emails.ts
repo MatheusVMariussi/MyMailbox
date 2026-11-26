@@ -1,6 +1,6 @@
 import { and, asc, count, countDistinct, desc, eq, inArray, sql } from "drizzle-orm";
 import { emailChangesSince, threadChangesSince } from "./changes";
-import { labels, messages } from "@/db/schema";
+import { messages } from "@/db/schema";
 import { DRAFT_FILTER_PARAMS, draftsVisibleTo, logMessageHidden, privateDraftForStatus } from "@/lib/email/draft-access";
 import { newId } from "@/lib/ids";
 import { buildSnippet, parseRawMime } from "@/lib/email/parse";
@@ -12,7 +12,9 @@ import { deleteMessageWithObjects } from "@/lib/email/message-cleanup";
 import { LIMITS, KEYWORD_FLAGGED, KEYWORD_SEEN } from "./constants";
 import { JmapError, invalidArguments } from "./errors";
 import { decodeBlobId, decodeMailboxRef, roleToStatus } from "./ids";
-import { buildEmailObject, loadAttachmentsByMessage, resolveHeaderProperty } from "./email-objects";
+import { buildEmailObject, loadAttachmentsByMessage, mailboxIdsFor, resolveHeaderProperty } from "./email-objects";
+import { addMessageLabels, loadLabels, loadMessageLabelIds, removeMessageLabels } from "@/lib/labels/service";
+import { canCarryLabels, moveStatusFor } from "@/lib/messages/actions/definitions";
 import { importFlags, parseReceivedAt, resolveDraftsMailbox } from "./email-import-utils";
 import { filterToSql, mailboxRefCondition, sortToSql } from "./email-query";
 import { getEmailState } from "./state";
@@ -114,12 +116,15 @@ export const emailGet: JmapMethodHandler = async (ctx, args) => {
 	const maxBodyValueBytes = Number(args.maxBodyValueBytes ?? 0);
 
 	const rows = await loadMessages(ctx, ids);
-	const attachments = await loadAttachmentsByMessage(ctx, rows.map((row) => row.id));
-	const promotionModes = await promotionModesOf(ctx, rows);
+	const [attachments, promotionModes, labelIds] = await Promise.all([
+		loadAttachmentsByMessage(ctx, rows.map((row) => row.id)),
+		promotionModesOf(ctx, rows),
+		loadMessageLabelIds(ctx.db, rows.map((row) => row.id)),
+	]);
 	const found = new Set<string>();
 	const list = rows.map((row) => {
 		found.add(row.id);
-		const full = buildEmailObject(row, attachments.get(row.id) ?? [], { fetchBodies, maxBodyValueBytes, promotionModes });
+		const full = buildEmailObject(row, attachments.get(row.id) ?? [], { fetchBodies, maxBodyValueBytes, promotionModes, labelIds: labelIds.get(row.id) });
 		if (!properties) return full;
 		const picked: Record<string, unknown> = { id: row.id };
 		for (const key of properties) {
@@ -204,13 +209,20 @@ function unescapeJsonPointer(token: string): string {
 	return token.replace(/~1/g, "/").replace(/~0/g, "~");
 }
 
-/** Where a patched `mailboxIds` puts the message: exactly one JMAP mailbox is supported. */
-function targetFromMailboxIds(row: MessageRow, patch: Record<string, unknown>, accessible: Set<string>): { status?: string; folderId?: string | null } | { error: Record<string, unknown> } | null {
+type MailboxTarget = { status: string; labelIds: string[]; requested: string[] };
+
+/**
+ * Where a patched `mailboxIds` puts the message: at most one system mailbox (its status) plus any
+ * labels of its own mailbox. Labels alone take received mail (and Trash or Spam) to Archive, as a
+ * label never holds mail in the inbox by itself; sent mail and drafts keep their status.
+ */
+function targetFromMailboxIds(row: MessageRow, currentLabelIds: string[], patch: Record<string, unknown>, accessible: Set<string>): MailboxTarget | { error: Record<string, unknown> } | null {
+	const invalid = (description: string) => ({ error: { type: "invalidProperties", properties: ["mailboxIds"], description } });
 	let ids: string[] | null = null;
 	if (patch.mailboxIds && typeof patch.mailboxIds === "object") {
 		ids = Object.entries(patch.mailboxIds as Record<string, boolean>).filter(([, on]) => on).map(([id]) => id);
 	} else {
-		const current = new Set(Object.keys(buildEmailObject(row, [], { fetchBodies: false, maxBodyValueBytes: 0 }).mailboxIds));
+		const current = new Set(Object.keys(mailboxIdsFor(row, currentLabelIds)));
 		let touched = false;
 		for (const [key, value] of Object.entries(patch)) {
 			if (!key.startsWith("mailboxIds/")) continue;
@@ -222,15 +234,28 @@ function targetFromMailboxIds(row: MessageRow, patch: Record<string, unknown>, a
 		if (touched) ids = Array.from(current);
 	}
 	if (!ids) return null;
-	if (ids.length !== 1) return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "A message belongs to exactly one mailbox" } };
-	const ref: MailboxRef | null = decodeMailboxRef(ids[0]);
-	if (!ref || !accessible.has(ref.mailboxId)) return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Unknown mailbox" } };
-	if (ref.mailboxId !== row.mailboxId) return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Messages cannot move between accounts' mailboxes" } };
-	if (ref.kind === "account") return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Choose a folder or system mailbox" } };
-	// A folder move is not a send: a private draft keeps a non-sent status so privateDraftForStatus leaves it private.
-	if (ref.kind === "folder") return { status: row.direction === "outbound" && row.status !== "draft" && !row.privateDraft ? "sent" : "received", folderId: ref.folderId };
-	if (ref.role === "sent" && row.direction === "inbound") return { error: { type: "invalidProperties", properties: ["mailboxIds"], description: "Received mail cannot be moved to Sent" } };
-	return { status: roleToStatus(ref.role), folderId: null };
+	if (ids.length === 0) return invalid("A message belongs to at least one mailbox");
+	const refs: MailboxRef[] = [];
+	for (const id of ids) {
+		const ref = decodeMailboxRef(id);
+		if (!ref || !accessible.has(ref.mailboxId)) return invalid("Unknown mailbox");
+		if (ref.mailboxId !== row.mailboxId) return invalid("Messages cannot move between accounts' mailboxes");
+		if (ref.kind === "account") return invalid("Choose a label or system mailbox");
+		refs.push(ref);
+	}
+	const roles = refs.flatMap((ref) => (ref.kind === "role" ? [ref.role] : []));
+	const labelIds = [...new Set(refs.flatMap((ref) => (ref.kind === "label" ? [ref.labelId] : [])))];
+	if (roles.length > 1) return invalid("A message is in one system mailbox at most");
+	let status = row.status;
+	if (roles.length === 1) {
+		if (roles[0] === "sent" && row.direction === "inbound") return invalid("Received mail cannot be moved to Sent");
+		status = roleToStatus(roles[0]);
+	} else {
+		// A label move is not a send: moveStatusFor keeps a private draft off status `sent`.
+		status = moveStatusFor(row);
+	}
+	if (labelIds.length > 0 && !canCarryLabels({ status })) return invalid("Drafts cannot carry labels");
+	return { status, labelIds, requested: ids };
 }
 
 /** Only $seen and $flagged are writable; $promotion and any other keyword in a patch are ignored. */
@@ -313,7 +338,7 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 	const manageable = new Set(mailboxRows.filter((row) => row.permission === "full_access").map((row) => row.id));
 	const created: Record<string, unknown> = {};
 	const notCreated: Record<string, unknown> = {};
-	const updated: Record<string, null> = {};
+	const updated: Record<string, null | { mailboxIds: Record<string, boolean> }> = {};
 	const notUpdated: Record<string, unknown> = {};
 	const destroyed: string[] = [];
 	const notDestroyed: Record<string, unknown> = {};
@@ -332,6 +357,7 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 	const updates = Object.entries((args.update ?? {}) as Record<string, Record<string, unknown>>);
 	const rows = await loadMessages(ctx, updates.map(([id]) => id));
 	const byId = new Map(rows.map((row) => [row.id, row]));
+	const labelsByMessage = await loadMessageLabelIds(ctx.db, rows.map((row) => row.id));
 	for (const [id, patch] of updates) {
 		const row = byId.get(id);
 		if (!row || !row.mailboxId) {
@@ -342,7 +368,8 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			notUpdated[id] = { type: "forbidden" };
 			continue;
 		}
-		const move = targetFromMailboxIds(row, patch, accessible);
+		const currentLabelIds = labelsByMessage.get(id) ?? [];
+		const move = targetFromMailboxIds(row, currentLabelIds, patch, accessible);
 		if (move && "error" in move) {
 			notUpdated[id] = move.error;
 			continue;
@@ -351,11 +378,11 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			notUpdated[id] = { type: "forbidden", description: "Moving mail needs full access to the mailbox" };
 			continue;
 		}
-		if (move && typeof move.folderId === "string") {
-			// A folder id in a mailboxIds patch is client input: it must be a folder of the message's own mailbox.
-			const [folder] = await ctx.db.select({ id: labels.id }).from(labels).where(and(eq(labels.id, move.folderId), eq(labels.mailboxId, row.mailboxId))).limit(1);
-			if (!folder) {
-				notUpdated[id] = { type: "invalidProperties", properties: ["mailboxIds"], description: "Unknown folder" };
+		if (move && move.labelIds.length > 0) {
+			// Label ids in a mailboxIds patch are client input: each must be a label of the message's own mailbox.
+			const known = await loadLabels(ctx.db, move.labelIds);
+			if (move.labelIds.some((labelId) => known.get(labelId)?.mailboxId !== row.mailboxId)) {
+				notUpdated[id] = { type: "invalidProperties", properties: ["mailboxIds"], description: "Unknown label" };
 				continue;
 			}
 		}
@@ -363,14 +390,21 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 		const set: Partial<MessageRow> = {};
 		if (flags.read !== undefined) set.read = flags.read;
 		if (flags.starred !== undefined) set.starred = flags.starred;
-		if (move) {
-			if (move.status !== undefined) Object.assign(set, { status: move.status }, privateDraftForStatus(move.status));
-			if (move.folderId !== undefined) set.folderId = move.folderId;
-		}
+		if (move && move.status !== row.status) Object.assign(set, { status: move.status }, privateDraftForStatus(move.status));
 		if (Object.keys(set).length) await ctx.db.update(messages).set(set).where(eq(messages.id, id));
+		if (move) {
+			// Labels are applied as a diff, so a concurrent label change on another pair is kept.
+			const add = move.labelIds.filter((labelId) => !currentLabelIds.includes(labelId));
+			const remove = currentLabelIds.filter((labelId) => !move.labelIds.includes(labelId));
+			if (add.length) await addMessageLabels(ctx.db, add.map((labelId) => ({ messageId: id, labelId })));
+			if (remove.length) await removeMessageLabels(ctx.db, remove.map((labelId) => ({ messageId: id, labelId })));
+		}
 		// Moved into Drafts, the message is gone for the mailbox's other readers.
 		if (set.privateDraft && !row.privateDraft) await logMessageHidden(ctx.db, row);
-		updated[id] = null;
+		// Report the resulting mailboxIds when the server changed what the client asked for (an implicit archive).
+		const resulting = move ? mailboxIdsFor({ mailboxId: row.mailboxId, status: move.status }, move.labelIds) : null;
+		const differs = !!resulting && (Object.keys(resulting).length !== move!.requested.length || move!.requested.some((mailboxRef) => !resulting[mailboxRef]));
+		updated[id] = differs ? { mailboxIds: resulting! } : null;
 	}
 
 	// JMAP destroy is permanent; MyMailbox keeps a trash, so destroy moves there
@@ -391,7 +425,7 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			continue;
 		}
 		if (row.status === "trash" || row.status === "draft") await deleteMessageWithObjects(ctx.env, ctx.db, row.id, row.rawR2Key);
-		else await ctx.db.update(messages).set({ status: "trash", folderId: null }).where(eq(messages.id, id));
+		else await ctx.db.update(messages).set({ status: "trash" }).where(eq(messages.id, id));
 		destroyed.push(id);
 	}
 

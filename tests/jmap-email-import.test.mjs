@@ -46,7 +46,7 @@ const { idSetToList, importFlags, parseReceivedAt, resolveDraftsMailbox, filterT
 
 const DRAFTS = encodeMailboxRef({ kind: "role", mailboxId: "mbx1", role: "drafts" });
 const INBOX = encodeMailboxRef({ kind: "role", mailboxId: "mbx1", role: "inbox" });
-const FOLDER = encodeMailboxRef({ kind: "folder", mailboxId: "mbx1", folderId: "fld1" });
+const FOLDER = encodeMailboxRef({ kind: "label", mailboxId: "mbx1", labelId: "fld1" });
 const writable = new Set(["mbx1"]);
 
 const renderFilter = (filter) => render(filterToSql(filter, writable));
@@ -89,7 +89,7 @@ test("anything but a Drafts mailbox is rejected as invalidProperties on mailboxI
 		["no mailbox", {}],
 		["two mailboxes", { [DRAFTS]: true, [INBOX]: true }],
 		["the inbox", { [INBOX]: true }],
-		["a user folder", { [FOLDER]: true }],
+		["a label", { [FOLDER]: true }],
 		["the account mailbox", { mbx1: true }],
 		["an unknown mailbox", { "mbx9~drafts": true }],
 		["a read-only mailbox", { "mbx2~drafts": true }],

@@ -346,7 +346,12 @@ export const messages = sqliteTable(
 		mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "set null" }),
 		direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
 		providerMessageId: text("provider_message_id"),
-		folderId: text("folder_id").references(() => labels.id, { onDelete: "set null" }),
+		/**
+		 * Dead since labels replaced folders (0002_labels): always null, never read or written. SQLite cannot drop a
+		 * column named by a table-level foreign key, and rebuilding `messages` on D1 would cascade-delete its children.
+		 * Labels live in `message_labels`.
+		 */
+		legacyFolderId: text("folder_id").references(() => labels.id, { onDelete: "set null" }),
 		fromAddr: text("from_addr").notNull(),
 		toAddr: text("to_addr").notNull(),
 		ccAddr: text("cc_addr"),
@@ -392,7 +397,8 @@ export const messages = sqliteTable(
 	(t) => [
 		index("messages_user_created_idx").on(t.userId, t.createdAt),
 		index("messages_mailbox_idx").on(t.mailboxId),
-		index("messages_folder_idx").on(t.folderId),
+		// Serves the ON DELETE SET NULL lookup when a label is deleted, so that never scans every message.
+		index("messages_folder_idx").on(t.legacyFolderId),
 		index("messages_thread_idx").on(t.mailboxId, t.threadId),
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
 		index("messages_raw_r2_key_idx").on(t.rawR2Key),

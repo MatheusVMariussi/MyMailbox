@@ -1,13 +1,15 @@
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, eq, exists, inArray, sql } from "drizzle-orm";
 import { mailboxChangesSince } from "./changes";
-import { labels, messages } from "@/db/schema";
+import { labels, messageLabels, messages } from "@/db/schema";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
-import { newId } from "@/lib/ids";
+import { createLabel, deleteLabel, LabelError, updateLabel } from "@/lib/labels/service";
+import { normalizeLabelName } from "@/lib/labels/label-utils";
+import { DEFAULT_LABEL_COLOR } from "@/lib/labels/colors";
 import { JmapError } from "./errors";
 import { decodeMailboxRef, encodeMailboxRef, roleToStatus, SYSTEM_ROLES } from "./ids";
 import { getMailboxState } from "./state";
 import type { AccessibleMailbox, JmapContext, JmapMethodHandler, SystemRole } from "./types";
-import { listFoldersByMailbox, listJmapMailboxes } from "./access";
+import { listJmapMailboxes, listLabelsByMailbox } from "./access";
 
 const ROLE_NAMES: Record<SystemRole, string> = {
 	inbox: "Inbox",
@@ -21,24 +23,30 @@ const ROLE_ORDER: Record<SystemRole, number> = { inbox: 1, drafts: 2, sent: 3, a
 
 type Counts = { total: number; unread: number };
 
+const unreadSum = sql<number>`sum(case when not ${messages.read} and ${messages.direction} = 'inbound' then 1 else 0 end)`;
+
 /**
- * Per-mailbox tallies in one pass: rows grouped by (mailbox, status, folder)
- * are folded into the JMAP Mailbox each combination belongs to.
+ * Per-mailbox tallies: rows grouped by (mailbox, status) fold into the account
+ * and its system mailboxes, and memberships grouped by label into the label
+ * mailboxes (a message counts in each label it carries, as in its mailboxIds).
  */
 async function loadCounts(ctx: JmapContext, mailboxIds: string[]): Promise<Map<string, Counts>> {
 	const result = new Map<string, Counts>();
 	if (mailboxIds.length === 0) return result;
-	const rows = await ctx.db
-		.select({
-			mailboxId: messages.mailboxId,
-			status: messages.status,
-			folderId: messages.folderId,
-			total: count(),
-			unread: sql<number>`sum(case when not ${messages.read} and ${messages.direction} = 'inbound' then 1 else 0 end)`,
-		})
-		.from(messages)
-		.where(and(inArray(messages.mailboxId, mailboxIds), draftsVisibleTo(ctx.auth.userId)))
-		.groupBy(messages.mailboxId, messages.status, messages.folderId);
+	const visible = and(inArray(messages.mailboxId, mailboxIds), draftsVisibleTo(ctx.auth.userId));
+	const [rows, labelRows] = await Promise.all([
+		ctx.db
+			.select({ mailboxId: messages.mailboxId, status: messages.status, total: count(), unread: unreadSum })
+			.from(messages)
+			.where(visible)
+			.groupBy(messages.mailboxId, messages.status),
+		ctx.db
+			.select({ mailboxId: messages.mailboxId, labelId: messageLabels.labelId, total: count(), unread: unreadSum })
+			.from(messageLabels)
+			.innerJoin(messages, eq(messages.id, messageLabels.messageId))
+			.where(visible)
+			.groupBy(messages.mailboxId, messageLabels.labelId),
+	]);
 
 	const add = (key: string, row: { total: number; unread: number }) => {
 		const current = result.get(key) ?? { total: 0, unread: 0 };
@@ -47,12 +55,11 @@ async function loadCounts(ctx: JmapContext, mailboxIds: string[]): Promise<Map<s
 	for (const row of rows) {
 		if (!row.mailboxId) continue;
 		add(encodeMailboxRef({ kind: "account", mailboxId: row.mailboxId }), row);
-		if (row.folderId) {
-			add(encodeMailboxRef({ kind: "folder", mailboxId: row.mailboxId, folderId: row.folderId }), row);
-			continue;
-		}
 		const role = statusRole(row.status);
 		if (role) add(encodeMailboxRef({ kind: "role", mailboxId: row.mailboxId, role }), row);
+	}
+	for (const row of labelRows) {
+		if (row.mailboxId) add(encodeMailboxRef({ kind: "label", mailboxId: row.mailboxId, labelId: row.labelId }), row);
 	}
 	return result;
 }
@@ -83,7 +90,7 @@ function rights(mailbox: AccessibleMailbox, system: boolean) {
 export async function buildAllMailboxes(ctx: JmapContext) {
 	const accessible = await listJmapMailboxes(ctx);
 	const ids = accessible.map((row) => row.id);
-	const [foldersByMailbox, counts] = await Promise.all([listFoldersByMailbox(ctx, ids), loadCounts(ctx, ids)]);
+	const [labelsByMailbox, counts] = await Promise.all([listLabelsByMailbox(ctx, ids), loadCounts(ctx, ids)]);
 	const list: Array<Record<string, unknown>> = [];
 	let sortBase = 0;
 
@@ -121,12 +128,12 @@ export async function buildAllMailboxes(ctx: JmapContext) {
 				isSubscribed: true,
 			});
 		}
-		for (const folder of foldersByMailbox.get(mailbox.id) ?? []) {
-			const id = encodeMailboxRef({ kind: "folder", mailboxId: mailbox.id, folderId: folder.id });
+		for (const label of labelsByMailbox.get(mailbox.id) ?? []) {
+			const id = encodeMailboxRef({ kind: "label", mailboxId: mailbox.id, labelId: label.id });
 			const c = counts.get(id) ?? { total: 0, unread: 0 };
 			list.push({
 				id,
-				name: folder.name,
+				name: label.name,
 				parentId: accountId,
 				role: null,
 				sortOrder: sortBase + 10,
@@ -180,7 +187,10 @@ export const mailboxQuery: JmapMethodHandler = async (ctx, args) => {
 
 export const mailboxChanges: JmapMethodHandler = async (ctx, args) => mailboxChangesSince(ctx, args);
 
-/** Folders can be created, renamed and removed; system mailboxes cannot. */
+/** Label membership rows one Mailbox/set destroy may remove (each fires the change-log triggers). */
+const LABEL_DESTROY_MAX_BATCHES = 40;
+
+/** Labels can be created, renamed and removed; system mailboxes cannot. */
 export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 	const oldState = await getMailboxState(ctx);
 	if (args.ifInState && args.ifInState !== oldState) return { type: "stateMismatch" };
@@ -194,24 +204,25 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 
 	for (const [creationId, value] of Object.entries((args.create ?? {}) as Record<string, Record<string, unknown>>)) {
 		const parent = typeof value.parentId === "string" ? decodeMailboxRef(value.parentId) : null;
-		const name = typeof value.name === "string" ? value.name.trim() : "";
+		const name = normalizeLabelName(value.name);
 		const mailbox = parent && accessible.find((row) => row.id === parent.mailboxId);
 		if (!parent || parent.kind !== "account" || !mailbox || mailbox.permission !== "full_access") {
-			notCreated[creationId] = { type: "invalidProperties", properties: ["parentId"], description: "Folders live directly under a mailbox" };
+			notCreated[creationId] = { type: "invalidProperties", properties: ["parentId"], description: "Labels live directly under a mailbox" };
 			continue;
 		}
-		if (!name || name.length > 80) {
+		if (!name) {
 			notCreated[creationId] = { type: "invalidProperties", properties: ["name"] };
 			continue;
 		}
-		const id = newId("fld");
+		let label;
 		try {
-			await ctx.db.insert(labels).values({ id, userId: mailbox.userId, mailboxId: mailbox.id, name });
-		} catch {
-			notCreated[creationId] = { type: "invalidProperties", properties: ["name"], description: "A folder with that name already exists" };
+			label = await createLabel(ctx.db, { userId: mailbox.userId, mailboxId: mailbox.id, name, color: DEFAULT_LABEL_COLOR });
+		} catch (error) {
+			if (!(error instanceof LabelError)) throw error;
+			notCreated[creationId] = { type: "invalidProperties", properties: ["name"], description: "A label with that name already exists" };
 			continue;
 		}
-		const jmapId = encodeMailboxRef({ kind: "folder", mailboxId: mailbox.id, folderId: id });
+		const jmapId = encodeMailboxRef({ kind: "label", mailboxId: mailbox.id, labelId: label.id });
 		ctx.createdIds[creationId] = jmapId;
 		created[creationId] = { id: jmapId, role: null, sortOrder: 0, totalEmails: 0, unreadEmails: 0, totalThreads: 0, unreadThreads: 0, isSubscribed: true };
 	}
@@ -224,7 +235,7 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 			continue;
 		}
 		const keys = Object.keys(patch).filter((key) => key !== "isSubscribed" && key !== "sortOrder");
-		if (ref.kind !== "folder") {
+		if (ref.kind !== "label") {
 			notUpdated[id] = keys.length ? { type: "forbidden", description: "System mailboxes cannot be changed" } : undefined!;
 			if (!keys.length) updated[id] = null;
 			continue;
@@ -233,16 +244,30 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 			notUpdated[id] = { type: "invalidProperties", properties: keys.filter((key) => key !== "name") };
 			continue;
 		}
-		// Renaming is a manage action, like create and destroy: a read-only or send-only sharee must not rename a shared folder.
+		// Renaming is a manage action, like create and destroy: a read-only or send-only sharee must not rename a shared label.
 		if (keys.length && mailbox.permission !== "full_access") {
 			notUpdated[id] = { type: "forbidden" };
 			continue;
 		}
-		if (typeof patch.name === "string" && patch.name.trim()) {
-			await ctx.db
-				.update(labels)
-				.set({ name: patch.name.trim() })
-				.where(and(eq(labels.id, ref.folderId), eq(labels.mailboxId, mailbox.id)));
+		if (keys.length) {
+			const name = normalizeLabelName(patch.name);
+			// The label id comes from the client: it must belong to the mailbox the permission was checked on.
+			const [label] = await ctx.db.select().from(labels).where(and(eq(labels.id, ref.labelId), eq(labels.mailboxId, mailbox.id))).limit(1);
+			if (!label) {
+				notUpdated[id] = { type: "notFound" };
+				continue;
+			}
+			if (!name) {
+				notUpdated[id] = { type: "invalidProperties", properties: ["name"] };
+				continue;
+			}
+			try {
+				await updateLabel(ctx.db, label, { name });
+			} catch (error) {
+				if (!(error instanceof LabelError)) throw error;
+				notUpdated[id] = { type: "invalidProperties", properties: ["name"], description: "A label with that name already exists" };
+				continue;
+			}
 		}
 		updated[id] = null;
 	}
@@ -254,26 +279,29 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 			notDestroyed[id] = { type: "notFound" };
 			continue;
 		}
-		if (ref.kind !== "folder" || mailbox.permission !== "full_access") {
+		if (ref.kind !== "label" || mailbox.permission !== "full_access") {
 			notDestroyed[id] = { type: "forbidden" };
 			continue;
 		}
-		// The folder id comes from the client: it must belong to the mailbox the permission was checked on.
-		const [folder] = await ctx.db.select({ id: labels.id }).from(labels).where(and(eq(labels.id, ref.folderId), eq(labels.mailboxId, mailbox.id))).limit(1);
-		if (!folder) {
+		// The label id comes from the client: it must belong to the mailbox the permission was checked on.
+		const [label] = await ctx.db.select({ id: labels.id }).from(labels).where(and(eq(labels.id, ref.labelId), eq(labels.mailboxId, mailbox.id))).limit(1);
+		if (!label) {
 			notDestroyed[id] = { type: "notFound" };
 			continue;
 		}
-		if (args.onDestroyRemoveEmails) {
-			await ctx.db.update(messages).set({ status: "trash", folderId: null }).where(and(eq(messages.folderId, ref.folderId), eq(messages.mailboxId, mailbox.id)));
-		} else {
-			const [inUse] = await ctx.db.select({ n: count() }).from(messages).where(and(eq(messages.folderId, ref.folderId), eq(messages.mailboxId, mailbox.id), isNull(messages.snoozedUntil)));
-			if ((inUse?.n ?? 0) > 0) {
+		// Removing a label never removes mail: onDestroyRemoveEmails only drops the memberships.
+		if (!args.onDestroyRemoveEmails) {
+			const [inUse] = await ctx.db.select({ used: sql<number>`1` }).from(labels).where(and(eq(labels.id, label.id), exists(sql`(SELECT 1 FROM ${messageLabels} WHERE ${messageLabels.labelId} = ${label.id})`))).limit(1);
+			if (inUse) {
 				notDestroyed[id] = { type: "mailboxHasEmail" };
 				continue;
 			}
 		}
-		await ctx.db.delete(labels).where(and(eq(labels.id, ref.folderId), eq(labels.mailboxId, mailbox.id)));
+		const result = await deleteLabel(ctx.db, label.id, LABEL_DESTROY_MAX_BATCHES);
+		if (!result.done) {
+			notDestroyed[id] = { type: "serverFail", description: "The label holds too many messages to remove in one request; try again" };
+			continue;
+		}
 		destroyed.push(id);
 	}
 

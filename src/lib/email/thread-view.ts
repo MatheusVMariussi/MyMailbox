@@ -41,7 +41,7 @@ export async function getMessageThreadForUser(env: CloudflareEnv, user: SessionU
 						eq(messages.mailboxId, message.mailboxId),
 						eq(messages.threadId, message.threadId),
 						notInArray(messages.status, ["draft", "trash"]),
-						// Another user's draft filed under Archive or a folder is still their private draft.
+						// Another user's draft filed under Archive (or labelled) is still their private draft.
 						draftsVisibleTo(user.id),
 						// Spam stays out of a conversation unless it is the message being opened.
 						or(ne(messages.status, "spam"), eq(messages.id, messageId)),

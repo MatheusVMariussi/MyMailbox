@@ -37,8 +37,8 @@ export async function listAccessibleMailboxIdSet(ctx: JmapContext): Promise<Set<
 	return new Set((await listJmapMailboxes(ctx)).map((row) => row.id));
 }
 
-/** User folders for a set of mailboxes, keyed by mailbox id. */
-export async function listFoldersByMailbox(ctx: JmapContext, mailboxIds: string[]): Promise<Map<string, Array<{ id: string; name: string }>>> {
+/** Labels of a set of mailboxes, keyed by mailbox id. */
+export async function listLabelsByMailbox(ctx: JmapContext, mailboxIds: string[]): Promise<Map<string, Array<{ id: string; name: string }>>> {
 	const result = new Map<string, Array<{ id: string; name: string }>>();
 	if (mailboxIds.length === 0) return result;
 	const rows = await ctx.db
