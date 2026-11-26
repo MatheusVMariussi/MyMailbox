@@ -1,6 +1,6 @@
 import type { MessageCounts, MessageFolder } from "@/hooks/types";
 import type { PromotionMode } from "@/lib/promotions/settings";
-import type { CountableFolder, MessageCountRow } from "./types";
+import type { CountableFolder, MessageCountRow, MessageCountScope, PromotionCountRow } from "./types";
 
 export function getMessageFolder(row: MessageCountRow): CountableFolder {
 	if (row.snoozedUntil && row.snoozedUntil > new Date()) return "snoozed";
@@ -29,14 +29,31 @@ export function createEmptyFolderCounts(): MessageCounts["folders"] {
 	};
 }
 
-export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
+/** Whether a grouped row counts toward the folders of this scope. */
+export function inCountScope(row: { projectId?: string | null }, scope: MessageCountScope = {}): boolean {
+	return !scope.projectId || row.projectId === scope.projectId;
+}
+
+/**
+ * Folder, mailbox and per-project counts from the grouped rows. With a project in `scope` the folder and
+ * mailbox counts cover that project only; `projects` (Inbox per project) always covers every project.
+ */
+export function buildMessageCounts(rows: MessageCountRow[], scope: MessageCountScope = {}): MessageCounts {
 	const folders = createEmptyFolderCounts();
 	const mailboxMap = new Map<string, { mailboxId: string; total: number; unread: number; inbox: number }>();
+	const projects: Record<string, { total: number; unread: number }> = {};
 
 	for (const row of rows) {
 		const weight = row.total ?? 1;
 		const folder = getMessageFolder(row);
 		const unread = row.direction === "inbound" && !row.read;
+		if (folder === "inbox" && row.projectId) {
+			const project = projects[row.projectId] ?? { total: 0, unread: 0 };
+			project.total += weight;
+			if (unread) project.unread += weight;
+			projects[row.projectId] = project;
+		}
+		if (!inCountScope(row, scope)) continue;
 		if (row.starred) {
 			folders.starred.total += weight;
 			if (unread) folders.starred.unread += weight;
@@ -63,6 +80,7 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 	return {
 		folders,
 		labels: {},
+		projects,
 		mailboxes: Array.from(mailboxMap.values()),
 	};
 }
@@ -73,14 +91,23 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
  */
 export function applyPromotionCounts(
 	counts: MessageCounts,
-	rows: { mailboxId: string | null; read: boolean; total: number }[],
+	rows: PromotionCountRow[],
 	separateIds: ReadonlySet<string>,
+	scope: MessageCountScope = {},
 ): void {
 	for (const row of rows) {
 		const weight = Number(row.total) || 0;
+		const separate = !!row.mailboxId && separateIds.has(row.mailboxId);
+		// A separate mailbox's promotions leave its projects' Inbox counts too, whatever the scope.
+		const project = separate && row.projectId ? counts.projects?.[row.projectId] : undefined;
+		if (project) {
+			project.total -= weight;
+			if (!row.read) project.unread -= weight;
+		}
+		if (!inCountScope(row, scope)) continue;
 		counts.folders.promotions.total += weight;
 		if (!row.read) counts.folders.promotions.unread += weight;
-		if (!row.mailboxId || !separateIds.has(row.mailboxId)) continue;
+		if (!separate) continue;
 		counts.folders.inbox.total -= weight;
 		if (!row.read) counts.folders.inbox.unread -= weight;
 		const mailbox = counts.mailboxes.find((entry) => entry.mailboxId === row.mailboxId);

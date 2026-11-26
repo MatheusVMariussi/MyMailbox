@@ -48,6 +48,16 @@ export async function loadLabels(db: AppDatabase, labelIds: readonly string[]): 
 	return new Map(rows.map((row) => [row.id, row]));
 }
 
+/**
+ * For each mailbox, its label named like `label` (the label itself in its own mailbox). Mailboxes without one
+ * are absent. Lets one "Label as" choice apply across a unified selection.
+ */
+export async function loadSameNamedLabels(db: AppDatabase, label: LabelRecord, mailboxIds: readonly string[]): Promise<Map<string, LabelRecord>> {
+	const others = [...new Set(mailboxIds)].filter((id) => id !== label.mailboxId);
+	const rows = await selectInBatches(others, (batch) => db.select(labelColumns).from(labels).where(and(eq(labels.name, label.name), inArray(labels.mailboxId, batch))));
+	return new Map([[label.mailboxId, label], ...rows.map((row) => [row.mailboxId, row] as const)]);
+}
+
 export async function createLabel(
 	db: AppDatabase,
 	input: { userId: string; mailboxId: string; name: string; color: string },
@@ -181,9 +191,17 @@ export async function countLabelMessages(
 	return counts;
 }
 
-/** `messages` rows carrying the label. */
-export function hasLabelCondition(labelId: string): SQL {
-	return exists(sql`(SELECT 1 FROM ${messageLabels} WHERE ${messageLabels.messageId} = ${messages.id} AND ${messageLabels.labelId} = ${labelId})`);
+/**
+ * `messages` rows carrying the label, or any of several (same-named labels of different mailboxes, grouped in the
+ * unified sidebar). A list binds one parameter, a JSON array read with `json_each`, so its length never counts
+ * against D1's 100 bound parameters.
+ */
+export function hasLabelCondition(labelIds: string | readonly string[]): SQL {
+	const ids = typeof labelIds === "string" ? [labelIds] : [...new Set(labelIds)];
+	if (ids.length === 1) {
+		return exists(sql`(SELECT 1 FROM ${messageLabels} WHERE ${messageLabels.messageId} = ${messages.id} AND ${messageLabels.labelId} = ${ids[0]})`);
+	}
+	return exists(sql`(SELECT 1 FROM ${messageLabels} WHERE ${messageLabels.messageId} = ${messages.id} AND ${messageLabels.labelId} IN (SELECT value FROM json_each(${JSON.stringify(ids)})))`);
 }
 
 /** `messages` rows carrying no label at all: what the user has not curated. */

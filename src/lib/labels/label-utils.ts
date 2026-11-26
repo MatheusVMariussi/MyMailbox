@@ -18,6 +18,24 @@ export function normalizeLabelName(value: unknown): string | null {
 	return name;
 }
 
+/** Most label ids one list or navigation request may filter on (a grouped label has one per mailbox). */
+export const LABEL_FILTER_MAX_IDS = 100;
+
+/**
+ * The `labelId` request parameter: one id, or a comma-separated group of same-named labels. Deduplicated;
+ * null when absent or empty, and `false` when it names more than `LABEL_FILTER_MAX_IDS` labels.
+ */
+export function parseLabelFilter(value: string | null | undefined): string[] | null | false {
+	const ids = [...new Set((value ?? "").split(",").map((id) => id.trim()).filter(Boolean))];
+	if (ids.length === 0) return null;
+	return ids.length > LABEL_FILTER_MAX_IDS ? false : ids;
+}
+
+/** Whether a message's labels hit a label filter (one id, or a comma-separated group). */
+export function labelFilterMatches(labelIds: readonly string[], filter: string): boolean {
+	return filter.split(",").some((id) => labelIds.includes(id.trim()));
+}
+
 export function chunk<T>(items: readonly T[], size: number): T[][] {
 	const chunks: T[][] = [];
 	for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));

@@ -37,6 +37,10 @@ export type Message = {
 	category?: string | null;
 	/** Normalised sender address, null on rows from before promotions. */
 	senderAddress?: string | null;
+	/** Lower-cased envelope recipient the message was delivered to (inbound only); null on older mail. */
+	deliveredTo?: string | null;
+	/** The project of the message's own address, null when none owns it. */
+	projectId?: string | null;
 	/** When a scheduled send will go out; set on rows in the Scheduled list. */
 	scheduledAt?: string | null;
 	/** Opens counted by the read-receipt pixel; absent when the message was sent without one. */
@@ -91,6 +95,8 @@ export type MessageFilterOptions = {
 	offset?: number;
 	/** "thread" collapses each conversation to its newest matching message. */
 	group?: "thread";
+	/** Only mail stamped with this project. */
+	projectId?: string | null;
 };
 
 export type MessageListResponse = {
@@ -116,6 +122,8 @@ export type MessageCounts = {
 	folders: Record<MessageFolder, FolderCount>;
 	/** Per label id: what its view lists, and the unread received mail in it. Missing from older responses. */
 	labels?: Record<string, FolderCount>;
+	/** Per project id: its Inbox mail and the unread part, across the whole mailbox scope. Missing from older responses. */
+	projects?: Record<string, FolderCount>;
 	mailboxes: MailboxCount[];
 	/** Mailboxes in scope with Promotions on (`show` or `separate`); off mailboxes are absent. Missing from older responses. */
 	promotionModes?: Record<string, "show" | "separate">;

@@ -22,6 +22,9 @@ import { parseLimit, parseOffset } from "@/lib/api/query-params";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { categoryScopeCondition } from "@/lib/promotions/settings";
 import { hasLabelCondition, labelViewStatusCondition, loadMessageLabelIds } from "@/lib/labels/service";
+import { LABEL_FILTER_MAX_IDS, parseLabelFilter } from "@/lib/labels/label-utils";
+import { parseProjectParam } from "@/lib/projects/project-utils";
+import { projectFilterCondition } from "@/lib/projects/service";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -33,7 +36,10 @@ export async function GET(request: Request) {
 	const url = new URL(request.url);
 	const direction = url.searchParams.get("direction");
 	const mailboxId = url.searchParams.get("mailboxId");
-	const labelId = url.searchParams.get("labelId");
+	// One label, or a comma-separated group of same-named labels across mailboxes (the unified sidebar).
+	const labelIds = parseLabelFilter(url.searchParams.get("labelId"));
+	const labelId = labelIds ? labelIds.join(",") : null;
+	const projectId = parseProjectParam(url.searchParams.get("projectId"));
 	const status = url.searchParams.get("status");
 	const query = url.searchParams.get("q")?.trim();
 	const title = url.searchParams.get("title")?.trim();
@@ -48,6 +54,9 @@ export async function GET(request: Request) {
 	// that matches the filter. Drafts are never grouped.
 	const groupByThread = url.searchParams.get("group") === "thread" && status !== "draft";
 
+	if (labelIds === false) {
+		return NextResponse.json({ error: `labelId names at most ${LABEL_FILTER_MAX_IDS} labels` }, { status: 400 });
+	}
 	if (category && (category !== "promotions" || status !== "received" || labelId)) {
 		return NextResponse.json({ error: "category=promotions needs status=received and no labelId" }, { status: 400 });
 	}
@@ -77,10 +86,11 @@ export async function GET(request: Request) {
 	if (direction === "inbound" || direction === "outbound") {
 		conditions.push(eq(messages.direction, direction));
 	}
-	if (labelId) {
-		// A label view: the label, any direction, nothing in Trash or Spam.
-		conditions.push(hasLabelCondition(labelId), labelViewStatusCondition);
+	if (labelIds) {
+		// A label view: the label (or its same-named group), any direction, nothing in Trash or Spam.
+		conditions.push(hasLabelCondition(labelIds), labelViewStatusCondition);
 	}
+	if (projectId) conditions.push(projectFilterCondition(projectId));
 	if (status) {
 		conditions.push(eq(messages.status, status));
 	}

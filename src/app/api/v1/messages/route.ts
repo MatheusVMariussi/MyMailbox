@@ -11,6 +11,8 @@ import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { getRequestTimeZone } from "@/lib/time/utils";
 import { parseLimit } from "@/lib/api/query-params";
 import { loadMessageLabelIds } from "@/lib/labels/service";
+import { parseProjectParam } from "@/lib/projects/project-utils";
+import { projectFilterCondition } from "@/lib/projects/service";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -23,6 +25,7 @@ export async function GET(request: Request) {
 	const mailboxId = url.searchParams.get("mailboxId");
 	const direction = url.searchParams.get("direction");
 	const query = url.searchParams.get("q")?.trim();
+	const projectId = parseProjectParam(url.searchParams.get("projectId"));
 	const limit = parseLimit(url.searchParams.get("limit"), 50, 100);
 
 	const db = getDb(env);
@@ -55,6 +58,7 @@ export async function GET(request: Request) {
 	if (direction === "inbound" || direction === "outbound") {
 		conditions.push(eq(messages.direction, direction));
 	}
+	if (projectId) conditions.push(projectFilterCondition(projectId));
 	if (query) conditions.push(...buildSearchConditions(query, getRequestTimeZone(request, user.timeZone)));
 
 	const rows = await db

@@ -7,7 +7,8 @@ import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
-import { activePromotionModes, applyPromotionCounts, buildMessageCounts } from "./utils";
+import { activePromotionModes, applyPromotionCounts, buildMessageCounts, inCountScope } from "./utils";
+import { parseProjectParam } from "@/lib/projects/project-utils";
 import { loadPromotionModes } from "@/lib/promotions/settings";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
 import { countLabelMessages } from "@/lib/labels/service";
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
 
 	const url = new URL(request.url);
 	const mailboxId = url.searchParams.get("mailboxId");
+	// Narrows the folder counts; per-project counts always cover the whole mailbox scope.
+	const scope = { projectId: parseProjectParam(url.searchParams.get("projectId")) };
 	const db = getDb(env);
 	const conditions: SQL[] = [];
 	let mailboxIds: string[] = [];
@@ -52,6 +55,7 @@ export async function GET(request: Request) {
 			read: messages.read,
 			starred: messages.starred,
 			snoozedUntil: messages.snoozedUntil,
+			projectId: messages.projectId,
 			total: count(),
 			scheduledTotal: sql<number>`sum(case when ${scheduledMessageCondition(db)} then 1 else 0 end)`,
 		})
@@ -64,10 +68,15 @@ export async function GET(request: Request) {
 			messages.read,
 			messages.starred,
 			messages.snoozedUntil,
+			// The draft columns sit between snooze and project in messages_counts_cover_idx; grouping on them
+			// keeps the GROUP BY in index order (no temporary sort), at the cost of a few more groups.
+			messages.userId,
+			messages.privateDraft,
+			messages.projectId,
 		);
 
-	const counts = buildMessageCounts(rows);
-	counts.folders.scheduled.total = rows.reduce((total, row) => total + (Number(row.scheduledTotal) || 0), 0);
+	const counts = buildMessageCounts(rows, scope);
+	counts.folders.scheduled.total = rows.reduce((total, row) => total + (inCountScope(row, scope) ? Number(row.scheduledTotal) || 0 : 0), 0);
 	counts.labels = await countLabelMessages(db, mailboxIds, user.id);
 
 	// Promotions get their own query, and only for mailboxes that opted in, so the grouped query above is unchanged.
@@ -76,7 +85,7 @@ export async function GET(request: Request) {
 	const activeIds = Object.keys(counts.promotionModes);
 	if (activeIds.length > 0) {
 		const promotionRows = await db
-			.select({ mailboxId: messages.mailboxId, read: messages.read, total: count() })
+			.select({ mailboxId: messages.mailboxId, read: messages.read, projectId: messages.projectId, total: count() })
 			.from(messages)
 			.where(and(
 				inArray(messages.mailboxId, activeIds),
@@ -85,8 +94,9 @@ export async function GET(request: Request) {
 				eq(messages.category, "promotions"),
 				or(isNull(messages.snoozedUntil), lte(messages.snoozedUntil, new Date())),
 			))
-			.groupBy(messages.mailboxId, messages.read);
-		applyPromotionCounts(counts, promotionRows, new Set(activeIds.filter((id) => modes.get(id) === "separate")));
+			// Grouped in index order (snooze sits between read and project), so no temporary sort.
+			.groupBy(messages.mailboxId, messages.read, messages.snoozedUntil, messages.projectId);
+		applyPromotionCounts(counts, promotionRows, new Set(activeIds.filter((id) => modes.get(id) === "separate")), scope);
 	}
 
 	return NextResponse.json({ counts });

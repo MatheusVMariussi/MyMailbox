@@ -10,6 +10,9 @@ import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { categoryScopeCondition } from "@/lib/promotions/settings";
 import { hasLabelCondition, labelViewStatusCondition } from "@/lib/labels/service";
+import { parseLabelFilter } from "@/lib/labels/label-utils";
+import { parseProjectParam } from "@/lib/projects/project-utils";
+import { projectFilterCondition } from "@/lib/projects/service";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
@@ -28,7 +31,10 @@ export async function GET(request: Request) {
 	}
 
 	const mailboxId = params.get("mailboxId");
-	const labelId = params.get("labelId");
+	const labelIds = parseLabelFilter(params.get("labelId"));
+	if (labelIds === false) return NextResponse.json({ error: "Too many labels" }, { status: 400 });
+	const labelId = labelIds ? labelIds.join(",") : null;
+	const projectId = parseProjectParam(params.get("projectId"));
 	const grouped = params.get("group") === "thread";
 	const around = params.get("around");
 	const windowSize = Math.min(Math.max(Number(params.get("limit") ?? 250) || 250, 25), 1000);
@@ -51,10 +57,11 @@ export async function GET(request: Request) {
 	}
 
 	conditions.push(draftsVisibleTo(user.id));
+	if (projectId) conditions.push(projectFilterCondition(projectId));
 
-	if (labelId) {
+	if (labelIds) {
 		// A label view, whatever `folder` the reader came with: the same predicate as the list.
-		conditions.push(hasLabelCondition(labelId), labelViewStatusCondition);
+		conditions.push(hasLabelCondition(labelIds), labelViewStatusCondition);
 	} else if (folder === "inbox") {
 		conditions.push(eq(messages.direction, "inbound"));
 		conditions.push(eq(messages.status, "received"));

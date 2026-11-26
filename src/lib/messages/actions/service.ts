@@ -3,7 +3,7 @@ import type { AppDatabase } from "@/db";
 import { getDb } from "@/db";
 import { messages } from "@/db/schema";
 import { isEmptyLabelDelta } from "@/lib/labels/label-utils";
-import { addMessageLabels, getLabel, loadLabels, loadMessageLabelIds, removeMessageLabels } from "@/lib/labels/service";
+import { addMessageLabels, getLabel, loadLabels, loadMessageLabelIds, loadSameNamedLabels, removeMessageLabels } from "@/lib/labels/service";
 import type { LabelPair, LabelRecord, MessageLabelDelta } from "@/lib/labels/types";
 import type { SessionUser } from "@/lib/auth/types";
 import { isOthersDraft } from "@/lib/email/draft-access";
@@ -301,6 +301,8 @@ export async function applyMessageActionForUser(
 	const label = LABEL_ACTIONS.has(action) ? await loadActionLabel(db, user, input.labelId) : null;
 	const rows = await loadTargets(db, ids, !!label);
 	if (rows.length === 0) throw new MessageActionError("No accessible messages", 404);
+	// A selection in the unified inbox spans mailboxes: each message takes its own mailbox's label of that name.
+	const labelByMailbox = label ? await loadSameNamedLabels(db, label, rows.flatMap((row) => row.mailboxId ? [row.mailboxId] : [])) : null;
 
 	const accessByMailbox = await loadAccessMap(db, user, rows);
 	const applied: MessageActionRecord[] = [];
@@ -321,13 +323,14 @@ export async function applyMessageActionForUser(
 			skipped.push({ id: row.id, reason: "forbidden" });
 			continue;
 		}
-		// A label belongs to one mailbox: it never applies to mail of another.
-		if (label && row.mailboxId !== label.mailboxId) {
+		// A label belongs to one mailbox: mail of a mailbox without a label of that name is left alone.
+		const rowLabel = labelByMailbox?.get(row.mailboxId);
+		if (label && !rowLabel) {
 			skipped.push({ id: row.id, reason: "not_applicable" });
 			continue;
 		}
 
-		const result = getMessageActionPatch(action, { labelId: label?.id, snoozedUntil }, row);
+		const result = getMessageActionPatch(action, { labelId: rowLabel?.id, snoozedUntil }, row);
 		if (!result.patch) {
 			skipped.push({ id: row.id, reason: result.reason });
 			continue;
