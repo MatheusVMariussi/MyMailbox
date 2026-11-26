@@ -1,12 +1,12 @@
 # API and integrations
 
-Mailflare exposes APIs for domain, account, and mailbox management, and for sending email. Authentication and mailbox permissions still apply to these routes.
+MyMailbox exposes APIs for domain, account, and mailbox management, and for sending email. Authentication and mailbox permissions still apply to these routes.
 
 ## Domain management
 
-Adding or removing a domain from Mailflare also updates Cloudflare Email Routing and sending resources. Each domain has a `sendingProvider` and a `receivingProvider` (`none`, `cloudflare` or `resend`); see [Sending and receiving providers](providers.md).
+Adding or removing a domain from MyMailbox also updates Cloudflare Email Routing and sending resources. Each domain has a `sendingProvider` and a `receivingProvider` (`none`, `cloudflare` or `resend`); see [Sending and receiving providers](providers.md).
 
-| Mailflare route | Purpose |
+| MyMailbox route | Purpose |
 | --- | --- |
 | `GET /api/domains` | List connected domains |
 | `POST /api/domains` | Connect a domain and configure Cloudflare |
@@ -21,13 +21,13 @@ Adding or removing a domain from Mailflare also updates Cloudflare Email Routing
 | `GET/POST /api/domains/[id]/receiving/[provider]` | Receiving checklist and setup for `resend`; `POST` also accepts `cloudflare`, and answers `409 MX_CONFLICT` with the records until called with `{ replaceMx: true }` |
 | `GET/PUT/DELETE /api/admin/resend-key` | The shared Resend API key (primary administrator) |
 
-The hostname must be the apex of a zone available to the configured Cloudflare credentials, or a subdomain of that zone. Creating a mailbox also creates the Cloudflare Email Routing rule that delivers its address to the `mailflare` Worker.
+The hostname must be the apex of a zone available to the configured Cloudflare credentials, or a subdomain of that zone. Creating a mailbox also creates the Cloudflare Email Routing rule that delivers its address to the `mymailbox` Worker.
 
 ### Domain management over the API
 
 The same operations are available to scripts through admin API keys with the `domains` scope, using `Authorization: Bearer <key>`. Create these keys in Admin > API keys. The owner must retain the admin role; personal mail keys from Settings cannot grant domain access.
 
-| Mailflare route | Purpose |
+| MyMailbox route | Purpose |
 | --- | --- |
 | `GET /api/v1/domains` | List connected domains with their DNS status |
 | `POST /api/v1/domains` | Connect a domain and configure Cloudflare (`{ hostname, enableRouting?, enableSending?, replaceMxRecords?, receivingProvider?, sendingProvider? }`; `receivingProvider` defaults to `cloudflare`, and with another value Email Routing is not enabled. `sendingProvider` defaults to `cloudflare` (or `none` when `enableSending` is `false`), and the Cloudflare sending subdomain is only created for `cloudflare`) |
@@ -36,7 +36,7 @@ The same operations are available to scripts through admin API keys with the `do
 | `GET /api/v1/domains/[id]/dns` | View its routing, sending and authentication DNS status |
 | `POST /api/v1/domains/[id]/dns/setup` | Create a missing record (`{ record: "mx" \| "spf" \| "dkim" \| "dmarc" }`) |
 
-`GET /api/v1/domains` returns `{ domains, dns }`, where `dns[id].auth` reports `ok` / `missing` / `unknown` for MX, SPF, DKIM and DMARC. `GET /api/v1/domains/[id]/dns` returns the full audit, including the names queried and the values found. The `setup` route provisions MX/SPF through Email Routing, DKIM through the sending subdomain, and a `v=DMARC1; p=none` TXT for DMARC; on a self-hosted install where DNS is managed manually it returns an error, since Mailflare cannot write the zone.
+`GET /api/v1/domains` returns `{ domains, dns }`, where `dns[id].auth` reports `ok` / `missing` / `unknown` for MX, SPF, DKIM and DMARC. `GET /api/v1/domains/[id]/dns` returns the full audit, including the names queried and the values found. The `setup` route provisions MX/SPF through Email Routing, DKIM through the sending subdomain, and a `v=DMARC1; p=none` TXT for DMARC; on a self-hosted install where DNS is managed manually it returns an error, since MyMailbox cannot write the zone.
 
 ### Inbound provider endpoints
 
@@ -44,15 +44,15 @@ Resend delivers mail by calling the app, so these routes are public and authenti
 
 | Route | Authenticated by |
 | --- | --- |
-| `POST /api/inbound/resend` | The Svix signature of the webhook secret Resend returned when Mailflare created the webhook |
+| `POST /api/inbound/resend` | The Svix signature of the webhook secret Resend returned when MyMailbox created the webhook |
 
 ## Calendar
 
 Each user has a personal calendar at **Calendar** in the dashboard. Events have a title, description, location, attendees, color, time zone and an optional repeat (`daily`, `weekly`, `monthly` or `weekdays`, with an end date and skipped occurrences). Changing or deleting a repeating event affects the whole series unless you choose a starting occurrence.
 
-When you add attendees and choose a sending mailbox, Mailflare emails each attendee an invitation with a calendar (`.ics`) file from that mailbox, and sends updates and cancellations the same way.
+When you add attendees and choose a sending mailbox, MyMailbox emails each attendee an invitation with a calendar (`.ics`) file from that mailbox, and sends updates and cancellations the same way.
 
-| Mailflare route | Purpose |
+| MyMailbox route | Purpose |
 | --- | --- |
 | `GET /api/calendar/events?start=&end=` | List events in an ISO 8601 range (default: the next 31 days). Repeating events are returned once, with their rule |
 | `POST /api/calendar/events` | Create an event (`{ title, startsAt, endsAt, description?, location?, attendees?, color?, repeat?, repeatDays?, timeZone?, mailboxId?, from? }`). If the event is saved but some invitations fail to send, the response is still successful and includes `inviteErrors`, the list of attendee addresses that were not emailed |
@@ -69,7 +69,7 @@ The `storage` scope reports and tests object storage, which is always the R2 `BU
 
 Admin API keys cannot read or send mail. Use Settings > API keys for mail access.
 
-| Scope | Mailflare route | Purpose |
+| Scope | MyMailbox route | Purpose |
 | --- | --- | --- |
 | `accounts` | `GET /api/v1/accounts` | List managed accounts |
 | `accounts` | `POST /api/v1/accounts` | Create an account and its mailbox (`{ username, domainId, password, role?, useAllDomains?, aliases? }`) |
@@ -155,7 +155,7 @@ Send email through `POST /api/v1/send`. `to`, `cc` and `bcc` accept either a com
 }
 ```
 
-To send a reply that threads correctly in the recipient's client, pass the parent's Message-ID as `inReplyTo` and its chain as `references` (a header string or an array). Mailflare writes the `In-Reply-To` and `References` headers, files the sent copy in the same conversation, and stores `threadId`, `inReplyTo` and `references` on every message.
+To send a reply that threads correctly in the recipient's client, pass the parent's Message-ID as `inReplyTo` and its chain as `references` (a header string or an array). MyMailbox writes the `In-Reply-To` and `References` headers, files the sent copy in the same conversation, and stores `threadId`, `inReplyTo` and `references` on every message.
 
 ```json
 {
@@ -175,17 +175,17 @@ To send a reply that threads correctly in the recipient's client, pass the paren
 
 Each user can also choose **Settings > Inbox > Trash and Spam clean-up** to delete Trash and Spam automatically after a number of days (`GET`/`PATCH /api/settings/trash-retention` with `{ days: number | null }`, 1 to 365, `null` for never). It applies to messages in mailboxes the user owns. `messages.trashed_at` records when a message entered either folder; database triggers keep it current, and the scheduled maintenance run deletes expired messages in batches of 200, with `source: "retention"` in the audit entry.
 
-Messages composed in Mailflare are sent as HTML with a plain-text alternative derived from it. Quoted or forwarded content is wrapped in `<div class="mailflare-quote" data-mailflare-quote="1">` so the reader can fold it. `POST /api/drafts` accepts `forwardOfMessageId`, which copies that message's attachments onto the new draft; `DELETE /api/drafts/{id}/attachments/{attachmentId}` removes one, and `POST /api/send` with `draftId` sends the draft's stored files along with any uploaded in the request.
+Messages composed in MyMailbox are sent as HTML with a plain-text alternative derived from it. Quoted or forwarded content is wrapped in `<div class="mymailbox-quote" data-mymailbox-quote="1">` so the reader can fold it; the reader also folds the `mailflare-quote` wrapper that upstream Mailflare writes. `POST /api/drafts` accepts `forwardOfMessageId`, which copies that message's attachments onto the new draft; `DELETE /api/drafts/{id}/attachments/{attachmentId}` removes one, and `POST /api/send` with `draftId` sends the draft's stored files along with any uploaded in the request.
 
 The dashboard composer accepts up to 10 attachments. An administrator sets the outgoing per-file and combined limit from 1 MB up to 25 MB on **General** (`/general`); each file is held in a 128 MB Worker isolate while it is read and sent. The default is 25 MB; a stored value above the ceiling is clamped when it is saved and when it is used. `POST /api/v1/send` takes attachments as base64 in a JSON body capped at 40 MiB (about 30 MB of files), which is the effective limit there whatever the setting. Attachment metadata is stored in D1 and file content is stored in R2. Normal message downloads require access to the mailbox containing the message.
 The limits below apply to domains that send through Cloudflare. Resend takes attachments directly, within the same administrator limit; files over 20 MB, or that would take the message past 20 MB, are sent as the same download links (so receiving servers that refuse large encoded messages are not hit). Cloudflare Email Sending limits the entire encoded message, including attachments, to 5 MiB for general recipients, or 25 MiB for verified destination addresses. To stay under the general limit, files over 3 MB and smaller files that would exceed the message budget are sent as R2 download links. The recipient can download them for 30 days; anyone with the link can access the file during that time. The outgoing cap still applies to those files. The sentence added above the links defaults to the sender's interface language; an administrator can replace it on **General** (`{days}` is the link lifetime, an empty text adds no sentence, the links are always included, and HTML in it is escaped). Cloudflare also limits recipient count to 50, subject length to 998 characters, and headers to 16 KB.
-Incoming mail that exceeds the attachment count or 25 MB decoded attachment limit is rejected during delivery, so the sender's mail provider can report a delivery failure. Cloudflare Email Routing also limits the entire raw message to 25 MiB, including MIME encoding, and may reject it before Mailflare runs.
+Incoming mail that exceeds the attachment count or 25 MB decoded attachment limit is rejected during delivery, so the sender's mail provider can report a delivery failure. Cloudflare Email Routing also limits the entire raw message to 25 MiB, including MIME encoding, and may reject it before MyMailbox runs.
 
 ## JMAP
 
-Mailflare serves [JMAP](https://jmap.io) (RFC 8620 core and RFC 8621 mail, plus submission) so external mail apps can read and send mail. Discovery is at `/.well-known/jmap`, which redirects to `/jmap/session`. Authenticate with an API key that has the `jmap` scope, either as `Authorization: Bearer <key>` or as the password of HTTP Basic auth (the username is ignored; repeated wrong guesses are rate limited; plain HTTP still works but sends the key in the clear, so use HTTPS). Create one under Settings > App passwords: it is a 16-character password limited to the mailboxes you pick, shown once, and you confirm your identity (password and second step, or a passkey) to create it. The page lists each app password with when, how (protocol) and from which IP address it was last used, and revokes it. Changing or resetting your password, changing two-step sign-in, or signing out everywhere revokes every app password and older JMAP-only key; a general API key that adds `jmap` to other scopes is kept. Creating an API key with the `jmap` scope needs the same confirmation.
+MyMailbox serves [JMAP](https://jmap.io) (RFC 8620 core and RFC 8621 mail, plus submission) so external mail apps can read and send mail. Discovery is at `/.well-known/jmap`, which redirects to `/jmap/session`. Authenticate with an API key that has the `jmap` scope, either as `Authorization: Bearer <key>` or as the password of HTTP Basic auth (the username is ignored; repeated wrong guesses are rate limited; plain HTTP still works but sends the key in the clear, so use HTTPS). Create one under Settings > App passwords: it is a 16-character password limited to the mailboxes you pick, shown once, and you confirm your identity (password and second step, or a passkey) to create it. The page lists each app password with when, how (protocol) and from which IP address it was last used, and revokes it. Changing or resetting your password, changing two-step sign-in, or signing out everywhere revokes every app password and older JMAP-only key; a general API key that adds `jmap` to other scopes is kept. Creating an API key with the `jmap` scope needs the same confirmation.
 
-The account id is the user id. Each Mailflare mailbox appears as a top-level JMAP Mailbox with system children (`inbox`, `drafts`, `sent`, `archive`, `junk`, `trash`) and one child per user folder; a message belongs to exactly one of them. Supported methods: `Mailbox/get|query|set|changes` (folders only), `Thread/get|changes`, `Email/get|query|set|import|changes`, `SearchSnippet/get`, `Identity/get|set|changes`, `EmailSubmission/get|query|set|changes`, and `Core/echo`. `Email/copy` and `Email/parse` are not implemented. `Email/changes`, `Mailbox/changes` and `Thread/changes` return real deltas; `*/queryChanges`, `Identity/changes` and `EmailSubmission/changes` return `cannotCalculateChanges`, so clients re-query those; `/jmap/eventsource` pushes state changes by polling. `Email/set` creates drafts, updates `$seen` and `$flagged`, moves between mailboxes, and destroys (to Trash first, then permanently). `EmailSubmission/set` sends a draft and reports it destroyed, since the sent copy is a new message. Blob download and upload follow the Session's `downloadUrl` and `uploadUrl`.
+The account id is the user id. Each MyMailbox mailbox appears as a top-level JMAP Mailbox with system children (`inbox`, `drafts`, `sent`, `archive`, `junk`, `trash`) and one child per user folder; a message belongs to exactly one of them. Supported methods: `Mailbox/get|query|set|changes` (folders only), `Thread/get|changes`, `Email/get|query|set|import|changes`, `SearchSnippet/get`, `Identity/get|set|changes`, `EmailSubmission/get|query|set|changes`, and `Core/echo`. `Email/copy` and `Email/parse` are not implemented. `Email/changes`, `Mailbox/changes` and `Thread/changes` return real deltas; `*/queryChanges`, `Identity/changes` and `EmailSubmission/changes` return `cannotCalculateChanges`, so clients re-query those; `/jmap/eventsource` pushes state changes by polling. `Email/set` creates drafts, updates `$seen` and `$flagged`, moves between mailboxes, and destroys (to Trash first, then permanently). `EmailSubmission/set` sends a draft and reports it destroyed, since the sent copy is a new message. Blob download and upload follow the Session's `downloadUrl` and `uploadUrl`.
 
 `Email/import` takes a `message/rfc822` blob that was uploaded first and stores it as a draft, which is how clients that compose MIME themselves send: upload, import, then `EmailSubmission/set`. Each entry takes `blobId`, `mailboxIds`, and optionally `keywords` and `receivedAt`. **The target must be exactly one Drafts mailbox** — importing into Inbox or a folder is rejected with `invalidProperties` on `mailboxIds`, because delivered mail belongs to the inbound pipeline that does threading and spam scoring. `$seen` and `$flagged` are stored, `$draft` is implied, and other keywords are ignored. `receivedAt` sets the message date, falling back to the `Date` header and then to now. The uploaded bytes are kept verbatim, so downloading the new message's `blobId` returns exactly what was uploaded rather than a reconstruction, and the `Message-ID` header is stored so the client can find its own draft again. Per-message failures come back in `notCreated` as `blobNotFound`, `invalidEmail`, `invalidProperties`, `forbidden` (the `From` address is not one the key may send from) or `tooLarge`.
 
@@ -237,6 +237,6 @@ Terms combine with AND. Admins can check or rebuild the index with `GET` / `POST
 
 ## Real-time updates
 
-Mailflare uses a Durable Object WebSocket hub to notify connected users after an inbound message is stored. Mailbox owners, the domain administrator, and delegated users receive events for mailboxes they can access.
+MyMailbox uses a Durable Object WebSocket hub to notify connected users after an inbound message is stored. Mailbox owners, the domain administrator, and delegated users receive events for mailboxes they can access.
 
 The `REALTIME` binding and its migration are declared in `wrangler.jsonc`. When a WebSocket is temporarily unavailable, the app retries the connection and uses a slower refresh until it recovers.

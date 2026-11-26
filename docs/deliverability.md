@@ -1,6 +1,6 @@
 # Bounce and complaint suppression list
 
-Mailflare can remember addresses that bounced permanently or reported your mail as spam, per sending domain, and optionally stop sending to them. It is **off by default**, on upgrades and on new installations. Nothing changes until the primary administrator picks a mode under **Admin → Email → Deliverability**.
+MyMailbox can remember addresses that bounced permanently or reported your mail as spam, per sending domain, and optionally stop sending to them. It is **off by default**, on upgrades and on new installations. Nothing changes until the primary administrator picks a mode under **Admin → Email → Deliverability**.
 
 ## Modes
 

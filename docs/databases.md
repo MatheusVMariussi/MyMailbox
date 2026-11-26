@@ -1,6 +1,6 @@
 # Database
 
-Mailflare stores its data in **Cloudflare D1** (SQLite). Nothing needs configuring: deploy with the `DB` binding from `wrangler.jsonc`. Raw mail, attachments and backups live in R2, not in the database.
+MyMailbox stores its data in **Cloudflare D1** (SQLite). Nothing needs configuring: deploy with the `DB` binding from `wrangler.jsonc`. Raw mail, attachments and backups live in R2, not in the database.
 
 ## Migrations
 
@@ -10,7 +10,7 @@ Migrations are plain SQL files in `drizzle/migrations/`, recorded in the `d1_mig
 - **Update database** on the admin overview's database card (the in-app runner, `src/lib/migrations/service.ts`, which applies the bundled copy `src/lib/migrations/bundle.json`),
 - `npm run db:migrate:remote` (or `npm run db:migrate:local` for the local development database).
 
-The history starts from a baseline: `0000_baseline.sql` (tables and indexes, generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (the search index, triggers and seed rows). A new database applies both and is complete. Mailflare databases created from the old migration history cannot be upgraded in place; move their data with a fresh install (backups from Mailflare's older format do not restore either).
+The history starts from a baseline: `0000_baseline.sql` (tables and indexes, generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (the search index, triggers and seed rows). A new database applies both and is complete. MyMailbox databases created from the old migration history cannot be upgraded in place; move their data with a fresh install (backups from MyMailbox's older format do not restore either).
 
 Changing the schema means adding the next migration file:
 

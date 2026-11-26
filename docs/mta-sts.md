@@ -2,21 +2,21 @@
 
 Two features that help other mail servers deliver to you over TLS and tell you when they could not. Both are **off by default**, per domain, and nothing changes until a domain admin turns them on under **Admin → Email → Deliverability** (the **TLS reports** and **MTA-STS** tabs).
 
-- **TLS reports (TLS-RPT, RFC 8460).** Mail servers that send to you report each day how many TLS connections worked, how many failed and why. Mailflare reads these reports and shows daily totals.
-- **MTA-STS (RFC 8461).** A policy file that tells senders to deliver to you only over TLS, and only to the mail servers it lists. Mailflare publishes the file and the DNS record.
+- **TLS reports (TLS-RPT, RFC 8460).** Mail servers that send to you report each day how many TLS connections worked, how many failed and why. MyMailbox reads these reports and shows daily totals.
+- **MTA-STS (RFC 8461).** A policy file that tells senders to deliver to you only over TLS, and only to the mail servers it lists. MyMailbox publishes the file and the DNS record.
 
 Both are only for domain admins (the same permission as the DMARC page).
 
 ## TLS reports
 
-TLS reports arrive at the same address as DMARC reports, `mailflare-reports@<your domain>`, so **DMARC reports must be on first** (the address, its Email Routing rule and its reserved local part belong to that switch), and DMARC reports cannot be turned off while TLS reports are on.
+TLS reports arrive at the same address as DMARC reports, `mymailbox-reports@<your domain>`, so **DMARC reports must be on first** (the address, its Email Routing rule and its reserved local part belong to that switch), and DMARC reports cannot be turned off while TLS reports are on.
 
-"Turn on TLS reports" adds `mailto:mailflare-reports@<domain>` to the `rua` of the TXT record at `_smtp._tls.<domain>`:
+"Turn on TLS reports" adds `mailto:mymailbox-reports@<domain>` to the `rua` of the TXT record at `_smtp._tls.<domain>`:
 
 - No record: `v=TLSRPTv1; rua=mailto:<address>` is created.
 - A record with other destinations (for example a reporting service): our address is appended to `rua`; every other destination and tag stays as it was.
 - More than one TLS-RPT record: refused, remove the extra ones first.
-- A zone that Mailflare does not manage (`manual`): the value to publish is shown.
+- A zone that MyMailbox does not manage (`manual`): the value to publish is shown.
 
 "Turn off" removes only our address; a record that held nothing else is deleted. The setting changes only after DNS did. Unlike `_dmarc`, this edit is applied at once (it only adds or removes our own destination) and the page shows what changed.
 
@@ -47,25 +47,25 @@ The **TLS reports** tab shows sessions per day, why sessions failed, totals by p
 
 "Publish in testing mode" on the **MTA-STS** tab:
 
-1. Reads the domain's MX records and stores the host names (at most 20; none is refused, and so is an MX answer that is not a plain host name: leaving it out would make senders refuse that server, so you fix the record first. The null MX `.` is not a host). Hosts that are not Cloudflare Email Routing (`*.mx.cloudflare.net`) or the SES inbound host Resend receives through (`inbound-smtp.<region>.amazonaws.com`) are listed with a warning: Mailflare cannot check their certificates.
+1. Reads the domain's MX records and stores the host names (at most 20; none is refused, and so is an MX answer that is not a plain host name: leaving it out would make senders refuse that server, so you fix the record first. The null MX `.` is not a host). Hosts that are not Cloudflare Email Routing (`*.mx.cloudflare.net`) or the SES inbound host Resend receives through (`inbound-smtp.<region>.amazonaws.com`) are listed with a warning: MyMailbox cannot check their certificates.
 2. Writes the TXT record `_mta-sts.<domain>` = `v=STSv1; id=<YYYYMMDDHHMMSS>`, then stores the policy it announces. The id moves forward whenever the mode, the MX list or the cache time (`max_age`, one day to one year, default one week) changes, and not otherwise, so senders fetch the policy again exactly when it changed. DNS goes first so that a failed write changes nothing: a sender that fetched the policy in between and saw a rollback would hold a new mode under an old id and never ask again.
-3. A record at `_mta-sts` that Mailflare did not publish is never overwritten: publishing is refused until you remove it. In a zone Mailflare does not manage, the TXT value is shown for you to publish.
+3. A record at `_mta-sts` that MyMailbox did not publish is never overwritten: publishing is refused until you remove it. In a zone MyMailbox does not manage, the TXT value is shown for you to publish.
 
 The policy starts in **testing** mode: senders report problems (see the TLS tab) but still deliver. To switch to **enforce**, the page asks you to confirm that **every MX host presents a valid certificate for its own name**; in enforce mode senders refuse to deliver to a host that does not, so mail can be delayed or bounce. Read the TLS reports for a while first. Enforce needs testing first. The server refuses to publish a changed MX list while in enforce mode (and refuses to switch to enforce when the live MX list differs from the one that was watched): go back to testing, which publishes the new list under a new id, watch the reports, and switch again. The cache time can change in either mode.
 
 ### Changing the mail servers
 
-While the policy is in **enforce**, senders refuse any MX host the policy does not list, so Mailflare refuses (409, in your language) every action that moves the MX: setting up or removing a receiving provider, switching the receiving provider, and the MX / SPF / DKIM-with-replace buttons. Switch MTA-STS to testing first. In **testing** mode these actions go through, and the policy is published again with the zone's MX list under a new id. The tab warns when the live MX records differ from the policy's list. You cannot delete a domain while a policy is published (testing, enforce, or the removal period): turn MTA-STS off and let the period end. Deleting also removes Mailflare's address from `_smtp._tls`, or waits for you to turn TLS reports off when it cannot (a zone Mailflare does not manage, or DNS refusing). A zone that Cloudflare no longer serves to the token (404 or 403) counts as a zone Mailflare does not manage: MTA-STS and TLS reports can still be turned off in the app (the policy is retired by the daily job), and the records are yours to remove.
+While the policy is in **enforce**, senders refuse any MX host the policy does not list, so MyMailbox refuses (409, in your language) every action that moves the MX: setting up or removing a receiving provider, switching the receiving provider, and the MX / SPF / DKIM-with-replace buttons. Switch MTA-STS to testing first. In **testing** mode these actions go through, and the policy is published again with the zone's MX list under a new id. The tab warns when the live MX records differ from the policy's list. You cannot delete a domain while a policy is published (testing, enforce, or the removal period): turn MTA-STS off and let the period end. Deleting also removes MyMailbox's address from `_smtp._tls`, or waits for you to turn TLS reports off when it cannot (a zone MyMailbox does not manage, or DNS refusing). A zone that Cloudflare no longer serves to the token (404 or 403) counts as a zone MyMailbox does not manage: MTA-STS and TLS reports can still be turned off in the app (the policy is retired by the daily job), and the records are yours to remove.
 
-If the policy cannot be run down (the zone is gone, DNS keeps failing), an administrator can **force the delete**: the domain page offers it when the delete is refused for MTA-STS or TLS reports, after typing the domain name. The API takes `DELETE /api/domains/[id]` (and `/api/v1/domains/[id]`) with `{ "force": true, "confirm": "<host name>" }`; a missing or different `confirm` is a 400. Mailflare tries to remove its `_mta-sts` record and its address in `_smtp._tls`, logs what fails, deletes the domain (and its mailboxes and mail) anyway, and writes an audit entry `domain.force_delete`. The answer is `{ ok, leftovers: [{ name, type }], cachedUntil }`: the DNS records you must remove by hand (always the `mta-sts` host record you created, plus any record Mailflare could not remove) and the latest date senders may still apply the cached policy. Until then, in enforce mode, senders refuse mail to an MX host the cached policy does not list.
+If the policy cannot be run down (the zone is gone, DNS keeps failing), an administrator can **force the delete**: the domain page offers it when the delete is refused for MTA-STS or TLS reports, after typing the domain name. The API takes `DELETE /api/domains/[id]` (and `/api/v1/domains/[id]`) with `{ "force": true, "confirm": "<host name>" }`; a missing or different `confirm` is a 400. MyMailbox tries to remove its `_mta-sts` record and its address in `_smtp._tls`, logs what fails, deletes the domain (and its mailboxes and mail) anyway, and writes an audit entry `domain.force_delete`. The answer is `{ ok, leftovers: [{ name, type }], cachedUntil }`: the DNS records you must remove by hand (always the `mta-sts` host record you created, plus any record MyMailbox could not remove) and the latest date senders may still apply the cached policy. Until then, in enforce mode, senders refuse mail to an MX host the cached policy does not list.
 
 ### Attaching the policy host
 
-Senders fetch `https://mta-sts.<domain>/.well-known/mta-sts.txt`. **Mailflare does not create this host for you** (no Workers Custom Domain or route is created automatically); you attach it once per domain:
+Senders fetch `https://mta-sts.<domain>/.well-known/mta-sts.txt`. **MyMailbox does not create this host for you** (no Workers Custom Domain or route is created automatically); you attach it once per domain:
 
 - **Cloudflare Workers.** Workers & Pages → your Worker → Settings → Domains & Routes → Add → Custom domain → `mta-sts.<domain>`. Cloudflare issues the certificate; it can take a few minutes. (The same step as the read-receipt host.)
 
-The **Check the host** button fetches the policy from your browser and compares it with what Mailflare expects. A redirect counts as a failure (RFC 8461 forbids redirects). The result is recorded as "checked on <date>"; it is informational and changes nothing that is served.
+The **Check the host** button fetches the policy from your browser and compares it with what MyMailbox expects. A redirect counts as a failure (RFC 8461 forbids redirects). The result is recorded as "checked on <date>"; it is informational and changes nothing that is served.
 
 ### What the host serves
 
@@ -73,7 +73,7 @@ The same app serves every host, so `mta-sts.*` hosts are guarded (`guardMtaStsHo
 
 ### Turning it off
 
-RFC 8461 asks for a removal period: "Turn off MTA-STS" publishes a policy with `mode: none` under a new id and keeps serving it for the longest `max_age` any policy of this run was served with (the stored `mta_sts_served_max_age`, so lowering the cache time does not shorten the wait), so senders that cached your policy stop enforcing it. The daily job (02:00 UTC) then deletes the `_mta-sts` record and clears the policy; the host answers 404 from then on. A failed record delete is tried again the next day. In a zone Mailflare does not manage the policy is cleared and the tab tells you to delete the TXT record yourself after the date shown. Publishing again during the removal period cancels it.
+RFC 8461 asks for a removal period: "Turn off MTA-STS" publishes a policy with `mode: none` under a new id and keeps serving it for the longest `max_age` any policy of this run was served with (the stored `mta_sts_served_max_age`, so lowering the cache time does not shorten the wait), so senders that cached your policy stop enforcing it. The daily job (02:00 UTC) then deletes the `_mta-sts` record and clears the policy; the host answers 404 from then on. A failed record delete is tried again the next day. In a zone MyMailbox does not manage the policy is cleared and the tab tells you to delete the TXT record yourself after the date shown. Publishing again during the removal period cancels it.
 
 ## Data
 
@@ -85,4 +85,4 @@ Columns on `domain_deliverability` (`tls_rpt_enabled`, `mta_sts_mode`, `mta_sts_
 - **Host check.** The "checked" status is a claim made by the admin's browser; nothing on the server verifies it.
 - **Workers Free plan.** The CPU caveat of [dmarc-reports.md](dmarc-reports.md) applies to TLS reports too; they are normally small.
 - **Several domains with the same host name.** If two accounts own the same host name, the first published policy is served.
-- **Manual zones.** Mailflare cannot publish or remove records; it shows the values.
+- **Manual zones.** MyMailbox cannot publish or remove records; it shows the values.

@@ -1,6 +1,6 @@
 # Promotions and Subscriptions
 
-Mailflare can set bulk marketing mail apart from person-to-person mail. It is off for every mailbox until you turn it on, and when it is off nothing about that mailbox changes.
+MyMailbox can set bulk marketing mail apart from person-to-person mail. It is off for every mailbox until you turn it on, and when it is off nothing about that mailbox changes.
 
 ## Turning it on
 

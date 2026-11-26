@@ -28,13 +28,13 @@ trigger `message.inbound`. A webhook copies message content to the URL, so creat
 
 ## Forwarding loop guard
 
-Mail Mailflare forwards carries `X-Mailflare-Forwarded`, an HMAC keyed with a server secret
+Mail MyMailbox forwards carries `X-MyMailbox-Forwarded`, an HMAC keyed with a server secret
 (`CF_TOKEN` or `CF_API_KEY`). A sender cannot switch forwarding
 off by adding the header. With none of those set the header falls back to `1`.
 
 ## Attachments
 
-Mailflare does not run an antivirus engine. What it does instead:
+MyMailbox does not run an antivirus engine. What it does instead:
 
 * Resend (which receives through SES) drops mail SES flagged as infected.
 * Every attachment is judged from its name and type: programs and scripts, macro-enabled

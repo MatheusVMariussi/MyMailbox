@@ -2,7 +2,7 @@
 
 ## Cloudflare error 9109: Invalid access token
 
-The Deploy to Cloudflare flow can deploy the Worker, but its deployment token is not exposed to Mailflare at runtime. Create a separate Cloudflare API token and set it as `CF_TOKEN`.
+The credentials Wrangler deploys with are not exposed to MyMailbox at runtime. Create a separate Cloudflare API token and set it as the `CF_TOKEN` Worker secret.
 
 Verify the token:
 
@@ -22,15 +22,15 @@ If you use a legacy Global API Key, set `CF_EMAIL` and `CF_API_KEY` instead of p
 
 ## Cloudflare error 10000 on Email Routing
 
-Update the token so it can read the zone and manage its DNS, Email Routing settings, and Email Routing rules. The recommended scoped permissions are listed in the [deployment guide](deployment.md#required-configuration).
+Update the token so it can read the zone and manage its DNS, Email Routing settings, and Email Routing rules. The recommended scoped permissions are listed in the [deployment guide](deployment.md#step-1-create-cf_token).
 
 ## Cloudflare error 2008 for existing MX records
 
-Cloudflare Email Routing cannot be enabled while another mail provider's MX records are present. Mailflare shows a confirmation before replacing them. Continuing deletes the existing MX records and points incoming mail to Cloudflare Email Routing, so the previous provider will stop receiving mail. The `CF_TOKEN` needs **DNS Edit** permission for this action.
+Cloudflare Email Routing cannot be enabled while another mail provider's MX records are present. MyMailbox shows a confirmation before replacing them. Continuing deletes the existing MX records and points incoming mail to Cloudflare Email Routing, so the previous provider will stop receiving mail. The `CF_TOKEN` needs **DNS Edit** permission for this action.
 
 ## Resend domain stays "not verified"
 
-The status is the provider's own, not Mailflare's. After the DNS records are added it can stay pending for several minutes (Resend checks public DNS, not Cloudflare's dashboard), and **Check status** re-asks the provider without creating anything. If one record stays stuck, look at the per-record statuses listed under the domain row, then check for a duplicate or older TXT record on the same name, a CNAME that is proxied through Cloudflare (it must be DNS only), or a record created at the wrong name (`send.example.com.example.com`). `dig TXT resend._domainkey.example.com +short` shows what the public sees.
+The status is the provider's own, not MyMailbox's. After the DNS records are added it can stay pending for several minutes (Resend checks public DNS, not Cloudflare's dashboard), and **Check status** re-asks the provider without creating anything. If one record stays stuck, look at the per-record statuses listed under the domain row, then check for a duplicate or older TXT record on the same name, a CNAME that is proxied through Cloudflare (it must be DNS only), or a record created at the wrong name (`send.example.com.example.com`). `dig TXT resend._domainkey.example.com +short` shows what the public sees.
 
 ## "This domain has MX records for another mail service"
 
@@ -44,7 +44,7 @@ A sending-only Resend key cannot add domains or webhooks. Replace it with a full
 
 D1 database IDs belong to a specific Cloudflare account. This error commonly means `wrangler.jsonc` contains an ID copied from another account.
 
-For a reusable one-click deployment repository, remove the committed `database_id` and keep only `database_name`. Cloudflare can then provision the database in the target account.
+Keep only `database_name` in the committed `wrangler.jsonc`. Wrangler then provisions or binds the `mymailbox` database in the target account on deploy.
 
 For remote migrations after the first deployment:
 
@@ -53,7 +53,7 @@ For remote migrations after the first deployment:
 3. Add that ID to your local `wrangler.jsonc`.
 4. Run `npm run db:migrate:remote`.
 
-Do not commit that account-specific ID to a reusable public repository.
+Do not commit that account-specific ID to a public repository.
 
 ## Scheduled backups are not running
 
@@ -65,8 +65,8 @@ Also confirm that automatic backups are enabled under **Admin → Backups** and 
 
 Confirm that:
 
-- The deployed Worker is named `mailflare`.
-- `services[].service` in `wrangler.jsonc` is also `mailflare`.
+- The deployed Worker is named `mymailbox`.
+- `services[].service` in `wrangler.jsonc` is also `mymailbox`, and `CF_EMAIL_WORKER_NAME`, if set, matches the Worker name. If you renamed the Worker, re-save the mailboxes and the catch-all so their Email Routing rules point at the new name.
 - Email Routing is enabled for the domain in Cloudflare.
 - The mailbox has an Email Routing rule pointing to the Worker.
 - If the domain receives through Resend instead, its receiving checklist is all green, the MX record points at that provider, and `APP_URL` is a public HTTPS address.

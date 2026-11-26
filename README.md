@@ -1,90 +1,86 @@
-<img src="public/icon-192.png" alt="Mailflare" width="96" />
+<img src="public/icon-192.png" alt="MyMailbox" width="96" />
 
+# MyMailbox
 
-# Mailflare
-
-A self-hosted alternative to Google Workspace. Setup **custom domain Emails** and **Calendar**.
-
-Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.co?ref=github) with high-deliverable emails** from $4​
-
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
+MyMailbox is a personal webmail for your own domain: email and calendar running entirely on your Cloudflare account, with Cloudflare Workers for the app, D1 for the data and R2 for raw mail, attachments and backups. You own the mailboxes, the data and the deployment. A Gmail-like three-pane interface, per-project sending identities, labels and fuller Gmail-style search are in progress.
 
 ## Features
 
-### Apps
+### Mail
 
-- **Email**: Custom domain mailboxes, personal or shared, with access you control. Send and receive with Cloudflare Email or Resend.
-- **Routing rules**: Store, forward, reject or sort incoming mail, including a one-rule filter for newsletters and promotions.
-- **Calendar**: Repeating events with time zones. Attendees get email invitations.
+- **Mailboxes on your domains**: personal or shared mailboxes with access you control, aliases and catch-all addresses. Receive through Cloudflare Email Routing or Resend and send through Cloudflare Email Sending or Resend, chosen per domain.
+- **Reading and writing**: conversation view, rich-text composer with signatures and templates, undo send, scheduled send, snooze, follow-up reminders, opt-in read receipts, auto-replies and conversation notes.
+- **Organising**: folders, stars, archive, routing rules (store, forward, reject or file incoming mail) and an optional Promotions category for bulk mail.
+- **Search**: full-text search with `from:`, `to:`, `subject:`, `has:attachment`, `is:unread`, `after:`/`before:`, exact phrases and `-exclusions`.
+- **Spam filtering**: local scoring from authentication results, sender history, a Bayesian classifier and optional blocklist lookups. See [Spam protection](docs/spam-protection.md).
+- **Deliverability**: per-domain suppression of bounced addresses, DMARC aggregate and TLS reports, MTA-STS. See [Deliverability](docs/deliverability.md).
 
-### Technical
+### Calendar
 
-- **Database**: Cloudflare D1. See [Database](docs/databases.md).
-- **File storage**: Cloudflare R2.
-- **Hosting**: Cloudflare Workers.
-- **Admin**: Users, API keys, webhooks, audit logs and backups.
-- **Export**: Download a mailbox as an `.mbox` file.
+- Repeating events with time zones and reminders.
+- Invitations emailed to attendees from your mailbox, with RSVP tracking; invitations you receive are added to your calendar.
+- A private calendar feed (`.ics`) to subscribe to from other apps.
 
-Mailflare is available in English and Português (Brasil).
+### Platform
+
+- **Accounts**: passwords, TOTP two-factor authentication, passkeys and password reset by email.
+- **Notifications**: Web Push and an installable web app with an offline page.
+- **Integrations**: scoped API keys, webhooks with retries and a [JMAP](https://jmap.io) server for external mail apps. See [API and integrations](docs/api.md).
+- **Admin**: users, domains, audit logs, scheduled backups to R2, database migrations from the admin page and your own app name and icon.
+- **Export**: download a mailbox as an `.mbox` file.
+- **Languages**: English and Português (Brasil).
 
 ## Cost
 
-You can receive and send mail for free.
+- **Cloudflare**: the Workers Paid plan ($5/month) is recommended. The free plan's CPU time is tight for parsing and filtering mail, and Cloudflare's own Email Sending needs the paid plan. Receiving through Cloudflare Email Routing is free.
+- **Sending through Resend**: the free tier (3,000 emails a month at the time of writing) is enough for personal mail.
 
-- **Receiving**: Cloudflare Email Routing is free.
-- **Sending**: Use the free tier of Resend (3,000 emails a month). Cloudflare's own sending needs the $5/month Paid Worker plan.
-
-Prices change, so check [Resend](https://resend.com/pricing) and [Cloudflare](https://developers.cloudflare.com/workers/platform/pricing/).
+Prices change, so check [Cloudflare](https://developers.cloudflare.com/workers/platform/pricing/) and [Resend](https://resend.com/pricing).
 
 ## Deploy
 
-1. **Deploy the app.** Click **Deploy to Cloudflare**. Keep the app name `mailflare`, or it will break.
-2. **Finish setup.** Open the app at `/setup` and create your admin account.
-3. **Connect a domain.** Add a domain from the same Cloudflare account, then create your first mailbox.
+You need a Cloudflare account whose DNS hosts the domain you want to use, and Node 24.
 
-> **`CF_TOKEN` is required.** Create a scoped [Cloudflare API token](https://github.com/hieunc229/mailflare/issues/24#issuecomment-5523686105) with these permissions:
->
-> - All accounts: Email Sending:Edit, DNS Settings:Edit, Email Routing Addresses:Edit
-> - All zones: DNS Settings:Edit, Email Routing Rules:Edit, Zone Settings:Edit, DNS:Edit
+1. **Create the runtime token.** `CF_TOKEN` is a scoped Cloudflare API token that the app uses at runtime to manage DNS and Email Routing. The permissions are listed in the [deployment guide](docs/deployment.md#step-1-create-cf_token).
+2. **Create the queues and deploy.** `wrangler.jsonc` names the Worker `mymailbox`, the D1 database `mymailbox`, the R2 bucket `mymailbox-raw` and the queues `mymailbox-inbound` and `mymailbox-outbound`.
 
-More options: [deployment guide](docs/deployment.md).
+   ```bash
+   npm install
+   npx wrangler login
+   npx wrangler queues create mymailbox-inbound
+   npx wrangler queues create mymailbox-outbound
+   npm run deploy
+   npx wrangler secret put CF_TOKEN
+   ```
 
-### Deploy with an AI agent
+   On the first deploy, Wrangler provisions the D1 database and the R2 bucket named in `wrangler.jsonc`.
+3. **Set `APP_URL`.** Add it as a variable on the Worker (Settings, Variables and Secrets) with the app's public HTTPS address, for example `https://mail.example.com`. Receiving through Resend and read receipts use it.
+4. **Finish setup.** Open the app at `/setup`. It checks the Cloudflare configuration, initializes the D1 database and creates your admin account.
+5. **Connect a domain.** Add a domain from the same Cloudflare account, then create your first mailbox.
 
-Paste this into an AI agent that has terminal access (Claude Code, Codex, Cursor and similar):
-
-```text
-Install Mailflare for me from https://github.com/hieunc229/mailflare on my Cloudflare account.
-
-1. Read README.md, docs/deployment.md and wrangler.jsonc first.
-2. Ask me for my Cloudflare account ID and two API tokens, using a secret input:
-   a deploy token (for Wrangler) and a runtime token (the Worker secret CF_TOKEN).
-   Never print them, commit them, or pass them as command arguments.
-3. Keep the Worker name exactly "mailflare". Create or reuse the D1 database
-   "mailflare", the R2 bucket "mailflare-raw", and the queues "mailflare-inbound"
-   and "mailflare-outbound".
-4. Install dependencies, run `npm run deploy`, and set CF_TOKEN as a Worker secret.
-   Do not run remote database migrations yourself. The /setup page does that.
-5. Give me the app URL and anything I still need to do. I will open /setup, create
-   the admin account and connect my domain.
-```
-
-Token permissions and more options: [deployment guide](docs/deployment.md#deploy-with-an-ai-coding-agent).
+More options, including deploying with an AI coding agent: [deployment guide](docs/deployment.md).
 
 ## Local development
 
 ```bash
-cp .dev.vars.example .dev.vars
+nvm use                       # Node 24, from .nvmrc
 npm install
+cp .dev.vars.example .dev.vars
 npm run db:migrate:local
 npm run dev
 ```
 
 Add your Cloudflare credentials to `.dev.vars`, then open [localhost:3000](http://localhost:3000). Run `npm run db:seed` to load sample data.
 
-- `npm run build`: build the Worker
-- `npm run deploy`: build and deploy
-- `npm run lint`: lint and type check
+Before committing, run the checks:
+
+```bash
+npm run db:bundle             # refresh the migration bundle
+npx tsc --noEmit              # type check (the build does not)
+npm run lint
+node --test tests/*.test.mjs
+npm run build
+```
 
 A schema change needs a migration. See [Database](docs/databases.md#migrations).
 
@@ -97,6 +93,17 @@ A schema change needs a migration. See [Database](docs/databases.md#migrations).
 - [Adding a language](docs/localization.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
+## Fork notice
+
+MyMailbox is a modified version of [Mailflare](https://github.com/hieunc229/mailflare) by Hieu Nguyen, licensed under the GNU Affero General Public License v3.0. It forked from Mailflare 0.5.5 and is developed separately. The main modifications:
+
+- Removed Drive, public booking pages, the AI assistant and MCP server, the license system, the Node and Docker runtime, databases other than D1, Amazon SES and S3/Backblaze B2 storage, the mail, contacts and calendar import tools, native push and device login, CalDAV and CardDAV, and 32 of the 34 interface languages (English and Português (Brasil) remain).
+- Squashed the database migrations into a D1 baseline.
+- Applied a new visual identity and the MyMailbox name.
+- The v1 features listed above as in progress, as they land.
+
+The source code of MyMailbox is available at https://github.com/MatheusVMariussi/MyMailbox.
+
 ## License
 
-See [LICENSE](LICENSE).
+MyMailbox is licensed under the GNU Affero General Public License v3.0, like Mailflare. See [LICENSE](LICENSE), which keeps the upstream copyright notice.

@@ -1,5 +1,7 @@
 # Repository agent instructions
 
+MyMailbox is a personal webmail (email and calendar) on Cloudflare Workers with D1 and R2, a hard fork of Mailflare 0.5.5 (AGPL-3.0). `CLAUDE.md` describes the architecture.
+
 ## Database schema changes
 
 The database is Cloudflare D1 (SQLite). `drizzle/migrations/` starts from a squashed baseline: `0000_baseline.sql` (generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (hand-written FTS5 table, triggers and seed rows). Any change to the schema (table, column, index, default) **must ship a new migration in the same change**:
@@ -15,4 +17,10 @@ Never edit an already-applied migration; add a new one.
 
 - Whenever a migration creates, renames, or removes a persisted table, update the backup and restore table lists in the same change, even if the feature is unrelated to backups. Review `BACKUP_TABLES` and `INTERNAL_TABLES` in `src/lib/backups/export.ts`, `BACKUP_TABLE_GROUPS` in `src/lib/backups/table-groups.ts`, and `DatabaseBackupTable` in `src/lib/backups/types.d.ts`.
 - Put every backed-up table in exactly one group. Keep `BACKUP_TABLES` in foreign-key dependency order so restore inserts parents before children and deletes them in reverse order. Exclude a table only when its contents are derived or internally managed, and document why.
-- When adding a table or column, check backup and restore behavior both before and after its migration is applied (restore drops columns the target lacks and refuses rows for a table it lacks). Keep backup documents of the current format (version 3) restorable.
+- When adding a table or column, check backup and restore behavior both before and after its migration is applied (restore drops columns the target lacks and refuses rows for a table it lacks). Keep backup documents of the current format (`mymailbox-database-backup`, version 3) restorable.
+
+## Naming
+
+- The product name is MyMailbox and identifiers use `mymailbox` (Worker and resources in `wrangler.jsonc`, storage keys, events, headers, env vars). Do not reintroduce `mailflare` names.
+- Do not drop the readers that accept upstream Mailflare markers in mail and calendar data (`@mailflare` UIDs, `data-mailflare-*` attributes, the `mailflare-quote` wrapper, the `Mailflare-Remote-Images` user agent); see "Naming and upstream compatibility" in `CLAUDE.md`.
+- `LICENSE` keeps the upstream copyright notice and must not be edited.

@@ -1,24 +1,24 @@
 # DMARC aggregate reports
 
-Mailbox providers (Google, Microsoft, Yahoo and others) send a daily summary of the mail they received that claims to be from your domain, if your DMARC record asks for it with a `rua=` address. Mailflare can be that address: it reads the reports, keeps daily totals and shows who is sending as you and whether your own mail passes DMARC. It is **off by default**, per sending domain. Nothing changes until a domain admin turns it on under **Admin → Email → Deliverability → DMARC reports**.
+Mailbox providers (Google, Microsoft, Yahoo and others) send a daily summary of the mail they received that claims to be from your domain, if your DMARC record asks for it with a `rua=` address. MyMailbox can be that address: it reads the reports, keeps daily totals and shows who is sending as you and whether your own mail passes DMARC. It is **off by default**, per sending domain. Nothing changes until a domain admin turns it on under **Admin → Email → Deliverability → DMARC reports**.
 
 ## Turning it on
 
 "Turn on DMARC reports" for a domain:
 
-1. **Report address.** `mailflare-reports@<your domain>`, the same local part on every domain. It is not a mailbox and cannot be renamed. It is refused if a mailbox or alias on that domain already uses `mailflare-reports`. Using an address on your own domain means no extra "external destination" DNS record is needed.
+1. **Report address.** `mymailbox-reports@<your domain>`, the same local part on every domain. It is not a mailbox and cannot be renamed. It is refused if a mailbox or alias on that domain already uses `mymailbox-reports`. Using an address on your own domain means no extra "external destination" DNS record is needed.
 2. **Receiving.** On Cloudflare receiving, an Email Routing rule sends the address to the Worker. With Resend receiving every recipient on the domain already arrives, so no rule is created. A domain with receiving off cannot turn reports on.
 3. **`_dmarc` record.** The page shows the current and the new record and changes nothing until you confirm.
    - No record: `v=DMARC1; p=none; rua=mailto:<address>` is created. For a subdomain, the new record copies its organisation's effective policy instead of `p=none` (the organisation's `sp`, else `p`, with `adkim`, `aspf` and `pct` kept), because a subdomain without a record inherits that policy and enabling reports must not change what receivers do with its mail. The organisation's own record is looked up first; if that lookup fails nothing is changed.
    - A record without our address: `mailto:<address>` is appended to `rua` (or a `rua` tag is added). Every other tag, its spacing and its order stay as they were.
    - More than one DMARC record at `_dmarc`: refused, remove the extra ones first.
-   - A zone that Mailflare does not manage (`manual`): the new value is shown so you can publish it yourself.
+   - A zone that MyMailbox does not manage (`manual`): the new value is shown so you can publish it yourself.
 
 Confirming applies exactly the record shown: the dialog sends the previewed before and after values, and the server refuses (`DMARC_CHANGED`) if `_dmarc` is different by then. If the DNS step fails after the routing rule was created, the rule is removed again and reporting stays off.
 
-"Turn off" removes only our address from `rua` (and the tag if it becomes empty), deletes the routing rule and keeps the stored data until it is 180 days old. If turning on created the `_dmarc` record (there was none) and it still reads exactly as we wrote it, turning off deletes the record again; if it was edited since, only our address is removed. The created text is stored in `domain_deliverability.dmarc_created_record`. While reporting is on, a mailbox or alias named `mailflare-reports` cannot be created on that domain.
+"Turn off" removes only our address from `rua` (and the tag if it becomes empty), deletes the routing rule and keeps the stored data until it is 180 days old. If turning on created the `_dmarc` record (there was none) and it still reads exactly as we wrote it, turning off deletes the record again; if it was edited since, only our address is removed. The created text is stored in `domain_deliverability.dmarc_created_record`. While reporting is on, a mailbox or alias named `mymailbox-reports` cannot be created on that domain.
 
-The policy (`p=none`, `quarantine`, `reject`) is yours to change. Mailflare never raises it.
+The policy (`p=none`, `quarantine`, `reject`) is yours to change. MyMailbox never raises it.
 
 ## How a report is handled
 

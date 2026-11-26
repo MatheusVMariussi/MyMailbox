@@ -1,13 +1,13 @@
 # Sending and receiving providers
 
-Mailflare keeps your mail data in your own D1 database and R2 bucket. What carries mail over the wire is a choice you make **per domain**, separately for receiving and for sending:
+MyMailbox keeps your mail data in your own D1 database and R2 bucket. What carries mail over the wire is a choice you make **per domain**, separately for receiving and for sending:
 
 | | Cloudflare | Resend |
 |---|---|---|
 | **Receiving** | Email Routing (the default) | `email.received` webhook |
 | **Sending** | Cloudflare Email Sending | Resend API |
 
-DNS stays on Cloudflare for every combination: Mailflare writes the records for whichever provider you pick. A domain can also be **receive-only** (sending: Not selected) or **send-only** (receiving: Not selected).
+DNS stays on Cloudflare for every combination: MyMailbox writes the records for whichever provider you pick. A domain can also be **receive-only** (sending: Not selected) or **send-only** (receiving: Not selected).
 
 Open **Admin → Domains**, expand a domain, and use the **Setup receiving email** and **Setup sending email** sections. Each provider is a card with a switch. Turning a switch on selects that provider and shows its setup; the icon on the left is a green check when it is fully set up and an amber triangle when it is not.
 
@@ -21,26 +21,26 @@ Open **Admin → Domains**, expand a domain, and use the **Setup receiving email
 
 Resend uses one **API key**, shared by every domain that uses it. Create it at [resend.com/api-keys](https://resend.com/api-keys).
 
-- A **full-access** key lets Mailflare add the domain to Resend, write its DNS records to the Cloudflare zone, verify it, and (for receiving) register the webhook.
-- A **sending-only** key can send, but Resend refuses it for domain and webhook management, so you add the domain at [resend.com/domains](https://resend.com/domains), create its records yourself, and use **Send test email** to confirm. Mailflare says so in the card instead of failing.
+- A **full-access** key lets MyMailbox add the domain to Resend, write its DNS records to the Cloudflare zone, verify it, and (for receiving) register the webhook.
+- A **sending-only** key can send, but Resend refuses it for domain and webhook management, so you add the domain at [resend.com/domains](https://resend.com/domains), create its records yourself, and use **Send test email** to confirm. MyMailbox says so in the card instead of failing.
 
 The key is checked against Resend when you save it. It can also come from the `RESEND_API_KEY` secret, which is used when no key is saved in the app. Only the primary administrator can change it.
 
-A service with a Resend-compatible API works the same way: set `RESEND_BASE_URL` to its API address and use its key. Every Resend call (sending, domains, webhooks, received mail) goes to that address. If the service refuses a custom `Message-ID` header, set `RESEND_CUSTOM_MESSAGE_ID=false`: Mailflare then sends without it and threads replies on the Message-ID the service reports for the sent email (`message_id` from `GET /emails/{id}`), falling back to its own when none is reported yet. If it refuses other headers Mailflare sets, such as `Auto-Submitted` on system mail and auto-replies, list them in `RESEND_OMIT_HEADERS` (comma-separated) and they are left out of every send.
+A service with a Resend-compatible API works the same way: set `RESEND_BASE_URL` to its API address and use its key. Every Resend call (sending, domains, webhooks, received mail) goes to that address. If the service refuses a custom `Message-ID` header, set `RESEND_CUSTOM_MESSAGE_ID=false`: MyMailbox then sends without it and threads replies on the Message-ID the service reports for the sent email (`message_id` from `GET /emails/{id}`), falling back to its own when none is reported yet. If it refuses other headers MyMailbox sets, such as `Auto-Submitted` on system mail and auto-replies, list them in `RESEND_OMIT_HEADERS` (comma-separated) and they are left out of every send.
 
-**Sending.** Setup creates the domain in Resend, publishes its DKIM and SPF records, and asks Resend to verify. Verification is Resend's own status: it can stay `pending` for a few minutes after the DNS is added, and **Check status** re-asks Resend without creating anything new. Replies thread correctly because Mailflare sets its own `Message-ID`.
+**Sending.** Setup creates the domain in Resend, publishes its DKIM and SPF records, and asks Resend to verify. Verification is Resend's own status: it can stay `pending` for a few minutes after the DNS is added, and **Check status** re-asks Resend without creating anything new. Replies thread correctly because MyMailbox sets its own `Message-ID`.
 
-**Receiving.** Setup enables the receiving capability on the domain, points the apex MX at Resend, and registers one webhook for `email.received` at `/api/inbound/resend`. The webhook is authenticated with the Svix signing secret Resend returns when it is created; Mailflare stores that secret, which is why a webhook it did not create itself is replaced. For each event Mailflare fetches the message, downloads the raw MIME and runs it through the normal inbound pipeline. Resend must be able to reach your app, so `APP_URL` has to be a public HTTPS address.
+**Receiving.** Setup enables the receiving capability on the domain, points the apex MX at Resend, and registers one webhook for `email.received` at `/api/inbound/resend`. The webhook is authenticated with the Svix signing secret Resend returns when it is created; MyMailbox stores that secret, which is why a webhook it did not create itself is replaced. For each event MyMailbox fetches the message, downloads the raw MIME and runs it through the normal inbound pipeline. Resend must be able to reach your app, so `APP_URL` has to be a public HTTPS address.
 
 ## Bounces and complaints
 
-Resend can report permanent bounces and spam complaints back to Mailflare, which keeps a per-domain suppression list. It is off by default; see [deliverability.md](deliverability.md).
+Resend can report permanent bounces and spam complaints back to MyMailbox, which keeps a per-domain suppression list. It is off by default; see [deliverability.md](deliverability.md).
 
 ## MX records and switching receiving provider
 
 Only one service can own a domain's MX records. When a provider's Setup finds MX records for something else (including Cloudflare Email Routing's), it stops and shows them, and replaces them only after you confirm. Confirming means the previous service stops receiving mail for that domain.
 
-Per-address routes to the Mailflare Worker are only created for domains that receive through Cloudflare, and are recreated when you set Cloudflare up again.
+Per-address routes to the MyMailbox Worker are only created for domains that receive through Cloudflare, and are recreated when you set Cloudflare up again.
 
 ## Cleaning up the provider you left
 
@@ -64,7 +64,7 @@ You cannot clean up the provider that is currently selected.
 |---|---|
 | `RESEND_API_KEY` | Resend key used when none is saved in the app |
 | `RESEND_BASE_URL` | Base URL of the Resend API (default `https://api.resend.com`); point it at a Resend-compatible service to send and receive through that instead |
-| `RESEND_CUSTOM_MESSAGE_ID` | `false` stops sending Mailflare's own `Message-ID` header, for compatible services that refuse it (default: sent) |
+| `RESEND_CUSTOM_MESSAGE_ID` | `false` stops sending MyMailbox's own `Message-ID` header, for compatible services that refuse it (default: sent) |
 | `RESEND_OMIT_HEADERS` | Comma-separated headers left out of every Resend send, for compatible services that refuse them (default: none) |
 | `APP_URL` | Public HTTPS address; required for Resend receiving, because Resend calls this app |
 
