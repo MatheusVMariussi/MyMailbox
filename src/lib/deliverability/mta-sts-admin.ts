@@ -23,7 +23,7 @@ export type MtaStsState = {
 	status: MtaStsStatus;
 	policyId: string | null;
 	mx: string[];
-	/** MX hosts that are neither Cloudflare Email Routing nor Amazon SES inbound: Mailflare cannot vouch for their certificates. */
+	/** MX hosts that are neither Cloudflare Email Routing nor the SES inbound hosts Resend receives through: Mailflare cannot vouch for their certificates. */
 	unverifiedMx: string[];
 	maxAge: number;
 	/** The exact body served at `policyUrl`, so the browser can compare it with what the host returns. */

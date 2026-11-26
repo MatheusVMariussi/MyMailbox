@@ -21,7 +21,6 @@ await build({
 		contents: `
 			export * as route from "./src/app/api/inbound/route.ts";
 			export { intakeProviderMail } from "./src/lib/email/provider-intake.ts";
-			export { parseSesNotification } from "./src/lib/aws/ses-notification.ts";
 			export { signInbound } from "./src/lib/email/intake-signature.ts";
 		`,
 		resolveDir: root,
@@ -68,21 +67,9 @@ test("relay keeps a header map it was given", async () => {
 	assert.deepEqual(await relay('{"subject":"Hi"}'), { subject: "Hi" });
 });
 
-const notification = (headers, truncated) => JSON.stringify({
-	notificationType: "Received",
-	mail: { source: "news@x.test", destination: ["me@one.test"], headers, ...(truncated ? { headersTruncated: true } : {}) },
-	receipt: { recipients: ["me@one.test"], virusVerdict: { status: "PASS" }, action: { type: "S3", bucketName: "b", objectKey: "k" } },
-});
-
-test("SES headers are used as sent, but dropped when SES reports them truncated", () => {
-	const partial = [{ name: "Subject", value: "Sale" }];
-	assert.deepEqual(m.parseSesNotification(notification(partial, false)).headers, { subject: "Sale" });
-	assert.equal(m.parseSesNotification(notification(partial, true)).headers, undefined);
-});
-
-test("a truncated SES notification takes its headers from the raw message", async () => {
-	const parsed = m.parseSesNotification(notification([{ name: "Subject", value: "Sale" }], true));
+test("provider mail takes its header map from the raw message", async () => {
 	globalThis.__intakeInput = null;
-	await m.intakeProviderMail({}, { from: parsed.from, recipients: parsed.recipients, raw: raw(), headers: parsed.headers, verdicts: parsed.verdicts });
+	await m.intakeProviderMail({}, { from: "news@x.test", recipients: ["me@one.test"], raw: raw() });
 	assert.equal(globalThis.__intakeInput.headers["list-unsubscribe"], "<https://x.test/u>");
+	assert.equal(globalThis.__intakeInput.headers.subject, "Sale");
 });

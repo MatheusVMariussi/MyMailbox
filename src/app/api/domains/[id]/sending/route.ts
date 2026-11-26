@@ -11,9 +11,6 @@ import { getDomainForUser } from "@/lib/domains/service";
 import { adoptCloudflareZone } from "@/lib/domains/adopt-zone";
 import { isManualZone } from "@/lib/domains/provision";
 import { findCloudflareSending, removeCloudflareSending } from "@/lib/domains/cloudflare-sending";
-import { getAwsConfig } from "@/lib/aws/config";
-import { getSesIdentity } from "@/lib/aws/ses";
-import { removeSesSending } from "@/lib/aws/ses-sending";
 import { getResendDomainStatus, removeResendConfig } from "@/lib/domains/resend-domain";
 import { setupDomainDnsRecord } from "@/lib/domains/dns-setup";
 import { MxConflictError } from "@/lib/domains/receiving-dns";
@@ -21,7 +18,7 @@ import { mtaStsBlockedResponse } from "@/lib/deliverability/mta-sts-block-respon
 
 type Params = { params: Promise<{ id: string }> };
 
-const schema = z.object({ provider: z.enum(["none", "cloudflare", "resend", "ses"]), replaceMx: z.boolean().optional() });
+const schema = z.object({ provider: z.enum(["none", "cloudflare", "resend"]), replaceMx: z.boolean().optional() });
 
 /**
  * Chooses what sends mail for this domain. Receiving is unaffected, except that
@@ -74,22 +71,15 @@ export async function GET(request: Request, { params }: Params) {
 	const user = await requireUser(env, request);
 	const domain = await getDomainForUser(env, user.id, id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
-	const [cloudflare, resendStatus, ses] = await Promise.all([
+	const [cloudflare, resendStatus] = await Promise.all([
 		findCloudflareSending(env, domain),
 		getResendDomainStatus(env, domain),
-		sesSendingStatus(env, domain.hostname),
 	]);
 	const resend = resendStatus === null ? null : resendStatus !== "not_registered";
-	return NextResponse.json({ cloudflare: !!cloudflare, resend, resendStatus, ses: ses === null ? null : ses.registered, sesVerified: ses?.verified ?? null }, { headers: { "Cache-Control": "no-store" } });
+	return NextResponse.json({ cloudflare: !!cloudflare, resend, resendStatus }, { headers: { "Cache-Control": "no-store" } });
 }
 
-async function sesSendingStatus(env: CloudflareEnv, hostname: string) {
-	const config = await getAwsConfig(env);
-	if (!config) return null;
-	try { return await getSesIdentity(config, hostname); } catch { return null; }
-}
-
-const removeSchema = z.object({ target: z.enum(["cloudflare", "resend", "ses"]) });
+const removeSchema = z.object({ target: z.enum(["cloudflare", "resend"]) });
 
 /** Removes the config of a provider this domain is not using. */
 export async function DELETE(request: Request, { params }: Params) {
@@ -107,8 +97,7 @@ export async function DELETE(request: Request, { params }: Params) {
 	}
 	try {
 		if (parsed.data.target === "cloudflare") await removeCloudflareSending(env, domain);
-		else if (parsed.data.target === "resend") await removeResendConfig(env, domain);
-		else await removeSesSending(env, domain);
+		else await removeResendConfig(env, domain);
 		return NextResponse.json({ ok: true });
 	} catch (error) {
 		return NextResponse.json({ error: error instanceof Error ? error.message : "Could not remove configuration" }, { status: 502 });

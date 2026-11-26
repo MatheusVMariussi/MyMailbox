@@ -1,14 +1,11 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { appSettings } from "@/db/schema";
-import { safeEqual, type SnsEnvelope } from "@/lib/aws/ses-notification";
-import { verifySnsSignature } from "@/lib/aws/sns-signature";
 import { verifySvixSignature } from "@/lib/email/svix";
-import { getSesFeedState } from "./ses-feed";
 import { getSuppressionMode, recordSuppressionEvents } from "./suppression";
-import { mapResendEvent, mapSesNotification } from "./suppression-utils";
+import { mapResendEvent } from "./suppression-utils";
 
-/** Bounce and complaint events are a few KB; anything bigger is not from Resend or SNS. */
+/** Bounce and complaint events are a few KB; anything bigger is not from Resend. */
 export const MAX_EVENT_BYTES = 256 * 1024;
 
 export type EventResult = { status: number; body: Record<string, unknown> };
@@ -49,44 +46,6 @@ export async function processResendEvent(
 	try { event = JSON.parse(request.body); } catch { return { status: 400, body: { error: "Invalid body" } }; }
 	const mapped = mapResendEvent(event);
 	const recorded = mapped ? await recordSuppressionEvents(env, { sender: mapped.sender, source: "resend", entries: mapped.entries }) : 0;
-	if (seen) await env.BUCKET.put(seen, new Uint8Array(0));
-	return { status: 200, body: { recorded } };
-}
-
-/**
- * SES bounce and complaint notifications over SNS. Same trust chain as the inbound endpoint: the URL
- * token only our subscription knows, our topic ARN, then Amazon's signature. The signature check is
- * a parameter so tests need no certificate.
- */
-export async function processSesFeedback(
-	env: CloudflareEnv,
-	request: { token: string; body: string },
-	verifySignature: (envelope: SnsEnvelope) => Promise<boolean> = verifySnsSignature,
-): Promise<EventResult> {
-	const state = await getSesFeedState(env);
-	if (!state || !safeEqual(request.token, state.token)) return { status: 403, body: { error: "Forbidden" } };
-	if (bytes(request.body) > MAX_EVENT_BYTES) return { status: 413, body: { error: "Body too large" } };
-	let envelope: SnsEnvelope;
-	try { envelope = JSON.parse(request.body) as SnsEnvelope; } catch { return { status: 400, body: { error: "Invalid body" } }; }
-	if (envelope.TopicArn !== state.topicArn) return { status: 403, body: { error: "Unknown topic" } };
-	if (!await verifySignature(envelope)) return { status: 403, body: { error: "Invalid signature" } };
-
-	if (envelope.Type === "SubscriptionConfirmation") {
-		let url: URL | null = null;
-		try { url = envelope.SubscribeURL ? new URL(envelope.SubscribeURL) : null; } catch { url = null; }
-		if (!url || url.protocol !== "https:" || !/^sns\.[a-z0-9-]+\.amazonaws\.com$/.test(url.hostname)) {
-			return { status: 400, body: { error: "Invalid subscription URL" } };
-		}
-		const confirmed = await fetch(url);
-		return { status: confirmed.ok ? 200 : 502, body: { confirmed: confirmed.ok } };
-	}
-	if (envelope.Type !== "Notification") return { status: 200, body: { ignored: true } };
-
-	if (await getSuppressionMode(env) === "off") return { status: 200, body: { recorded: 0 } };
-	const seen = envelope.MessageId ? markerKey("sns-seen/", envelope.MessageId) : null;
-	if (seen && await env.BUCKET.head(seen)) return { status: 200, body: { ignored: "Already processed" } };
-	const mapped = mapSesNotification(envelope.Message ?? "");
-	const recorded = mapped ? await recordSuppressionEvents(env, { sender: mapped.sender, source: "ses", entries: mapped.entries }) : 0;
 	if (seen) await env.BUCKET.put(seen, new Uint8Array(0));
 	return { status: 200, body: { recorded } };
 }

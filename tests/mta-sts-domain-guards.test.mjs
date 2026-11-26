@@ -42,13 +42,13 @@ const blockedCode = (promise) => promise.then(() => null, (error) => (error inst
 
 test("every action that changes the MX is refused before it touches anything while the policy is enforce", async (t) => {
 	const f = await fixture(t, { mode: "enforce" });
-	for (const provider of ["cloudflare", "resend", "ses"]) {
+	for (const provider of ["cloudflare", "resend"]) {
 		assert.equal(await blockedCode(domains.setupReceiving(f.env, f.domain, provider, "https://app.example", { replaceMx: true })), "MTA_STS_ENFORCED", provider);
 		assert.equal(await blockedCode(domains.removeReceiving(f.env, f.domain, provider)), "MTA_STS_ENFORCED", `remove ${provider}`);
 	}
 	for (const record of ["mx", "spf"]) assert.equal(await blockedCode(domains.setupDomainDnsRecord(f.env, f.domain, record)), "MTA_STS_ENFORCED", record);
 	assert.equal(await blockedCode(domains.setupDomainDnsRecord(f.env, f.domain, "dkim", { replaceMx: true })), "MTA_STS_ENFORCED", "dkim replacing MX");
-	assert.deepEqual(f.calls, [], "no Cloudflare, Resend or AWS request was made");
+	assert.deepEqual(f.calls, [], "no Cloudflare or Resend request was made");
 });
 
 test("deleting a domain with a published policy is refused and the domain stays", async (t) => {

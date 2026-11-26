@@ -1,5 +1,4 @@
 import { withDatabase } from "./src/db/with-database";
-import { withStorage } from "./src/lib/storage";
 import vinextHandler from "vinext/server/fetch-handler";
 import {
 	processInboundMessage,
@@ -51,7 +50,7 @@ export default {
 		// them from read replicas; email/queue/scheduled below keep primary reads on purpose.
 		// The policy answer stays cookie free, so it opens no read session (which would add a bookmark cookie).
 		const d1Session = isMtaStsHost(requestUrl.hostname) ? null : withD1ReadSession(rawEnv, request);
-		const env = withDatabase(withStorage(d1Session?.env ?? rawEnv));
+		const env = withDatabase(d1Session?.env ?? rawEnv);
 		const url = requestUrl;
 		if (url.pathname === "/api/realtime") {
 			if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
@@ -77,7 +76,7 @@ export default {
 	},
 
 	async email(message: ForwardableEmailMessage, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
-		const env = withDatabase(withStorage(rawEnv));
+		const env = withDatabase(rawEnv);
 		try {
 			if (message.rawSize > 25 * 1024 * 1024) {
 				message.setReject("Message rejected: raw email exceeds the 25 MiB receiving limit. Send a download link instead.");
@@ -135,7 +134,7 @@ export default {
 	},
 
 	async queue(batch: MessageBatch, rawEnv: CloudflareEnv): Promise<void> {
-		const env = withDatabase(withStorage(rawEnv));
+		const env = withDatabase(rawEnv);
 		// One budget per batch, so the reverse lookups of every DMARC report in it stay within the invocation's subrequests.
 		const reportBudget = createBatchBudget();
 		for (const msg of batch.messages) {
@@ -164,7 +163,7 @@ export default {
 	},
 
 	async scheduled(controller: ScheduledController, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
-		const env = withDatabase(withStorage(rawEnv));
+		const env = withDatabase(rawEnv);
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runFollowUpReminders(env, new Date(controller.scheduledTime)));

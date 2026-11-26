@@ -36,7 +36,7 @@ const file = (name, size, storageId) => ({ filename: name, type: "application/pd
 const message = { subject: "Report", html: "<p>Hi</p>", text: "Hi", headers: {}, publicOrigin: "https://mail.example.com" };
 const makeEnv = (extra = {}) => ({ linked: [], ASSETS: { fetch: async () => new Response(JSON.stringify(ptBR)) }, ...extra });
 
-for (const provider of ["resend", "ses"]) {
+for (const provider of ["resend"]) {
 	test(`${provider}: a file past the 20 MB direct limit becomes a Shared Files link, small files stay attached`, async () => {
 		const env = makeEnv();
 		const small = file("small.pdf", 2 * MB, "att_small");

@@ -33,22 +33,6 @@ interface CloudflareEnv {
 	ABUSECH_AUTH_KEY?: string;
 	/** "off" disables the RDAP domain-age check in spam analysis. */
 	SPAM_DOMAIN_AGE_CHECK?: string;
-	/**
-	 * Backblaze B2 storage. When all four are set, B2 replaces the R2 binding for raw mail, attachments,
-	 * avatars, branding and backups. B2_ENDPOINT is the S3-compatible host, e.g. s3.us-west-004.backblazeb2.com.
-	 */
-	B2_KEY_ID?: string;
-	B2_APPLICATION_KEY?: string;
-	B2_BUCKET?: string;
-	B2_ENDPOINT?: string;
-	/**
-	 * AWS S3 storage, used when B2 is not configured. Credentials fall back to AWS_ACCESS_KEY_ID /
-	 * AWS_SECRET_ACCESS_KEY (read from the environment), so an existing SES key can serve both.
-	 */
-	S3_BUCKET?: string;
-	S3_REGION?: string;
-	S3_ACCESS_KEY_ID?: string;
-	S3_SECRET_ACCESS_KEY?: string;
 	CF_TOKEN?: string;
 	/** Deployed Worker name Email Routing rules target; defaults to "mailflare". */
 	CF_EMAIL_WORKER_NAME?: string;

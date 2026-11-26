@@ -27,7 +27,6 @@ const mocks = {
 	"@/lib/domains/adopt-zone": "export async function adoptCloudflareZone(env,d){return d;}",
 	"@/lib/domains/receiving-dns": "export async function listDomainMx(){return [];}export class MxConflictError extends Error{}",
 	"@/lib/domains/resend-receiving": "export async function setupResendReceiving(){}export async function removeResendReceiving(){}export async function hasResendReceivingConfig(){return false;}",
-	"@/lib/aws/ses-receiving": "export async function setupSesReceiving(){}export async function removeSesReceiving(){}export async function hasSesReceivingConfig(){return false;}",
 	"@/lib/mailboxes/domain-addresses": "export async function ensureMailboxDomainRouting(){}",
 };
 
@@ -81,8 +80,8 @@ test("an enabled sending subdomain activates the domain", async () => {
 	assert.equal("status" in globalThis.__updates[0], false);
 });
 
-test("Cloudflare, Resend and SES receiving setup all activate the domain", async () => {
-	for (const provider of ["cloudflare", "resend", "ses"]) {
+test("Cloudflare and Resend receiving setup both activate the domain", async () => {
+	for (const provider of ["cloudflare", "resend"]) {
 		globalThis.__updates = [];
 		await setupReceiving({}, skippedDomain, provider, "https://mail.example.com", { replaceMx: false });
 		assert.ok(globalThis.__updates.some((values) => values.status === "active"), provider);

@@ -15,7 +15,6 @@ type Present = Record<Option, boolean | null>;
 const OPTIONS: { id: Option; titleKey: TranslationKey; descriptionKey: TranslationKey }[] = [
 	{ id: "cloudflare", titleKey: "domains.opt.cfRouting", descriptionKey: "domains.opt.cfRoutingDesc" },
 	{ id: "resend", titleKey: "domains.providerResend", descriptionKey: "domains.opt.resendReceiveDesc" },
-	{ id: "ses", titleKey: "domains.providerSes", descriptionKey: "domains.opt.sesReceiveDesc" },
 ];
 
 type Props = {
@@ -30,8 +29,8 @@ type Props = {
 
 export default function ReceivingSetupSection({ domain, onChange, busy, message, cloudflareConfig, cloudflareOk }: Props) {
 	const { t } = useLanguage();
-	const [present, setPresent] = useState<Present>({ cloudflare: null, resend: null, ses: null });
-	const [ready, setReady] = useState<Record<"resend" | "ses", boolean | null>>({ resend: null, ses: null });
+	const [present, setPresent] = useState<Present>({ cloudflare: null, resend: null });
+	const [resendReady, setResendReady] = useState<boolean | null>(null);
 	const [reload, setReload] = useState(0);
 	const [removing, setRemoving] = useState<Option | null>(null);
 	const [error, setError] = useState("");
@@ -39,8 +38,8 @@ export default function ReceivingSetupSection({ domain, onChange, busy, message,
 	useEffect(() => {
 		let active = true;
 		requestJson<Present>(`/api/domains/${domain.id}/receiving`, "GET")
-			.then((data) => { if (active) setPresent({ cloudflare: data.cloudflare ?? null, resend: data.resend ?? null, ses: data.ses ?? null }); })
-			.catch(() => { if (active) setPresent({ cloudflare: null, resend: null, ses: null }); });
+			.then((data) => { if (active) setPresent({ cloudflare: data.cloudflare ?? null, resend: data.resend ?? null }); })
+			.catch(() => { if (active) setPresent({ cloudflare: null, resend: null }); });
 		return () => { active = false; };
 	}, [domain.id, domain.receivingProvider, reload]);
 
@@ -65,7 +64,7 @@ export default function ReceivingSetupSection({ domain, onChange, busy, message,
 			<ul className="mt-3 space-y-2">
 				{OPTIONS.map((option) => {
 					const selected = domain.receivingProvider === option.id;
-					const ok = !selected ? null : option.id === "cloudflare" ? cloudflareOk : ready[option.id];
+					const ok = !selected ? null : option.id === "cloudflare" ? cloudflareOk : resendReady;
 					return (
 						<ProviderCard
 							key={option.id}
@@ -79,7 +78,7 @@ export default function ReceivingSetupSection({ domain, onChange, busy, message,
 						>
 							{option.id === "cloudflare"
 								? cloudflareConfig
-								: <ReceivingProviderConfig domainId={domain.id} provider={option.id} onReady={(value) => setReady((current) => current[option.id as "resend" | "ses"] === value ? current : { ...current, [option.id]: value })} />}
+								: <ReceivingProviderConfig domainId={domain.id} onReady={setResendReady} />}
 						</ProviderCard>
 					);
 				})}

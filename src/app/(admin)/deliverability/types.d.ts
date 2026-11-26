@@ -3,7 +3,7 @@ export type SuppressionMode = "off" | "record" | "enforce";
 export type DeliverabilitySettings = {
 	suppressionMode: SuppressionMode;
 	canEdit: boolean;
-	feeds: { resend: boolean; ses: { identities: string[] } | null };
+	feeds: { resend: boolean };
 };
 
 export type DomainOption = { id: string; hostname: string };

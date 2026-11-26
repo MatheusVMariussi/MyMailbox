@@ -8,9 +8,8 @@ import {
 	createResendDomain, createResendWebhook, deleteResendDomain, deleteResendWebhook, findResendDomain, getResendDomain,
 	listResendWebhooks, ResendRestrictedKeyError, resendClient, updateResendCapabilities, verifyResendDomain, type ResendClient,
 } from "@/lib/email/resend-api";
-import type { ReceivingStep } from "@/lib/aws/ses-receiving-types";
 import type { DomainRow } from "@/lib/domains/types";
-import type { ResendReceivingView } from "@/lib/domains/resend-receiving-types";
+import type { ReceivingStep, ResendReceivingView } from "@/lib/domains/resend-receiving-types";
 import type { ResendDomainRecord } from "@/lib/email/resend-api-types";
 
 export const resendWebhookUrl = (origin: string) => `${origin.replace(/\/$/, "")}/api/inbound/resend`;

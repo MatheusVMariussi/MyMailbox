@@ -54,7 +54,6 @@ const flow = await bundle(
 		"@/lib/domains/adopt-zone": "export async function adoptCloudflareZone(env,d){return d;}",
 		"@/lib/domains/receiving-dns": "export async function listDomainMx(){return globalThis.__mx}export class MxConflictError extends Error{}",
 		"@/lib/domains/resend-receiving": "export async function setupResendReceiving(){}export async function removeResendReceiving(){}export async function hasResendReceivingConfig(){return false}",
-		"@/lib/aws/ses-receiving": "export async function setupSesReceiving(){}export async function removeSesReceiving(){}export async function hasSesReceivingConfig(){return false}",
 		"@/lib/mailboxes/domain-addresses": "export async function ensureMailboxDomainRouting(){}",
 	},
 );

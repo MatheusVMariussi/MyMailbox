@@ -110,25 +110,3 @@ export function mapResendEvent(body: unknown): SuppressionEvent | null {
 	} else return null;
 	return entries.length ? { sender, entries } : null;
 }
-
-/** SES feedback delivered through SNS: permanent bounces and complaints only. */
-export function mapSesNotification(message: string): SuppressionEvent | null {
-	let parsed: unknown;
-	try { parsed = JSON.parse(message); } catch { return null; }
-	if (!isObject(parsed) || !isObject(parsed.mail)) return null;
-	const sender = cleanAddress(parsed.mail.source);
-	if (!sender) return null;
-	const entries: SuppressionEntry[] = [];
-	if (parsed.notificationType === "Bounce" && isObject(parsed.bounce) && parsed.bounce.bounceType === "Permanent" && Array.isArray(parsed.bounce.bouncedRecipients)) {
-		for (const recipient of parsed.bounce.bouncedRecipients) {
-			if (!isObject(recipient)) continue;
-			entries.push(...toEntries([recipient.emailAddress], "hard_bounce", truncate(recipient.diagnosticCode)));
-		}
-	} else if (parsed.notificationType === "Complaint" && isObject(parsed.complaint) && Array.isArray(parsed.complaint.complainedRecipients)) {
-		for (const recipient of parsed.complaint.complainedRecipients) {
-			if (!isObject(recipient)) continue;
-			entries.push(...toEntries([recipient.emailAddress], "complaint"));
-		}
-	}
-	return entries.length ? { sender, entries } : null;
-}

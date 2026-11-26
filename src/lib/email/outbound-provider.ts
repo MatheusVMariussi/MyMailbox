@@ -1,8 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { appSettings, domains } from "@/db/schema";
-import { requireAwsConfig } from "@/lib/aws/config";
-import { sendSesEmail } from "@/lib/aws/ses";
 import { getEmailAddress } from "@/lib/email/address";
 import { fetchSentMessageId, resendClient, resendOmittedHeaders, resendSetsMessageId, type ResendClient } from "@/lib/email/resend-api";
 import type { OutboundProviderConfig, OutboundProviderMessage, ResendKeyStatus } from "@/lib/email/outbound-provider-types";
@@ -40,12 +38,9 @@ export async function getOutboundProviderConfig(env: CloudflareEnv, fromAddress:
 	const [domain] = hostname
 		? await getDb(env).select({ provider: domains.sendingProvider }).from(domains).where(eq(domains.hostname, hostname)).limit(1)
 		: [];
-	if (!domain || domain.provider === "none") {
-		throw new Error(`Sending is not set up for ${hostname ?? "this domain"}. Choose a sending provider on the Domains page.`);
-	}
-	if (domain.provider === "resend") return { provider: "resend", apiKey: (await getResendClient(env)).apiKey };
-	if (domain.provider === "ses") return { provider: "ses", config: await requireAwsConfig(env) };
-	return { provider: "cloudflare" };
+	if (domain?.provider === "resend") return { provider: "resend", apiKey: (await getResendClient(env)).apiKey };
+	if (domain?.provider === "cloudflare") return { provider: "cloudflare" };
+	throw new Error(`Sending is not set up for ${hostname ?? "this domain"}. Choose a sending provider on the Domains page.`);
 }
 
 function toBase64(buffer: ArrayBuffer): string {
@@ -118,7 +113,6 @@ export async function sendThroughProvider(
 	idempotencyKey?: string,
 ): Promise<{ messageId: string }> {
 	if (config.provider === "resend") return sendWithResend(env, resendClient(env, config.apiKey), message, idempotencyKey);
-	if (config.provider === "ses") return sendSesEmail(config.config, message);
 	const response = await env.EMAIL.send({
 		from: message.from,
 		to: message.to,

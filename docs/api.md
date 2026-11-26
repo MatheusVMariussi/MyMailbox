@@ -4,7 +4,7 @@ Mailflare exposes APIs for domain, account, and mailbox management, and for send
 
 ## Domain management
 
-Adding or removing a domain from Mailflare also updates Cloudflare Email Routing and sending resources. Each domain has a `sendingProvider` and a `receivingProvider` (`none`, `cloudflare`, `resend` or `ses`); see [Sending and receiving providers](providers.md).
+Adding or removing a domain from Mailflare also updates Cloudflare Email Routing and sending resources. Each domain has a `sendingProvider` and a `receivingProvider` (`none`, `cloudflare` or `resend`); see [Sending and receiving providers](providers.md).
 
 | Mailflare route | Purpose |
 | --- | --- |
@@ -13,14 +13,13 @@ Adding or removing a domain from Mailflare also updates Cloudflare Email Routing
 | `GET /api/domains/[id]` | Get a connected domain |
 | `DELETE /api/domains/[id]` | Remove a domain and clean up its Cloudflare resources; `{ force: true, confirm: "<host>" }` forces it past MTA-STS (see `docs/mta-sts.md`) |
 | `GET /api/domains/[id]/dns` | View its routing and sending DNS status |
-| `PUT /api/domains/[id]/sending` | Choose the sending provider (`{ provider: "none" \| "cloudflare" \| "resend" \| "ses" }`) |
+| `PUT /api/domains/[id]/sending` | Choose the sending provider (`{ provider: "none" \| "cloudflare" \| "resend" }`) |
 | `PUT /api/domains/[id]/receiving` | Choose the receiving provider (same values) |
 | `GET /api/domains/[id]/sending`, `GET /api/domains/[id]/receiving` | Which providers still have configuration for the domain |
 | `DELETE /api/domains/[id]/sending`, `DELETE /api/domains/[id]/receiving` | Remove an unselected provider's configuration (`{ target }`) |
-| `GET/POST /api/domains/[id]/resend`, `/api/domains/[id]/ses` | Sending status, setup, verify and test email for Resend or SES |
-| `GET/POST /api/domains/[id]/receiving/[provider]` | Receiving checklist and setup for `resend` or `ses`; `POST` also accepts `cloudflare`, and answers `409 MX_CONFLICT` with the records until called with `{ replaceMx: true }` |
+| `GET/POST /api/domains/[id]/resend` | Sending status, setup, verify and test email for Resend |
+| `GET/POST /api/domains/[id]/receiving/[provider]` | Receiving checklist and setup for `resend`; `POST` also accepts `cloudflare`, and answers `409 MX_CONFLICT` with the records until called with `{ replaceMx: true }` |
 | `GET/PUT/DELETE /api/admin/resend-key` | The shared Resend API key (primary administrator) |
-| `GET/PUT/POST/DELETE /api/admin/aws` | The shared AWS credentials: `PUT` validates before saving and `POST` re-checks permissions (primary administrator) |
 
 The hostname must be the apex of a zone available to the configured Cloudflare credentials, or a subdomain of that zone. Creating a mailbox also creates the Cloudflare Email Routing rule that delivers its address to the `mailflare` Worker.
 
@@ -41,12 +40,11 @@ The same operations are available to scripts through admin API keys with the `do
 
 ### Inbound provider endpoints
 
-Resend and Amazon SES deliver mail by calling the app, so these routes are public and authenticate themselves rather than using a session or API key:
+Resend delivers mail by calling the app, so these routes are public and authenticate themselves rather than using a session or API key:
 
 | Route | Authenticated by |
 | --- | --- |
 | `POST /api/inbound/resend` | The Svix signature of the webhook secret Resend returned when Mailflare created the webhook |
-| `POST /api/inbound/ses?token=…` | The secret token in the subscription URL, the SNS topic ARN, and reading the message from the account's own S3 bucket |
 | `POST /api/inbound` | The HMAC from the Cloudflare relay Worker (legacy; to be removed) |
 
 ## Calendar
@@ -68,7 +66,7 @@ These routes accept the dashboard session or an API key (`Authorization: Bearer 
 
 Admin > API keys can also grant the `accounts`, `mailboxes` and `storage` scopes independently. These routes use `Authorization: Bearer <key>` and require the key owner to retain the admin role. Each key can access only accounts created by its owner and mailboxes owned by those accounts or the admin.
 
-The `storage` scope reports and tests object storage: `GET /api/v1/storage` returns `{ storage: { provider: "backblaze" | "s3" | "r2" | "files", configured, bucket, endpoint }, warning }` (credentials are never returned; `warning` explains a half-set `B2_*` configuration), and `POST /api/v1/storage` round-trips a small object and returns `{ ok, error?, latencyMs, storage }` (HTTP 502 on failure). Backblaze B2 (`B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET`, `B2_ENDPOINT`) or AWS S3 (`S3_BUCKET`, `S3_REGION`, credentials) replaces R2 for all stored objects when configured.
+The `storage` scope reports and tests object storage, which is always the R2 `BUCKET` binding: `GET /api/v1/storage` returns `{ storage: { provider: "r2", configured: true } }`, and `POST /api/v1/storage` round-trips a small object and returns `{ ok, error?, latencyMs, storage }` (HTTP 502 on failure).
 
 Admin API keys cannot read or send mail. Use Settings > API keys for mail access.
 
@@ -83,7 +81,7 @@ Admin API keys cannot read or send mail. Use Settings > API keys for mail access
 | `mailboxes` | `GET /api/v1/mailboxes/[id]` | Get a managed mailbox |
 | `mailboxes` | `PATCH /api/v1/mailboxes/[id]` | Update mailbox settings |
 | `mailboxes` | `DELETE /api/v1/mailboxes/[id]` | Delete a mailbox and its routing rule |
-| `storage` | `GET /api/v1/storage` | Active object storage (R2, Backblaze B2, AWS S3 or local files) |
+| `storage` | `GET /api/v1/storage` | Active object storage (R2) |
 | `storage` | `POST /api/v1/storage` | Write, read and delete a test object to verify storage |
 
 ### Choose aliases when creating an account
@@ -181,7 +179,7 @@ Each user can also choose **Settings > Inbox > Trash and Spam clean-up** to dele
 Messages composed in Mailflare are sent as HTML with a plain-text alternative derived from it. Quoted or forwarded content is wrapped in `<div class="mailflare-quote" data-mailflare-quote="1">` so the reader can fold it. `POST /api/drafts` accepts `forwardOfMessageId`, which copies that message's attachments onto the new draft; `DELETE /api/drafts/{id}/attachments/{attachmentId}` removes one, and `POST /api/send` with `draftId` sends the draft's stored files along with any uploaded in the request.
 
 The dashboard composer accepts up to 10 attachments. An administrator sets the outgoing per-file and combined limit from 1 MB up to the runtime's ceiling on **General** (`/general`): 25 MB on Cloudflare Workers (each file is held in a 128 MB isolate while it is read and sent) and 50 MB on Node/Docker. The default is 25 MB; a stored value above the ceiling is clamped when it is saved and when it is used. `POST /api/v1/send` takes attachments as base64 in a JSON body capped at 40 MiB (about 30 MB of files), which is the effective limit there whatever the setting. Attachment metadata is stored in D1 and file content is stored in R2. Normal message downloads require access to the mailbox containing the message.
-The limits below apply to domains that send through Cloudflare. Resend and Amazon SES take attachments directly, within the same administrator limit; files over 20 MB, or that would take the message past 20 MB, are sent as the same download links (so receiving servers that refuse large encoded messages are not hit). Raising the limit above 25 MB is only possible on Node/Docker. Cloudflare Email Sending limits the entire encoded message, including attachments, to 5 MiB for general recipients, or 25 MiB for verified destination addresses. To stay under the general limit, files over 3 MB and smaller files that would exceed the message budget are sent as R2 download links. The recipient can download them for 30 days; anyone with the link can access the file during that time. The outgoing cap still applies to those files. The sentence added above the links defaults to the sender's interface language; an administrator can replace it on **General** (`{days}` is the link lifetime, an empty text adds no sentence, the links are always included, and HTML in it is escaped). Cloudflare also limits recipient count to 50, subject length to 998 characters, and headers to 16 KB.
+The limits below apply to domains that send through Cloudflare. Resend takes attachments directly, within the same administrator limit; files over 20 MB, or that would take the message past 20 MB, are sent as the same download links (so receiving servers that refuse large encoded messages are not hit). Raising the limit above 25 MB is only possible on Node/Docker. Cloudflare Email Sending limits the entire encoded message, including attachments, to 5 MiB for general recipients, or 25 MiB for verified destination addresses. To stay under the general limit, files over 3 MB and smaller files that would exceed the message budget are sent as R2 download links. The recipient can download them for 30 days; anyone with the link can access the file during that time. The outgoing cap still applies to those files. The sentence added above the links defaults to the sender's interface language; an administrator can replace it on **General** (`{days}` is the link lifetime, an empty text adds no sentence, the links are always included, and HTML in it is escaped). Cloudflare also limits recipient count to 50, subject length to 998 characters, and headers to 16 KB.
 Incoming mail that exceeds the attachment count or 25 MB decoded attachment limit is rejected during delivery, so the sender's mail provider can report a delivery failure. Cloudflare Email Routing also limits the entire raw message to 25 MiB, including MIME encoding, and may reject it before Mailflare runs.
 
 ## JMAP

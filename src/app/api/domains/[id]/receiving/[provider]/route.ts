@@ -4,8 +4,6 @@ import { getEnv } from "@/lib/cloudflare";
 import { requireUser } from "@/lib/auth/cookies";
 import { canManageDomains } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { getAwsConfig } from "@/lib/aws/config";
-import { getSesReceivingView } from "@/lib/aws/ses-receiving";
 import { getDomainForUser } from "@/lib/domains/service";
 import { setupReceiving } from "@/lib/domains/receiving";
 import { MxConflictError } from "@/lib/domains/receiving-dns";
@@ -14,7 +12,7 @@ import { mtaStsBlockedResponse } from "@/lib/deliverability/mta-sts-block-respon
 
 type Params = { params: Promise<{ id: string; provider: string }> };
 const noStore = { "Cache-Control": "no-store" };
-const providerSchema = z.enum(["cloudflare", "resend", "ses"]);
+const providerSchema = z.enum(["cloudflare", "resend"]);
 
 const originOf = (env: CloudflareEnv, request: Request) => env.APP_URL?.trim() || new URL(request.url).origin;
 
@@ -28,11 +26,7 @@ export async function GET(request: Request, { params }: Params) {
 	const provider = providerSchema.safeParse(rawProvider);
 	if (!provider.success || provider.data === "cloudflare") return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
 	try {
-		if (provider.data === "ses") {
-			if (!(await getAwsConfig(env))) return NextResponse.json({ credentials: false, view: null }, { headers: noStore });
-			return NextResponse.json({ credentials: true, view: await getSesReceivingView(env, domain) }, { headers: noStore });
-		}
-		return NextResponse.json({ credentials: true, view: await getResendReceivingView(env, domain, originOf(env, request)) }, { headers: noStore });
+		return NextResponse.json({ view: await getResendReceivingView(env, domain, originOf(env, request)) }, { headers: noStore });
 	} catch (error) {
 		return NextResponse.json({ error: error instanceof Error ? error.message : "Could not reach the provider" }, { status: 502 });
 	}

@@ -24,7 +24,7 @@ Routing rules can match on **Newsletter or promotional mail** instead of text. O
 
 The condition is usually newsletters and marketing mail, but some notifications (for example GitHub or ticketing tools) carry the same headers and match too. Because a match can be wrong, these rules are limited to actions that keep the message: a folder, Spam, Trash, or a forward that keeps a copy. Reject and forwarding without a copy are refused, in the interface and by the API.
 
-Detection reads headers only, so it works the same for mail received through Cloudflare, SMTP, Resend and SES. A message counts when it has any of:
+Detection reads headers only, so it works the same for mail received through Cloudflare, SMTP and Resend. A message counts when it has any of:
 
 - `List-Unsubscribe` (RFC 2369)
 - `List-Id` (RFC 2919)

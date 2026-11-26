@@ -18,7 +18,6 @@ await build({
 			`export { extractSenderIp, isLookalikeDomain, registrableDomain } from "./src/lib/spam/domain-utils";`,
 			`export { ExternalSpamIntelligenceProvider } from "./src/lib/spam/providers/external";`,
 			`export { readSesTrace } from "./src/lib/email/provider-trace";`,
-			`export { parseSesNotification } from "./src/lib/aws/ses-notification";`,
 			`export { getSpamIntelligenceConfig } from "./src/lib/spam/settings";`,
 			`export { formatBrandLines, parseBrandLines } from "./src/app/(admin)/spam-filter/utils";`,
 		].join("\n"),
@@ -43,21 +42,6 @@ test("SES verdicts drive authentication signals and outrank headers in the messa
 	assert.deepEqual(ids(signals), ["dkim_failed", "dmarc_failed", "provider_spam_verdict", "spf_passed"]);
 	assert.deepEqual(ids(spam.analyzeAuthentication({ "authentication-results": "attacker.example; dmarc=pass" })), []);
 	assert.deepEqual(ids(spam.analyzeAuthentication(forged, { spf: undefined })), ["dkim_passed", "dmarc_passed", "spf_passed"]);
-});
-
-test("the SES notification carries its verdicts and keeps the topmost of repeated headers", () => {
-	const notification = spam.parseSesNotification(JSON.stringify({
-		notificationType: "Received",
-		mail: { source: "a@example.com", headers: [{ name: "Received", value: "top" }, { name: "Received", value: "forged" }] },
-		receipt: {
-			recipients: ["me@example.org"],
-			spfVerdict: { status: "PASS" }, dkimVerdict: { status: "GRAY" }, dmarcVerdict: { status: "FAIL" },
-			spamVerdict: { status: "PASS" }, virusVerdict: { status: "PASS" },
-			action: { type: "S3", bucketName: "b", objectKey: "k" },
-		},
-	}));
-	assert.equal(notification.headers.received, "top");
-	assert.deepEqual(notification.verdicts, { spf: "PASS", dkim: "GRAY", dmarc: "FAIL", spam: "PASS", virus: "PASS" });
 });
 
 test("only the leading SES header block is trusted for verdicts and the connecting IP", () => {

@@ -23,7 +23,7 @@ export async function saveMode(suppressionMode: SuppressionMode): Promise<Delive
 	return json(await authFetch("/api/deliverability/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ suppressionMode }) }));
 }
 
-export async function setFeed(feed: "resend" | "ses", enabled: boolean): Promise<void> {
+export async function setFeed(feed: "resend", enabled: boolean): Promise<void> {
 	await json(await authFetch(`/api/deliverability/feeds/${feed}`, { method: enabled ? "POST" : "DELETE" }));
 }
 

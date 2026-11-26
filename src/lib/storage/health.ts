@@ -2,7 +2,10 @@ import { newId } from "@/lib/ids";
 
 export type StorageTestResult = { ok: boolean; error?: string; latencyMs: number };
 
-/** Writes, reads back and deletes a small object, so a wrong key, bucket or endpoint shows up before real mail does. */
+/** Every object lives in the R2 `BUCKET` binding; the report keeps a provider field for API clients. */
+export const R2_STORAGE_STATUS = { provider: "r2", configured: true } as const;
+
+/** Writes, reads back and deletes a small object, so a missing or misconfigured bucket binding shows up before real mail does. */
 export async function testStorage(env: CloudflareEnv): Promise<StorageTestResult> {
 	const started = Date.now();
 	const key = `healthcheck/${newId("chk")}`;

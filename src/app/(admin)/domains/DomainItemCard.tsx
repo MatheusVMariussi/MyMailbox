@@ -88,13 +88,13 @@ export default function DomainItemCard({
               </Badge>
             ) : (
               <Badge variant="outline" className="gap-1">
-                {t("domains.badge.receivingVia", { provider: item.receivingProvider === "ses" ? "Amazon SES" : "Resend" })}
+                {t("domains.badge.receivingVia", { provider: "Resend" })}
               </Badge>
             )}
-            {item.sendingProvider === "resend" || item.sendingProvider === "ses" ? (
+            {item.sendingProvider === "resend" ? (
               <Badge variant="outline" className="gap-1">
                 <StatusIcon ok className="h-3 w-3" />
-                {t("domains.badge.sendingVia", { provider: item.sendingProvider === "ses" ? "Amazon SES" : "Resend" })}
+                {t("domains.badge.sendingVia", { provider: "Resend" })}
               </Badge>
             ) : item.sendingProvider === "none" ? (
               <Badge variant="secondary" className="gap-1 opacity-50">

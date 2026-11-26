@@ -18,7 +18,6 @@ async function bundle(entry, outfile) {
 const { storeUpload, readUpload, readBlob } = await bundle("src/lib/jmap/blobs.ts", "blobs.mjs");
 const { decodeBlobId } = await bundle("src/lib/jmap/ids.ts", "ids.mjs");
 const { openFileBucket } = await bundle("tests/helpers/file-bucket.ts", "file-bucket.mjs");
-const { B2Bucket } = await bundle("src/lib/storage/b2-bucket.ts", "b2-bucket.mjs");
 
 function context(userId) {
 	const bucketRoot = mkdtempSync(join(outDir, "blobs-"));
@@ -47,16 +46,4 @@ test("FileBucket refuses keys with . or .. segments", async () => {
 	await assert.rejects(bucket.put("jmap-uploads/u1/../../avatars/u2", "x"));
 	await assert.rejects(bucket.delete("jmap-uploads/u1/./../../avatars/u2"));
 	assert.notEqual(await bucket.get("avatars/u2"), null);
-});
-
-test("B2Bucket refuses keys with . or .. segments before sending a request", async (t) => {
-	const calls = [];
-	t.mock.method(globalThis, "fetch", async (url) => {
-		calls.push(String(url));
-		return new Response("", { status: 200 });
-	});
-	const bucket = new B2Bucket({ keyId: "k", applicationKey: "s", bucket: "b", endpoint: "s3.us-west-004.backblazeb2.com", region: "us-west-004" });
-	await assert.rejects(bucket.get("jmap-uploads/u1/../../avatars/u2"));
-	await assert.rejects(bucket.put("a/./b", "x"));
-	assert.deepEqual(calls, []);
 });

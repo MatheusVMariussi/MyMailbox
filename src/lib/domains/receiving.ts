@@ -10,13 +10,12 @@ import { adoptCloudflareZone } from "@/lib/domains/adopt-zone";
 import { isManualZone } from "@/lib/domains/provision";
 import { listDomainMx, MxConflictError } from "@/lib/domains/receiving-dns";
 import { removeResendReceiving, setupResendReceiving, hasResendReceivingConfig } from "@/lib/domains/resend-receiving";
-import { hasSesReceivingConfig, removeSesReceiving, setupSesReceiving } from "@/lib/aws/ses-receiving";
 import { ensureMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
 import { assertMxChangeAllowed, republishMtaStsAfterMxChange } from "@/lib/deliverability/mta-sts-guard";
 import type { CfDnsRecord } from "@/lib/cloudflare-api.types";
 import type { DomainRow } from "@/lib/domains/types";
 
-export type ReceivingProviderId = "none" | "cloudflare" | "resend" | "ses";
+export type ReceivingProviderId = "none" | "cloudflare" | "resend";
 export type ConfigurableReceiving = Exclude<ReceivingProviderId, "none">;
 
 const isCloudflareMx = (content: string) => content.toLowerCase().replace(/\.$/, "").endsWith(".mx.cloudflare.net");
@@ -87,8 +86,7 @@ export async function setupReceiving(
 	// Enforce refuses before anything is touched; a testing policy is republished with the new MX list afterwards.
 	await assertMxChangeAllowed(env, domain);
 	if (provider === "cloudflare") await setupCloudflareReceiving(env, domain, options);
-	else if (provider === "resend") await setupResendReceiving(env, domain, origin, options);
-	else await setupSesReceiving(env, domain, origin, options);
+	else await setupResendReceiving(env, domain, origin, options);
 	await republishMtaStsAfterMxChange(env, domain);
 	if (provider === "cloudflare") return;
 	// Same as a domain created with DNS: once receiving works, inbound routing
@@ -100,13 +98,11 @@ export async function removeReceiving(env: CloudflareEnv, domain: DomainRow, pro
 	// Removing a provider's setup deletes its MX records.
 	await assertMxChangeAllowed(env, domain);
 	if (provider === "cloudflare") await removeCloudflareReceiving(env, domain);
-	else if (provider === "resend") await removeResendReceiving(env, domain);
-	else await removeSesReceiving(env, domain);
+	else await removeResendReceiving(env, domain);
 	await republishMtaStsAfterMxChange(env, domain);
 }
 
 /** Which providers have leftover receiving configuration (null = could not tell). */
 export async function receivingPresence(env: CloudflareEnv, domain: DomainRow): Promise<Record<ConfigurableReceiving, boolean | null>> {
-	const [resend, ses] = await Promise.all([hasResendReceivingConfig(env, domain), hasSesReceivingConfig(env, domain)]);
-	return { cloudflare: domain.routingEnabled, resend, ses };
+	return { cloudflare: domain.routingEnabled, resend: await hasResendReceivingConfig(env, domain) };
 }

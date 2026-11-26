@@ -35,8 +35,6 @@ const seconds = (date) => Math.floor(date.getTime() / 1000);
 
 const SECRET_BYTES = Buffer.from("resend-events-secret-for-tests!!");
 const SECRET = `whsec_${SECRET_BYTES.toString("base64")}`;
-const TOKEN = "tok123";
-const TOPIC = "arn:aws:sns:us-east-1:111122223333:mailflare-feedback";
 
 async function createFixture(t, mode = "record") {
 	const database = new SqliteDatabase(join(outDir, `${crypto.randomUUID()}.sqlite`));
@@ -45,8 +43,7 @@ async function createFixture(t, mode = "record") {
 	const now = seconds(new Date());
 	database.db.prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES ('u1', 'kevin@example.com', 'Kevin', 'x', ?)").run(now);
 	database.db.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, created_at) VALUES ('d1', 'u1', 'example.com', 'zone', ?)").run(now);
-	database.db.prepare("UPDATE app_settings SET suppression_mode = ?, resend_events_webhook_secret = ?, ses_feedback = ? WHERE id = 'default'")
-		.run(mode, SECRET, JSON.stringify({ region: "us-east-1", topicArn: TOPIC, token: TOKEN, endpoint: "https://x/api/provider-events/ses?token=tok123", identities: ["example.com"] }));
+	database.db.prepare("UPDATE app_settings SET suppression_mode = ?, resend_events_webhook_secret = ? WHERE id = 'default'").run(mode, SECRET);
 	const stored = new Set();
 	const touched = [];
 	const env = { DB: database, BUCKET: { head: async (key) => { touched.push(key); return stored.has(key) ? {} : null; }, put: async (key) => { touched.push(key); stored.add(key); } } };
@@ -127,60 +124,4 @@ test("resend: one recipient is enforced, several recipients are stored unconfirm
 	await events.processResendEvent(env, resendRequest(many, { id: "msg_b" }));
 	const confirmed = raw.prepare("SELECT email, confirmed FROM email_suppressions ORDER BY email").all();
 	assert.deepEqual(confirmed.map((row) => [row.email, row.confirmed]), [["anna@example.org", 1], ["bob@example.org", 0], ["carol@example.org", 0]]);
-});
-
-// ---- SES ----------------------------------------------------------------------------
-
-const notification = (message, overrides = {}) => JSON.stringify({ Type: "Notification", MessageId: "11111111-2222", TopicArn: TOPIC, Message: JSON.stringify(message), ...overrides });
-const sesBounce = { notificationType: "Bounce", mail: { source: "kevin@example.com" }, bounce: { bounceType: "Permanent", bouncedRecipients: [{ emailAddress: "anna@example.org", diagnosticCode: "550" }] } };
-const accept = async () => true;
-const reject = async () => false;
-
-test("ses: token, topic and signature are checked in that order and each failure records nothing", async (t) => {
-	const { env, rows } = await createFixture(t);
-	assert.equal((await events.processSesFeedback(env, { token: "wrong", body: notification(sesBounce) }, accept)).status, 403);
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: notification(sesBounce, { TopicArn: "arn:other" }) }, accept)).status, 403);
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: notification(sesBounce) }, reject)).status, 403);
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: "not json" }, accept)).status, 400);
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: "x".repeat(300 * 1024) }, accept)).status, 413);
-	assert.deepEqual(rows(), []);
-});
-
-test("ses: a verified permanent bounce and a complaint are recorded; replays are ignored", async (t) => {
-	const { env, rows } = await createFixture(t);
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: notification(sesBounce) }, accept)).status, 200);
-	await events.processSesFeedback(env, { token: TOKEN, body: notification(sesBounce) }, accept);
-	const complaint = { notificationType: "Complaint", mail: { source: "kevin@example.com" }, complaint: { complainedRecipients: [{ emailAddress: "carol@example.org" }] } };
-	await events.processSesFeedback(env, { token: TOKEN, body: notification(complaint, { MessageId: "33333333-4444" }) }, accept);
-	assert.deepEqual(rows().map((row) => [row.email, row.reason, row.source, row.event_count]), [["anna@example.org", "hard_bounce", "ses", 1], ["carol@example.org", "complaint", "ses", 1]]);
-});
-
-test("ses: transient bounces are ignored and mode off records nothing", async (t) => {
-	const { env, rows } = await createFixture(t);
-	const transient = { ...sesBounce, bounce: { ...sesBounce.bounce, bounceType: "Transient" } };
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: notification(transient) }, accept)).status, 200);
-	const off = await createFixture(t, "off");
-	assert.equal((await events.processSesFeedback(off.env, { token: TOKEN, body: notification(sesBounce) }, accept)).status, 200);
-	assert.deepEqual([...rows(), ...off.rows()], []);
-	assert.deepEqual(off.touched, [], "no replay marker is read or written in mode off");
-});
-
-test("ses: a subscription confirmation only follows an sns.<region>.amazonaws.com https URL", async (t) => {
-	const { env } = await createFixture(t);
-	const fetched = [];
-	const original = globalThis.fetch;
-	globalThis.fetch = async (url) => { fetched.push(String(url)); return new Response("ok"); };
-	t.after(() => { globalThis.fetch = original; });
-	const confirm = (SubscribeURL) => JSON.stringify({ Type: "SubscriptionConfirmation", MessageId: "m", TopicArn: TOPIC, SubscribeURL });
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: confirm("https://evil.example.com/?x") }, accept)).status, 400);
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: confirm("http://sns.us-east-1.amazonaws.com/?x") }, accept)).status, 400);
-	assert.deepEqual(fetched, []);
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: confirm("https://sns.us-east-1.amazonaws.com/?Action=ConfirmSubscription") }, accept)).status, 200);
-	assert.equal(fetched.length, 1);
-});
-
-test("ses: without feed state the endpoint refuses everything", async (t) => {
-	const { env, raw } = await createFixture(t);
-	raw.prepare("UPDATE app_settings SET ses_feedback = NULL").run();
-	assert.equal((await events.processSesFeedback(env, { token: TOKEN, body: notification(sesBounce) }, accept)).status, 403);
 });

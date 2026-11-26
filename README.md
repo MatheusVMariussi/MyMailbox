@@ -13,14 +13,14 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 
 ### Apps
 
-- **Email**: Custom domain mailboxes, personal or shared, with access you control. Send and receive with Cloudflare Email, Resend or Amazon SES.
+- **Email**: Custom domain mailboxes, personal or shared, with access you control. Send and receive with Cloudflare Email or Resend.
 - **Routing rules**: Store, forward, reject or sort incoming mail, including a one-rule filter for newsletters and promotions.
 - **Calendar**: Repeating events with time zones. Attendees get email invitations.
 
 ### Technical
 
 - **Databases**: Cloudflare D1 (default), PostgreSQL, MySQL, Turso / libSQL, or a local SQLite file. Set `DATABASE_URL` to switch. Works with Supabase, Neon, PlanetScale, TiDB and more. See [Databases](docs/databases.md).
-- **File storage**: Cloudflare R2, Backblaze B2 or AWS S3.
+- **File storage**: Cloudflare R2.
 - **Hosting**: Cloudflare Workers.
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
 - **Export**: Download a mailbox as an `.mbox` file.
@@ -32,9 +32,9 @@ Mailflare is available in English and Português (Brasil).
 You can receive and send mail for free.
 
 - **Receiving**: Cloudflare Email Routing is free.
-- **Sending**: Use the free tier of Resend (3,000 emails a month) or Amazon SES. Cloudflare's own sending needs the $5/month Paid Worker plan.
+- **Sending**: Use the free tier of Resend (3,000 emails a month). Cloudflare's own sending needs the $5/month Paid Worker plan.
 
-New Amazon SES accounts start in a sandbox. Ask AWS for production access to lift it. Prices change, so check [Resend](https://resend.com/pricing), [Amazon SES](https://aws.amazon.com/ses/pricing/) and [Cloudflare](https://developers.cloudflare.com/workers/platform/pricing/).
+Prices change, so check [Resend](https://resend.com/pricing) and [Cloudflare](https://developers.cloudflare.com/workers/platform/pricing/).
 
 ## Deploy
 

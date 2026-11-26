@@ -6,15 +6,14 @@ import { canManageDomains, isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { isMissingColumnError } from "@/lib/database-errors";
 import { getResendEventsSecret } from "@/lib/deliverability/provider-events";
-import { getSesFeedState } from "@/lib/deliverability/ses-feed";
 import { getSuppressionMode, setSuppressionMode } from "@/lib/deliverability/suppression";
 
 const MIGRATION_REQUIRED = { error: "Apply pending database migrations first", code: "MIGRATION_REQUIRED" };
 const schema = z.object({ suppressionMode: z.enum(["off", "record", "enforce"]) });
 
 async function view(env: CloudflareEnv, canEdit: boolean) {
-	const [mode, resendSecret, ses] = await Promise.all([getSuppressionMode(env), getResendEventsSecret(env), getSesFeedState(env)]);
-	return { suppressionMode: mode, canEdit, feeds: { resend: !!resendSecret, ses: ses ? { identities: ses.identities } : null } };
+	const [mode, resendSecret] = await Promise.all([getSuppressionMode(env), getResendEventsSecret(env)]);
+	return { suppressionMode: mode, canEdit, feeds: { resend: !!resendSecret } };
 }
 
 export async function GET(request: Request) {

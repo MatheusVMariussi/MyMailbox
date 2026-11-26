@@ -19,8 +19,8 @@ export function getDatabaseConfig(env: DatabaseEnv): DatabaseConfig {
 
 /**
  * Returns env with `DB` served by the database `DATABASE_URL` names, or env unchanged when it is unset
- * (the D1 binding on Workers, the SQLite file when self-hosted). Like `withStorage`, this is the one place
- * that decides where data lives; every caller keeps reading `env.DB`.
+ * (the D1 binding on Workers, the SQLite file when self-hosted). This is the one place that decides where
+ * data lives; every caller keeps reading `env.DB`.
  */
 export function withDatabase(env: CloudflareEnv): CloudflareEnv {
 	if (proxies.has(env)) return env;

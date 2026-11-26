@@ -15,12 +15,11 @@ The mode applies to the whole installation. The list itself is per sending domai
 ## Where events come from
 
 - **Resend**: a second webhook, separate from the receiving one, for `email.bounced` and `email.complained`, posting to `/api/provider-events/resend`. It has its own Svix signing secret. Soft bounces (`bounce.type` `Temporary` or `Transient`) are ignored; a bounce without a type counts as permanent. Resend's payload lists every recipient of the message (`to`) but does not say which one bounced or complained: with one recipient the entry is enforced, with several they are stored **unconfirmed** (see below). Needs a full-access API key and a public HTTPS `APP_URL`.
-- **Amazon SES**: one SNS topic (`mailflare-feedback`) subscribed to `/api/provider-events/ses?token=…`. Mailflare points the Bounce and Complaint notifications of every SES sending domain at it (`ses:SetIdentityNotificationTopic` is part of the IAM policy shown in the SES card). Only permanent bounces and complaints count. The URL token, the topic ARN and the SNS signature are all checked.
 - **Returned bounce messages** (Cloudflare and self-hosted sending, which have no event feed): a delivery status notification that reaches a mailbox is read only if it names a `Message-ID` of a message sent from that mailbox in the last 30 days, and only for recipients that message was addressed to (To, Cc, Bcc). The message itself stays in the mailbox. At most 50 distinct addresses are taken from one message.
 
   A returned message alone is **not enforced**. A co-recipient of a message you sent knows its `Message-ID` and the other addresses, so it can forge a bounce for them. These entries are stored **unconfirmed** and start to count once a second returned message names the same address for a *different* original message, or an administrator confirms the entry. A person who received two of your messages could still forge both, so use this source as a hint and review the list.
 
-Connect or disconnect Resend and SES on the Deliverability page. Providers retry unacknowledged events, so with the mode off the endpoints still answer `200`.
+Connect or disconnect Resend on the Deliverability page. Providers retry unacknowledged events, so with the mode off the endpoints still answer `200`.
 
 ## What "skip suppressed recipients" does
 
@@ -37,7 +36,7 @@ Connect or disconnect Resend and SES on the Deliverability page. Providers retry
 
 The Deliverability page lists a domain's entries (address, reason, source, event count, last event), with search and a reason filter. **Remove** deletes an entry, after which the next message to that address is attempted again; removals are audit-logged (`deliverability.suppression_removed`). If the same address bounces again it returns to the list.
 
-Unconfirmed entries show an **Unconfirmed** badge. **Confirm** makes one enforceable (audit-logged as `deliverability.suppression_confirmed`); **Remove** deletes it. Entries from signed provider events (SES, Resend with one recipient) and manual entries are confirmed from the start, and a later confirmed event confirms an unconfirmed entry. An unconfirmed event never changes an entry that is already confirmed.
+Unconfirmed entries show an **Unconfirmed** badge. **Confirm** makes one enforceable (audit-logged as `deliverability.suppression_confirmed`); **Remove** deletes it. Entries from signed provider events (Resend with one recipient) and manual entries are confirmed from the start, and a later confirmed event confirms an unconfirmed entry. An unconfirmed event never changes an entry that is already confirmed.
 
 An address that complained stays a complaint; a later bounce does not downgrade it.
 

@@ -29,7 +29,6 @@ export function SettingsPanel({ settings, onChange }: Props) {
 
 	const feeds = [
 		{ id: "resend" as const, label: "Resend", connected: settings.feeds.resend },
-		{ id: "ses" as const, label: "Amazon SES", connected: !!settings.feeds.ses },
 	];
 	return <section className="space-y-5 rounded-2xl bg-white p-5">
 		<div className="space-y-2">

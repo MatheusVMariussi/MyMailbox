@@ -54,16 +54,14 @@ test("Cloudflare sends files over 3 MB, or past the 5 MiB message cap, as links"
 	assert.deepEqual(planAttachmentDelivery("cloudflare", [2_900_000, 2_900_000], 10_000), [false, true], "the second file would push the message past 5 MiB");
 });
 
-test("Resend and SES keep files up to 20 MB attached and link anything past it", () => {
-	for (const provider of ["resend", "ses"]) {
-		assert.deepEqual(planAttachmentDelivery(provider, [19 * MB], 10_000), [false]);
-		assert.deepEqual(planAttachmentDelivery(provider, [20 * MB, 20 * MB], 10_000), [false, true]);
-		assert.deepEqual(planAttachmentDelivery(provider, [22 * MB], 10_000), [true]);
-		assert.deepEqual(planAttachmentDelivery(provider, [30 * MB, 5 * MB], 10_000), [true, false]);
-	}
+test("Resend keeps files up to 20 MB attached and links anything past it", () => {
+	assert.deepEqual(planAttachmentDelivery("resend", [19 * MB], 10_000), [false]);
+	assert.deepEqual(planAttachmentDelivery("resend", [20 * MB, 20 * MB], 10_000), [false, true]);
+	assert.deepEqual(planAttachmentDelivery("resend", [22 * MB], 10_000), [true]);
+	assert.deepEqual(planAttachmentDelivery("resend", [30 * MB, 5 * MB], 10_000), [true, false]);
 });
 
-test("small attachments stay attached on Resend and SES", () => {
+test("small attachments stay attached on Resend", () => {
 	assert.deepEqual(planAttachmentDelivery("resend", [8 * MB, 10 * MB], 10_000), [false, false]);
 });
 
