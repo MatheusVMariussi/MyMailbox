@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = mkdtempSync(join(tmpdir(), "mailflare-trusted-dmarc-"));
+const outDir = mkdtempSync(join(tmpdir(), "mymailbox-trusted-dmarc-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({ stdin: { contents: `export { readTrustedDmarcResult } from "./src/lib/spam/analyzers/authentication";`, resolveDir: root, loader: "ts" }, outfile: join(outDir, "entry.mjs"), bundle: true, platform: "node", format: "esm", target: "node22", logLevel: "silent" });
 const { readTrustedDmarcResult } = await import(pathToFileURL(join(outDir, "entry.mjs")).href);

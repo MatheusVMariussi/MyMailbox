@@ -139,6 +139,6 @@ export async function emptyMessageFolder(mailboxId: string, folder: PermanentDel
 		deletedTotal += data.deleted ?? 0;
 		if (!data.remaining || !data.deleted) break;
 	}
-	window.dispatchEvent(new Event("mailflare:messages-changed"));
+	window.dispatchEvent(new Event("mymailbox:messages-changed"));
 	return deletedTotal;
 }

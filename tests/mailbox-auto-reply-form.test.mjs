@@ -9,7 +9,7 @@ import { JSDOM } from "jsdom";
 // Turning auto-reply off has to be saveable, not only turning it on.
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const temp = mkdtempSync(join(root, "node_modules", "mailflare-auto-reply-form-"));
+const temp = mkdtempSync(join(root, "node_modules", "mymailbox-auto-reply-form-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "https://mail.example/" });

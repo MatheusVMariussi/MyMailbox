@@ -94,16 +94,16 @@ export function useMessageCounts(mailboxId?: string | null, enabled = true) {
 		}
 		const unsubscribePending = subscribePendingOverlay(onPendingChange);
 		const unsubscribeMembership = subscribeMembership(onPendingChange);
-		window.addEventListener("mailflare:messages-changed", onMessagesChanged);
-		window.addEventListener("mailflare:message-counts-changed", onMessagesChanged);
-		window.addEventListener("mailflare:message-counts-delta", onMessageCountsDelta);
+		window.addEventListener("mymailbox:messages-changed", onMessagesChanged);
+		window.addEventListener("mymailbox:message-counts-changed", onMessagesChanged);
+		window.addEventListener("mymailbox:message-counts-delta", onMessageCountsDelta);
 
 		return () => {
 			cancelled = true;
 			unregisterRefresh();
-			window.removeEventListener("mailflare:messages-changed", onMessagesChanged);
-			window.removeEventListener("mailflare:message-counts-changed", onMessagesChanged);
-			window.removeEventListener("mailflare:message-counts-delta", onMessageCountsDelta);
+			window.removeEventListener("mymailbox:messages-changed", onMessagesChanged);
+			window.removeEventListener("mymailbox:message-counts-changed", onMessagesChanged);
+			window.removeEventListener("mymailbox:message-counts-delta", onMessageCountsDelta);
 			unsubscribePending();
 			unsubscribeMembership();
 			if (refreshTimer) window.clearTimeout(refreshTimer);

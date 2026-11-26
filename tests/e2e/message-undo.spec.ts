@@ -81,7 +81,7 @@ test("row read undo is optimistic while the undo request is pending", async ({ p
 		// A generic realtime refresh can finish while the undo is held. Its
 		// server response still has the pre-undo value and must be overlaid.
 		await page.evaluate(() => {
-			window.dispatchEvent(new CustomEvent("mailflare:messages-changed", { detail: { realtime: true } }));
+			window.dispatchEvent(new CustomEvent("mymailbox:messages-changed", { detail: { realtime: true } }));
 		});
 		await page.waitForTimeout(400);
 		await expect(row.getByRole("button", { name: "Mark as unread" })).toHaveCount(1);
@@ -167,7 +167,7 @@ test("reader star undo is optimistic while held and a later star still works", a
 		await expect(article.getByRole("button", { name: "Star", exact: true })).toBeVisible({ timeout: 5_000 });
 
 		await page.evaluate(() => {
-			window.dispatchEvent(new CustomEvent("mailflare:messages-changed", { detail: { realtime: true } }));
+			window.dispatchEvent(new CustomEvent("mymailbox:messages-changed", { detail: { realtime: true } }));
 		});
 		await page.waitForTimeout(400);
 		await expect(article.getByRole("button", { name: "Star", exact: true })).toBeVisible();

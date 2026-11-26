@@ -10,7 +10,7 @@
         "CREATE INDEX `api_keys_user_idx` ON `api_keys` (`user_id`);",
         "CREATE UNIQUE INDEX `api_keys_key_sha256_idx` ON `api_keys` (`key_sha256`);",
         "CREATE INDEX `idx_api_keys_prefix` ON `api_keys` (`prefix`);",
-        "CREATE TABLE `app_settings` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`app_name` text DEFAULT 'Mailflare' NOT NULL,\n\t`outbound_attachment_max_mb` integer DEFAULT 25 NOT NULL,\n\t`resend_api_key` text,\n\t`resend_webhook_id` text,\n\t`resend_webhook_secret` text,\n\t`icon_key` text,\n\t`spamhaus_dqs_key` text,\n\t`abusech_auth_key` text,\n\t`spam_domain_age_check` integer DEFAULT true NOT NULL,\n\t`spam_brands` text,\n\t`suppression_mode` text DEFAULT 'off' NOT NULL,\n\t`resend_events_webhook_id` text,\n\t`resend_events_webhook_secret` text,\n\t`updated_at` integer NOT NULL\n);",
+        "CREATE TABLE `app_settings` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`app_name` text DEFAULT 'MyMailbox' NOT NULL,\n\t`outbound_attachment_max_mb` integer DEFAULT 25 NOT NULL,\n\t`resend_api_key` text,\n\t`resend_webhook_id` text,\n\t`resend_webhook_secret` text,\n\t`icon_key` text,\n\t`spamhaus_dqs_key` text,\n\t`abusech_auth_key` text,\n\t`spam_domain_age_check` integer DEFAULT true NOT NULL,\n\t`spam_brands` text,\n\t`suppression_mode` text DEFAULT 'off' NOT NULL,\n\t`resend_events_webhook_id` text,\n\t`resend_events_webhook_secret` text,\n\t`updated_at` integer NOT NULL\n);",
         "CREATE TABLE `audit_logs` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`actor_user_id` text,\n\t`target_user_id` text,\n\t`mailbox_id` text,\n\t`message_id` text,\n\t`action` text NOT NULL,\n\t`metadata` text,\n\t`created_at` integer NOT NULL,\n\tFOREIGN KEY (`actor_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null,\n\tFOREIGN KEY (`target_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null,\n\tFOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE set null,\n\tFOREIGN KEY (`message_id`) REFERENCES `messages`(`id`) ON UPDATE no action ON DELETE set null\n);",
         "CREATE INDEX `audit_logs_actor_idx` ON `audit_logs` (`actor_user_id`);",
         "CREATE INDEX `audit_logs_mailbox_idx` ON `audit_logs` (`mailbox_id`);",
@@ -216,7 +216,7 @@
         "CREATE TRIGGER `jmap_mailbox_aliases_au_old` AFTER UPDATE OF mailbox_id ON `mailbox_aliases`\nWHEN OLD.mailbox_id IS NOT NEW.mailbox_id BEGIN\n\tINSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)\n\tON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;\nEND;",
         "CREATE TRIGGER `jmap_mailbox_aliases_ad` AFTER DELETE ON `mailbox_aliases` BEGIN\n\tINSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)\n\tON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;\nEND;",
         "INSERT INTO `backup_settings` (`id`, `enabled`, `schedule_type`, `retention_enabled`, `retention_days`, `updated_at`)\nVALUES ('default', false, 'daily', false, 30, unixepoch());",
-        "INSERT INTO `app_settings` (`id`, `app_name`, `updated_at`)\nVALUES ('default', 'Mailflare', unixepoch());",
+        "INSERT INTO `app_settings` (`id`, `app_name`, `updated_at`)\nVALUES ('default', 'MyMailbox', unixepoch());",
         "INSERT INTO `jmap_change_floor` (`id`, `seq`) VALUES (1, 0);"
       ]
     }

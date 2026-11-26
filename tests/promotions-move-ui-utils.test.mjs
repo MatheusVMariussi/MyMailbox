@@ -6,7 +6,7 @@ import test, { after } from "node:test";
 import { build } from "esbuild";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const temp = mkdtempSync(join(root, "node_modules", "mailflare-promotions-move-ui-"));
+const temp = mkdtempSync(join(root, "node_modules", "mymailbox-promotions-move-ui-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 await build({
 	stdin: {

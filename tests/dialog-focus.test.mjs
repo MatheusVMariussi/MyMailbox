@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-dialog-focus-test-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-dialog-focus-test-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	entryPoints: [join(root, "src/components/use-dialog-focus.ts")],

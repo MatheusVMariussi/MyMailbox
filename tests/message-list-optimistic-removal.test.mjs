@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const temp = mkdtempSync(join(root, "node_modules", "mailflare-list-removal-"));
+const temp = mkdtempSync(join(root, "node_modules", "mymailbox-list-removal-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -136,7 +136,7 @@ function memberState(id, extra = {}) {
 }
 
 function event(detail) {
-	return new window.CustomEvent("mailflare:messages-changed", {
+	return new window.CustomEvent("mymailbox:messages-changed", {
 		detail: { kind: "removed", ...detail },
 	});
 }
@@ -200,7 +200,7 @@ test("an in-flight refresh cannot put a removed row back", async (t) => {
 	await resolveNext(initial);
 
 	await act(async () => {
-		window.dispatchEvent(new window.CustomEvent("mailflare:messages-changed"));
+		window.dispatchEvent(new window.CustomEvent("mymailbox:messages-changed"));
 	});
 	await new Promise((resolve) => setTimeout(resolve, 180));
 	assert.equal(pending.length, 1, "the background refresh started");
@@ -275,7 +275,7 @@ test("a read change never removes a row", async (t) => {
 	await resolveNext({ messages: [message("m1")], total: 1, limit: 25, offset: 0 });
 
 	await act(async () => {
-		window.dispatchEvent(new window.CustomEvent("mailflare:messages-changed", {
+		window.dispatchEvent(new window.CustomEvent("mymailbox:messages-changed", {
 			detail: { kind: "read", messageIds: ["m1"], read: true },
 		}));
 	});

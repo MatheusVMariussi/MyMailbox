@@ -26,7 +26,7 @@ interface CloudflareEnv {
 	/** "off" disables the RDAP domain-age check in spam analysis. */
 	SPAM_DOMAIN_AGE_CHECK?: string;
 	CF_TOKEN?: string;
-	/** Deployed Worker name Email Routing rules target; defaults to "mailflare". */
+	/** Deployed Worker name Email Routing rules target; defaults to "mymailbox". */
 	CF_EMAIL_WORKER_NAME?: string;
 	CF_API_KEY?: string;
 	CF_EMAIL?: string;

@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-action-pending-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-action-pending-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 
 const listeners = new Map();

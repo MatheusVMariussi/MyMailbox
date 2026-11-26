@@ -40,7 +40,7 @@ export type SendEmailInput = {
 	threadId?: string | null;
 	mailboxId: string;
 	attachments?: AttachmentContent[];
-	/** The sender's interface language, for text Mailflare adds to the message (such as the large-file note). */
+	/** The sender's interface language, for text MyMailbox adds to the message (such as the large-file note). */
 	locale?: string;
 	/** Future delivery time. Values at or before the current time send immediately. */
 	scheduledAt?: string | Date;

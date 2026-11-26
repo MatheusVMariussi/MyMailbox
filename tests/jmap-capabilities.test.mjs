@@ -14,7 +14,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
  * (a dev dependency) rather than loaded directly. Nothing here
  * touches a Workers binding: `validateRequest` only inspects the decoded request object.
  */
-const outDir = mkdtempSync(join(tmpdir(), "mailflare-jmap-capabilities-test-"));
+const outDir = mkdtempSync(join(tmpdir(), "mymailbox-jmap-capabilities-test-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 
 await build({

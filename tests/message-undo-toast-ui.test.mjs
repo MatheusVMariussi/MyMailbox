@@ -8,7 +8,7 @@ import { JSDOM } from "jsdom";
 import { act } from "react";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-undo-toast-ui-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-undo-toast-ui-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {

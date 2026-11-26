@@ -80,14 +80,14 @@ export function useMessageThread(messageId: string, threadId: string | null | un
 		const unsubscribePending = subscribePendingOverlay(() => {
 			setMessages((current) => applyPendingToMessages(current));
 		});
-		window.addEventListener("mailflare:messages-changed", scheduleLoad);
-		window.addEventListener("mailflare:messages-changed", patchReadState);
-		window.addEventListener("mailflare:messages-changed", patchFieldState);
+		window.addEventListener("mymailbox:messages-changed", scheduleLoad);
+		window.addEventListener("mymailbox:messages-changed", patchReadState);
+		window.addEventListener("mymailbox:messages-changed", patchFieldState);
 		return () => {
 			cancelled = true;
-			window.removeEventListener("mailflare:messages-changed", scheduleLoad);
-			window.removeEventListener("mailflare:messages-changed", patchReadState);
-			window.removeEventListener("mailflare:messages-changed", patchFieldState);
+			window.removeEventListener("mymailbox:messages-changed", scheduleLoad);
+			window.removeEventListener("mymailbox:messages-changed", patchReadState);
+			window.removeEventListener("mymailbox:messages-changed", patchFieldState);
 			unsubscribePending();
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 		};

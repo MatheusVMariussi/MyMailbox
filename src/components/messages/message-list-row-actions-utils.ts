@@ -53,7 +53,7 @@ export async function toggleMessageStar(messageId: string, starred?: boolean) {
 		const response = await authFetch(`/api/messages/${messageId}/star`, { method: "POST" });
 		if (!response.ok) throw new Error("Unable to update message star");
 		const result = (await response.json()) as { starred: boolean };
-		window.dispatchEvent(new Event("mailflare:message-counts-changed"));
+		window.dispatchEvent(new Event("mymailbox:message-counts-changed"));
 		return result;
 	}
 	const response = await performMessageAction({
@@ -65,5 +65,5 @@ export async function toggleMessageStar(messageId: string, starred?: boolean) {
 }
 
 export function dispatchMessageCountsDelta(detail: MessageCountsDelta) {
-	window.dispatchEvent(new CustomEvent<MessageCountsDelta>("mailflare:message-counts-delta", { detail }));
+	window.dispatchEvent(new CustomEvent<MessageCountsDelta>("mymailbox:message-counts-delta", { detail }));
 }

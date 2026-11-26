@@ -30,7 +30,7 @@ export function useSendViewStatus(messageId: string, scheduledAt?: string | null
 				if (!destination) return;
 				moved = true;
 				clearMessageDetailCache();
-				window.dispatchEvent(new Event("mailflare:messages-changed"));
+				window.dispatchEvent(new Event("mymailbox:messages-changed"));
 				router.replace(destination);
 			} catch {
 				// Transient failures wait for the next change event or fallback check.
@@ -60,12 +60,12 @@ export function useSendViewStatus(messageId: string, scheduledAt?: string | null
 			fallbackTimer = window.setInterval(onChange, 15_000);
 		}
 
-		window.addEventListener("mailflare:messages-changed", onChange);
+		window.addEventListener("mymailbox:messages-changed", onChange);
 		return () => {
 			disposed = true;
 			if (deadlineTimer !== undefined) window.clearTimeout(deadlineTimer);
 			if (fallbackTimer !== undefined) window.clearInterval(fallbackTimer);
-			window.removeEventListener("mailflare:messages-changed", onChange);
+			window.removeEventListener("mymailbox:messages-changed", onChange);
 		};
 	}, [messageId, pathname, router, scheduledAt]);
 }

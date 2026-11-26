@@ -84,8 +84,8 @@ const links = [
 // Drafts, Archived, Spam, Trash and Subscriptions start tucked under "More...".
 const MORE_LINK_HREFS = ["/drafts", "/archived", "/spam", "/trash", "/subscriptions"];
 const MAX_VISIBLE_FOLDERS = 3;
-const MORE_OPEN_KEY = "mailflare:nav:more-open";
-const FOLDERS_OPEN_KEY = "mailflare:nav:folders-open";
+const MORE_OPEN_KEY = "mymailbox:nav:more-open";
+const FOLDERS_OPEN_KEY = "mymailbox:nav:folders-open";
 
 const subscribeNothing = () => () => {};
 const hydratedOnClient = () => true;
@@ -115,7 +115,7 @@ export function DashboardNav({ className }: { className?: string }) {
   const [foldersOpenChoice, setFoldersOpen] = useState<boolean | null>(null);
   const moreOpen = moreOpenChoice ?? (hydrated && readStorage(MORE_OPEN_KEY, false));
   const foldersOpen = foldersOpenChoice ?? (hydrated && readStorage(FOLDERS_OPEN_KEY, false));
-  const [foldersSectionOpen, toggleFoldersSection] = useSectionOpen("mailflare:nav:folders-section-open");
+  const [foldersSectionOpen, toggleFoldersSection] = useSectionOpen("mymailbox:nav:folders-section-open");
   const { selectedMailbox, isLoading } = useSelectedMailbox();
   const { counts } = useMessageCounts(selectedMailbox?.id, !isLoading);
   const [folders, setFolders] = useState<CustomFolder[]>([]);
@@ -263,7 +263,7 @@ export function DashboardNav({ className }: { className?: string }) {
       {composeLink && !mobile && <NavItem labelClassName="font-medium" link={composeLink} />}
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       <ReorderableList
-        storageKey="mailflare:nav:layout"
+        storageKey="mymailbox:nav:layout"
         enabled={!minimal}
         lists={[
           { id: "main", items: mainLinks.map((link) => ({ id: link.href!, node: <NavItem link={link} /> })) },
@@ -353,7 +353,7 @@ export function DashboardNav({ className }: { className?: string }) {
         </div>
       )}
       {(minimal || foldersSectionOpen) && <ReorderableList
-        storageKey="mailflare:nav:layout:folders"
+        storageKey="mymailbox:nav:layout:folders"
         enabled={!minimal}
         lists={[{
           id: "folders",

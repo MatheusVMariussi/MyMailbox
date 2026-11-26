@@ -3,14 +3,14 @@ export type ThemePreference = "light" | "dark" | "system";
 // MyMailbox opens dark until the user picks something else in Settings → Appearance.
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = "dark";
 
-export const THEME_STORAGE_KEY = "mailflare-theme";
-export const THEME_CHANGED_EVENT = "mailflare:theme-changed";
+export const THEME_STORAGE_KEY = "mymailbox-theme";
+export const THEME_CHANGED_EVENT = "mymailbox:theme-changed";
 
 // Runs in <head> before paint, so the first frame already has the right theme (same approach as the
 // sidebar width). Keep it in sync with resolveTheme/applyTheme below.
 export const themeBootstrapScript = `(() => {
 	try {
-		const saved = localStorage.getItem("mailflare-theme");
+		const saved = localStorage.getItem("mymailbox-theme");
 		const preference = saved === "light" || saved === "dark" || saved === "system" ? saved : "dark";
 		const dark = preference === "dark" || (preference === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
 		document.documentElement.classList.toggle("dark", dark);

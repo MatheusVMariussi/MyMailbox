@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 // Dismissed message ids live in one capped list, not a key per message, so
 // storage stays bounded even as messages are dismissed and deleted over time.
-const STORAGE_KEY = "mailflare-mailing-list-banner";
+const STORAGE_KEY = "mymailbox-mailing-list-banner";
 const MAX_DISMISSED = 500;
 
 function readDismissedIds(): string[] {

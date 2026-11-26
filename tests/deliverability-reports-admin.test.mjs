@@ -30,7 +30,7 @@ const admin = await load("admin");
 const { SqliteDatabase } = await load("database");
 const { applyMigrations } = await load("migrate");
 const seconds = (date) => Math.floor(date.getTime() / 1000);
-const ADDRESS = "mailflare-reports@example.com";
+const ADDRESS = "mymailbox-reports@example.com";
 
 /** What the dialog does: preview, then confirm with the previewed record. An error at the preview is the result. */
 async function apply(f, enabled, { tamper } = {}) {
@@ -66,7 +66,7 @@ async function fixture(t, { record = null, zoneId = "zone1", receivingProvider =
 		async deleteRoute(_env, zone, address) { calls.push(`route- ${zone} ${address}`); return true; },
 	};
 	const domain = database.db.prepare("SELECT id, hostname, zone_id AS zoneId, receiving_provider AS receivingProvider FROM domains WHERE id = 'd1'").get();
-	const address = `mailflare-reports@${hostname}`;
+	const address = `mymailbox-reports@${hostname}`;
 	const env = { DB: database };
 	const row = () => database.db.prepare("SELECT * FROM domain_deliverability WHERE domain_id = 'd1'").get();
 	return { env, domain, deps, calls, row, address, current: () => current, raw: database.db };
@@ -161,11 +161,11 @@ test("a TXT record that is not DMARC at _dmarc is ignored for matching; a lookal
 });
 
 test("a mailbox or alias already using the local part blocks the address", async (t) => {
-	const f = await fixture(t, { mailbox: "mailflare-reports" });
+	const f = await fixture(t, { mailbox: "mymailbox-reports" });
 	const result = await apply(f, true);
 	assert.deepEqual([result.kind, result.status, result.code], ["error", 409, "ADDRESS_TAKEN"]);
 	const g = await fixture(t, { mailbox: "kevin" });
-	g.raw.prepare("INSERT INTO mailbox_aliases (id, mailbox_id, domain_id, local_part, created_at) VALUES ('a1', 'mb1', 'd1', 'MailFlare-Reports', ?)").run(seconds(new Date()));
+	g.raw.prepare("INSERT INTO mailbox_aliases (id, mailbox_id, domain_id, local_part, created_at) VALUES ('a1', 'mb1', 'd1', 'MyMailbox-Reports', ?)").run(seconds(new Date()));
 	assert.equal((await admin.updateReports(g.env, g.domain, { enabled: true }, g.deps)).code, "ADDRESS_TAKEN");
 });
 
@@ -208,7 +208,7 @@ test("turning off removes only our uri, deletes the routing rule and keeps store
 });
 
 const PARENT = "_dmarc.example.com";
-const SUB = "mailflare-reports@sub.example.com";
+const SUB = "mymailbox-reports@sub.example.com";
 
 test("a new _dmarc record for a subdomain copies the organisation's effective policy (sp, else p)", async (t) => {
 	const f = await fixture(t, { hostname: "sub.example.com", parents: { [PARENT]: ["v=spf1 -all", "v=DMARC1; p=reject; sp=quarantine; adkim=s; aspf=r; pct=50; rua=mailto:boss@example.com; fo=1"] } });
@@ -225,7 +225,7 @@ test("a new _dmarc record for a subdomain copies the organisation's effective po
 test("a subdomain under a private public suffix inherits from its own organisation, not the suffix", async (t) => {
 	const f = await fixture(t, { hostname: "sub.example.eu.org", parents: { "_dmarc.example.eu.org": "v=DMARC1; p=reject; sp=quarantine" } });
 	const preview = await admin.updateReports(f.env, f.domain, { enabled: true }, f.deps);
-	assert.equal(preview.plan.after, "v=DMARC1; p=quarantine; rua=mailto:mailflare-reports@sub.example.eu.org");
+	assert.equal(preview.plan.after, "v=DMARC1; p=quarantine; rua=mailto:mymailbox-reports@sub.example.eu.org");
 	assert.deepEqual(f.calls, ["list", "query _dmarc.example.eu.org"]);
 });
 

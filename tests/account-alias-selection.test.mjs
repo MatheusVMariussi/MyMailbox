@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-account-test-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-account-test-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: {
@@ -91,7 +91,7 @@ async function fixture(t, { rules = [], failAddress, slowAddress } = {}) {
 	});
 	const post = (kind, overrides = {}, token) => {
 		const handler = kind === "dashboard" ? dashboardCreate : apiCreate;
-		return handler(new Request(`https://mailflare.test/api/${kind === "dashboard" ? "" : "v1/"}accounts`, {
+		return handler(new Request(`https://mymailbox.test/api/${kind === "dashboard" ? "" : "v1/"}accounts`, {
 			method: "POST",
 			headers: { Authorization: `Bearer ${token ?? (kind === "dashboard" ? session : key.fullKey)}`, "Content-Type": "application/json" },
 			body: JSON.stringify({ username: "sam", domainId: "one", password: "test-password", ...overrides }),
@@ -201,7 +201,7 @@ test("database failures leave no partial account, aliases, or routing rules", as
 });
 
 function workerRule(id, address, enabled) {
-	return { id, zoneId: "zone-one", enabled, name: "Existing route", priority: 20, actions: [{ type: "worker", value: ["mailflare"] }], matchers: [{ type: "literal", field: "to", value: address }] };
+	return { id, zoneId: "zone-one", enabled, name: "Existing route", priority: 20, actions: [{ type: "worker", value: ["mymailbox"] }], matchers: [{ type: "literal", field: "to", value: address }] };
 }
 
 for (const enabled of [true, false]) {

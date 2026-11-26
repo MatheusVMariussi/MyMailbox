@@ -29,7 +29,7 @@ CREATE UNIQUE INDEX `api_keys_key_sha256_idx` ON `api_keys` (`key_sha256`);--> s
 CREATE INDEX `idx_api_keys_prefix` ON `api_keys` (`prefix`);--> statement-breakpoint
 CREATE TABLE `app_settings` (
 	`id` text PRIMARY KEY NOT NULL,
-	`app_name` text DEFAULT 'Mailflare' NOT NULL,
+	`app_name` text DEFAULT 'MyMailbox' NOT NULL,
 	`outbound_attachment_max_mb` integer DEFAULT 25 NOT NULL,
 	`resend_api_key` text,
 	`resend_webhook_id` text,

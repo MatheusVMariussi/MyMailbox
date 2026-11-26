@@ -40,7 +40,7 @@ export function useMessagePolling(): MessageRealtimeState {
 		let stopped = false;
 
 		function dispatchMessagesChanged(detail?: Record<string, unknown>) {
-			window.dispatchEvent(new CustomEvent("mailflare:messages-changed", { detail: { ...detail, realtime: true } }));
+			window.dispatchEvent(new CustomEvent("mymailbox:messages-changed", { detail: { ...detail, realtime: true } }));
 		}
 
 		function clearConnectionTimers() {
@@ -83,7 +83,7 @@ export function useMessagePolling(): MessageRealtimeState {
 			const event = parseNewMessageEvent(payload);
 			if (!event) return;
 			const countsDelta = countsDeltaForNewMessage(event);
-			if (countsDelta) window.dispatchEvent(new CustomEvent("mailflare:message-counts-delta", { detail: countsDelta }));
+			if (countsDelta) window.dispatchEvent(new CustomEvent("mymailbox:message-counts-delta", { detail: countsDelta }));
 			dispatchMessagesChanged();
 			setNotification(event);
 			if (fromSocket) {
@@ -138,7 +138,7 @@ export function useMessagePolling(): MessageRealtimeState {
 				return;
 			}
 			lockAbort = new AbortController();
-			void navigator.locks.request("mailflare:realtime", { signal: lockAbort.signal }, async () => {
+			void navigator.locks.request("mymailbox:realtime", { signal: lockAbort.signal }, async () => {
 				if (stopped || !getClientSessionToken()) return;
 				await new Promise<void>((resolve) => {
 					releaseLeader = resolve;
@@ -214,13 +214,13 @@ export function useMessagePolling(): MessageRealtimeState {
 		}
 
 		if (typeof BroadcastChannel !== "undefined") {
-			channel = new BroadcastChannel("mailflare:realtime");
+			channel = new BroadcastChannel("mymailbox:realtime");
 			channel.onmessage = onChannelMessage;
 			channel.postMessage({ type: "status_request" } satisfies RealtimeChannelMessage);
 		}
 		window.addEventListener(AUTH_SESSION_CHANGED_EVENT, restartForSessionChange);
 		window.addEventListener("storage", onStorageChange);
-		window.addEventListener("mailflare:messages-changed", onLocalMessagesChanged);
+		window.addEventListener("mymailbox:messages-changed", onLocalMessagesChanged);
 		document.addEventListener("visibilitychange", onVisibilityChange);
 		window.addEventListener("focus", onFocus);
 		startFallbackRefresh();
@@ -230,7 +230,7 @@ export function useMessagePolling(): MessageRealtimeState {
 			stopped = true;
 			window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, restartForSessionChange);
 			window.removeEventListener("storage", onStorageChange);
-			window.removeEventListener("mailflare:messages-changed", onLocalMessagesChanged);
+			window.removeEventListener("mymailbox:messages-changed", onLocalMessagesChanged);
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 			window.removeEventListener("focus", onFocus);
 			if (leader) channel?.postMessage({ type: "status", connected: false } satisfies RealtimeChannelMessage);

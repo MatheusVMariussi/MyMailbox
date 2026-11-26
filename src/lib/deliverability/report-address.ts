@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { domainDeliverability, domains } from "@/db/schema";
 
 /** The one address DMARC reports go to on every domain that turned reporting on. It is not a mailbox. */
-export const REPORT_ADDRESS_LOCAL_PART = "mailflare-reports";
+export const REPORT_ADDRESS_LOCAL_PART = "mymailbox-reports";
 
 export const reportAddress = (hostname: string) => `${REPORT_ADDRESS_LOCAL_PART}@${hostname.toLowerCase()}`;
 

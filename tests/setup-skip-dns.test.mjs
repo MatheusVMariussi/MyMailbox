@@ -12,7 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
  * Skipping DNS must record the domain as manually managed (zone id "manual")
  * instead of calling the Cloudflare zone lookup. Issue #293.
  */
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-setup-skip-dns-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-setup-skip-dns-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 
 await build({
@@ -41,9 +41,9 @@ await build({
 const { SqliteDatabase, applyMigrations, setupDomain, setupMx, register } = await import(pathToFileURL(join(directory, "entry.mjs")).href);
 
 function post(handler, path, body) {
-	return handler(new Request(`https://mailflare.test${path}`, {
+	return handler(new Request(`https://mymailbox.test${path}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json", Origin: "https://mailflare.test" },
+		headers: { "Content-Type": "application/json", Origin: "https://mymailbox.test" },
 		body: JSON.stringify(body),
 	}));
 }

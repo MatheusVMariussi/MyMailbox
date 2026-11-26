@@ -19,5 +19,5 @@ export function getUtcDayBounds(now: Date): { start: number; end: number } {
 }
 
 export function createBackupFilename(now: Date): string {
-	return `mailflare-${now.toISOString().replace(/[:.]/g, "-")}.json`;
+	return `mymailbox-${now.toISOString().replace(/[:.]/g, "-")}.json`;
 }

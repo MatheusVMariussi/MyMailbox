@@ -57,12 +57,12 @@ async function fixture(t, { enabled = true } = {}) {
 
 function reportMail(xml) {
 	const boundary = "b0undary";
-	return Buffer.from(`From: noreply-dmarc-support@google.com\r\nTo: mailflare-reports@example.com\r\nSubject: Report\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=${boundary}\r\n\r\n--${boundary}\r\nContent-Type: text/plain\r\n\r\nreport\r\n--${boundary}\r\nContent-Type: application/gzip\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="r.xml.gz"\r\n\r\n${gzipSync(xml).toString("base64")}\r\n--${boundary}--\r\n`);
+	return Buffer.from(`From: noreply-dmarc-support@google.com\r\nTo: mymailbox-reports@example.com\r\nSubject: Report\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=${boundary}\r\n\r\n--${boundary}\r\nContent-Type: text/plain\r\n\r\nreport\r\n--${boundary}\r\nContent-Type: application/gzip\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="r.xml.gz"\r\n\r\n${gzipSync(xml).toString("base64")}\r\n--${boundary}--\r\n`);
 }
 
 test("a catch-all reject rule does not swallow the report address, but still rejects other unknown addresses", async (t) => {
 	const { env } = await fixture(t);
-	assert.deepEqual(await resolveIncomingMail(env, "noreply@google.com", "mailflare-reports@example.com"), { action: "report" });
+	assert.deepEqual(await resolveIncomingMail(env, "noreply@google.com", "mymailbox-reports@example.com"), { action: "report" });
 	assert.equal((await resolveIncomingMail(env, "noreply@google.com", "nobody@example.com"))?.action, "reject");
 });
 
@@ -77,10 +77,10 @@ test("report mail is stored and queued for the report consumer but never forward
 	env.BUCKET.put = async (key) => { stored.push(key); };
 	const actions = { forward: async (destination) => { forwards.push(destination); return true; } };
 	const input = (to) => ({ from: "noreply-dmarc-support@google.com", to, raw: new TextEncoder().encode("raw").buffer, headers: { from: "noreply-dmarc-support@google.com" } });
-	const result = await intakeIncomingMail(env, input("mailflare-reports@example.com"), actions);
+	const result = await intakeIncomingMail(env, input("mymailbox-reports@example.com"), actions);
 	assert.equal(result.action, "store");
 	assert.deepEqual(forwards, []);
-	assert.deepEqual([stored.length, queued.length, queued[0].to], [1, 1, "mailflare-reports@example.com"]);
+	assert.deepEqual([stored.length, queued.length, queued[0].to], [1, 1, "mymailbox-reports@example.com"]);
 	// Any other unknown address still follows the catch-all forward rule.
 	const other = await intakeIncomingMail(env, input("nobody@example.com"), actions);
 	assert.equal(other.action, "forward");
@@ -100,19 +100,19 @@ test("report mail is not sent to an account's forwarding address when a catch-al
 	await intakeIncomingMail(env, input("somebody@example.com"), actions);
 	assert.deepEqual(forwards, ["kevin@gmail.example"], "the account forwarding is real for ordinary mail");
 	forwards.length = 0;
-	await intakeIncomingMail(env, input("mailflare-reports@example.com"), actions);
+	await intakeIncomingMail(env, input("mymailbox-reports@example.com"), actions);
 	assert.deepEqual(forwards, []);
 });
 
 test("with reporting off the reserved address routes like any other address", async (t) => {
 	const { env } = await fixture(t, { enabled: false });
-	assert.equal((await resolveIncomingMail(env, "noreply@google.com", "mailflare-reports@example.com"))?.action, "reject");
+	assert.equal((await resolveIncomingMail(env, "noreply@google.com", "mymailbox-reports@example.com"))?.action, "reject");
 });
 
 test("a queued report mail is ingested instead of routed to a mailbox, and the raw object is removed", async (t) => {
 	const { env, raw, objects, deleted } = await fixture(t);
 	objects.set("raw/report", reportMail(google));
-	await processInboundMessage(env, { from: "noreply-dmarc-support@google.com", to: "mailflare-reports@example.com", rawR2Key: "raw/report", headers: { from: "Google <noreply-dmarc-support@google.com>", "authentication-results": "mx.cloudflare.net; dmarc=pass" } });
+	await processInboundMessage(env, { from: "noreply-dmarc-support@google.com", to: "mymailbox-reports@example.com", rawR2Key: "raw/report", headers: { from: "Google <noreply-dmarc-support@google.com>", "authentication-results": "mx.cloudflare.net; dmarc=pass" } });
 	assert.equal(raw.prepare("SELECT count(*) AS n FROM messages").get().n, 0, "no message was stored in any mailbox");
 	const [report] = raw.prepare("SELECT status, authenticated, message_count FROM deliverability_reports").all();
 	assert.deepEqual({ ...report }, { status: "ok", authenticated: 1, message_count: 50 });
@@ -124,7 +124,7 @@ test("a queued report mail is ingested instead of routed to a mailbox, and the r
 test("a report mail whose own DMARC verdict is missing is stored as unauthenticated", async (t) => {
 	const { env, raw, objects } = await fixture(t);
 	objects.set("raw/report", reportMail(google));
-	await processInboundMessage(env, { from: "x@evil.example", to: "mailflare-reports@example.com", rawR2Key: "raw/report", headers: {} });
+	await processInboundMessage(env, { from: "x@evil.example", to: "mymailbox-reports@example.com", rawR2Key: "raw/report", headers: {} });
 	assert.equal(raw.prepare("SELECT authenticated FROM deliverability_reports").get().authenticated, 0);
 	assert.equal(raw.prepare("SELECT count(*) AS n FROM dmarc_daily_stats").get().n, 0);
 });
@@ -132,6 +132,6 @@ test("a report mail whose own DMARC verdict is missing is stored as unauthentica
 test("with reporting off, mail to the reserved address follows normal routing and is never ingested", async (t) => {
 	const { env, raw, objects } = await fixture(t, { enabled: false });
 	objects.set("raw/report", reportMail(google));
-	await processInboundMessage(env, { from: "noreply-dmarc-support@google.com", to: "mailflare-reports@example.com", rawR2Key: "raw/report", headers: {} });
+	await processInboundMessage(env, { from: "noreply-dmarc-support@google.com", to: "mymailbox-reports@example.com", rawR2Key: "raw/report", headers: {} });
 	assert.equal(raw.prepare("SELECT count(*) AS n FROM deliverability_reports").get().n, 0);
 });

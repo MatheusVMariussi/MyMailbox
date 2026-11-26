@@ -10,7 +10,7 @@ import { build } from "esbuild";
 // a non-queued job and skips it for good.
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-outbound-claim-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-outbound-claim-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: { contents: `

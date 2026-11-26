@@ -10,7 +10,7 @@ import { JSDOM } from "jsdom";
 // as a draft, whether the signature is plain text or HTML.
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const temp = mkdtempSync(join(root, "node_modules", "mailflare-signature-autosave-"));
+const temp = mkdtempSync(join(root, "node_modules", "mymailbox-signature-autosave-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "https://mail.example/" });
@@ -57,7 +57,7 @@ export function Tooltip({children}){return children;}
 
 await build({
   stdin: {
-    contents: readFileSync(process.env.MAILFLARE_TEST_COMPOSE_SOURCE || join(root, "src/components/compose/compose-form.tsx"), "utf8"),
+    contents: readFileSync(process.env.MYMAILBOX_TEST_COMPOSE_SOURCE || join(root, "src/components/compose/compose-form.tsx"), "utf8"),
     sourcefile: "compose-form.tsx",
     resolveDir: join(root, "src/components/compose"),
     loader: "tsx",

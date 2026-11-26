@@ -122,12 +122,22 @@ test("columns a newer backup carries but this database lacks are dropped, so not
 	assert.equal(count(target, "messages"), 1);
 });
 
-test("a backup written by an older Mailflare format is refused before anything is deleted", async () => {
+test("a backup written by an older MyMailbox format is refused before anything is deleted", async () => {
 	const sqlite = database();
 	seed(sqlite);
 	const document = JSON.parse(new TextDecoder().decode(await exportDatabaseRecords(d1(sqlite))));
+	assert.equal(document.format, "mymailbox-database-backup");
 	document.version = 2;
 	const old = new TextEncoder().encode(JSON.stringify(document));
-	await assert.rejects(restoreDatabaseRecords(d1(sqlite), toBuffer(old)), /older Mailflare release/);
+	await assert.rejects(restoreDatabaseRecords(d1(sqlite), toBuffer(old)), /older MyMailbox release/);
+	assert.equal(count(sqlite, "messages"), 1);
+});
+
+test("a backup written by upstream Mailflare is refused before anything is deleted", async () => {
+	const sqlite = database();
+	seed(sqlite);
+	const document = JSON.parse(new TextDecoder().decode(await exportDatabaseRecords(d1(sqlite))));
+	const upstream = new TextEncoder().encode(JSON.stringify({ ...document, format: "mailflare-database-backup" }));
+	await assert.rejects(restoreDatabaseRecords(d1(sqlite), toBuffer(upstream)), /written by Mailflare/);
 	assert.equal(count(sqlite, "messages"), 1);
 });

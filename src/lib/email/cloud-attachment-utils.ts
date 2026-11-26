@@ -14,7 +14,7 @@ const MIME_SAFETY_MARGIN_BYTES = 256 * 1024;
 async function senderTranslator(env: CloudflareEnv, value: string | undefined): Promise<Translator> {
 	const locale = resolveLocale(value);
 	try {
-		return createTranslator(locale, await loadMessages(locale, (path) => env.ASSETS.fetch(new URL(path, "https://mailflare.local"))));
+		return createTranslator(locale, await loadMessages(locale, (path) => env.ASSETS.fetch(new URL(path, "https://mymailbox.local"))));
 	} catch {
 		return defaultTranslator;
 	}

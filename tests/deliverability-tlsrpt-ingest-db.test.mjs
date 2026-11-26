@@ -39,7 +39,7 @@ const withId = (id) => tlsJson.replace("2025-11-18T00:00:00Z_example.com", id);
 
 function mime(attachment) {
 	const boundary = "b0undary";
-	return Buffer.from(`From: noreply-smtp-tls-reporting@google.com\r\nTo: mailflare-reports@example.com\r\nSubject: Report Domain: example.com\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=${boundary}\r\n\r\n--${boundary}\r\nContent-Type: text/plain\r\n\r\nTLS report\r\n--${boundary}\r\nContent-Type: ${attachment.type ?? "application/tlsrpt+gzip"}\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="${attachment.name ?? "report.json.gz"}"\r\n\r\n${Buffer.from(attachment.bytes).toString("base64").replace(/.{76}/g, "$&\r\n")}\r\n--${boundary}--\r\n`);
+	return Buffer.from(`From: noreply-smtp-tls-reporting@google.com\r\nTo: mymailbox-reports@example.com\r\nSubject: Report Domain: example.com\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=${boundary}\r\n\r\n--${boundary}\r\nContent-Type: text/plain\r\n\r\nTLS report\r\n--${boundary}\r\nContent-Type: ${attachment.type ?? "application/tlsrpt+gzip"}\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="${attachment.name ?? "report.json.gz"}"\r\n\r\n${Buffer.from(attachment.bytes).toString("base64").replace(/.{76}/g, "$&\r\n")}\r\n--${boundary}--\r\n`);
 }
 const gz = (text) => mime({ bytes: gzipSync(text) });
 

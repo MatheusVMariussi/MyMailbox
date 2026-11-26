@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-read-json-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-read-json-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	entryPoints: [join(root, "src/lib/http/request.ts")],

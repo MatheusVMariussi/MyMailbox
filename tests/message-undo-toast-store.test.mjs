@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-undo-toast-store-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-undo-toast-store-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "https://mail.example/", pretendToBeVisual: true });

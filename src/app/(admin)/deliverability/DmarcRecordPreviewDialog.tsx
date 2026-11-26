@@ -47,7 +47,7 @@ export function DmarcRecordPreviewDialog({ domainId, enable, onClose, onDone }: 
 		<DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto">
 			<DialogHeader>
 				<DialogTitle>{t(enable ? "dmarc.turnOn" : "dmarc.turnOff")}</DialogTitle>
-				<DialogDescription>{t(enable ? "dmarc.preview.on.intro" : "dmarc.preview.off.intro", { address: plan?.address ?? "mailflare-reports" })}</DialogDescription>
+				<DialogDescription>{t(enable ? "dmarc.preview.on.intro" : "dmarc.preview.off.intro", { address: plan?.address ?? "mymailbox-reports" })}</DialogDescription>
 			</DialogHeader>
 			{plan && <div className="space-y-4 text-sm">
 				<div><p className="font-semibold text-neutral-900">{t("dmarc.preview.before")}</p><pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-neutral-100 p-3 text-xs">{plan.before ?? t("dmarc.preview.none")}</pre></div>

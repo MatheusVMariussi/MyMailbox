@@ -180,12 +180,12 @@ test("activate works without navigation preload support", async () => {
 });
 
 test("activate deletes only older offline caches of this app", async () => {
-	const { listeners, calls } = loadWorker({ existing: ["mailflare-offline-v1", "mailflare-offline-v2", "other-cache", "mailflare-offline-v0"], inCache: true });
+	const { listeners, calls } = loadWorker({ existing: ["mymailbox-offline-v0", "mymailbox-offline-v1", "other-cache", "mymailbox-offline-preview"], inCache: true });
 	const event = {};
 	const pending = extendable(event);
 	listeners.get("activate")(event);
 	await pending();
-	assert.deepEqual(calls.deleted.sort(), ["mailflare-offline-v0", "mailflare-offline-v1"]);
+	assert.deepEqual(calls.deleted.sort(), ["mymailbox-offline-preview", "mymailbox-offline-v0"]);
 });
 
 test("activate re-adds the offline page when the cache lacks it, without blocking", async () => {

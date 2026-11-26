@@ -52,10 +52,10 @@ export function ConversationNotesProvider({ messageId, emails, children }: Conve
 				void load();
 			}, 150);
 		}
-		window.addEventListener("mailflare:messages-changed", scheduleLoad);
+		window.addEventListener("mymailbox:messages-changed", scheduleLoad);
 		return () => {
 			cancelled = true;
-			window.removeEventListener("mailflare:messages-changed", scheduleLoad);
+			window.removeEventListener("mymailbox:messages-changed", scheduleLoad);
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 		};
 	}, [messageId]);

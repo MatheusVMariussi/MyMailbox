@@ -8,7 +8,7 @@ import { crc32 as nodeCrc32 } from "node:zlib";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dir = mkdtempSync(join(tmpdir(), "mailflare-zip-"));
+const dir = mkdtempSync(join(tmpdir(), "mymailbox-zip-"));
 after(() => rmSync(dir, { recursive: true, force: true }));
 await build({
 	stdin: {

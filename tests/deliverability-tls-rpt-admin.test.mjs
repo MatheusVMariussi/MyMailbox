@@ -18,7 +18,7 @@ const admin = await load("admin");
 const reports = await load("reports");
 const { SqliteDatabase } = await load("database");
 const { applyMigrations } = await load("migrate");
-const ADDRESS = "mailflare-reports@example.com";
+const ADDRESS = "mymailbox-reports@example.com";
 const NAME = "_smtp._tls.example.com";
 
 async function fixture(t, { record = null, zoneId = "zone1", reportsEnabled = true, failDns = false } = {}) {

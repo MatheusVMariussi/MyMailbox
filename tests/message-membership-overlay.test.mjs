@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const temp = mkdtempSync(join(root, "node_modules", "mailflare-membership-overlay-"));
+const temp = mkdtempSync(join(root, "node_modules", "mymailbox-membership-overlay-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -25,7 +25,7 @@ globalThis.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.windo
 
 const mock = new Map([
 	["@/lib/auth/client", `
-export const AUTH_SESSION_CHANGED_EVENT = "mailflare:auth-session-changed";
+export const AUTH_SESSION_CHANGED_EVENT = "mymailbox:auth-session-changed";
 export function authFetch(...args) { return globalThis.__testAuthFetch(...args); }
 `],
 	["@/lib/search/query-utils", `

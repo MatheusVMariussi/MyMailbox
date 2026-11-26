@@ -32,6 +32,6 @@ export async function GET(request: Request) {
 			}
 		}
 	}
-	const body = buildCalendarFeed(visible, { name: "Mailflare" }, overrides);
-	return new Response(body, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": 'inline; filename="mailflare.ics"', "Cache-Control": "private, max-age=300", "X-Robots-Tag": "noindex" } });
+	const body = buildCalendarFeed(visible, { name: "MyMailbox" }, overrides);
+	return new Response(body, { headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": 'inline; filename="mymailbox.ics"', "Cache-Control": "private, max-age=300", "X-Robots-Tag": "noindex" } });
 }

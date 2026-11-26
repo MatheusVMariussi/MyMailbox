@@ -16,7 +16,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
  * adds a table, so the test bundles the constants with the esbuild already used
  * by other tests and replays the bundled migrations.
  */
-const outDir = mkdtempSync(join(tmpdir(), "mailflare-backup-table-list-test-"));
+const outDir = mkdtempSync(join(tmpdir(), "mymailbox-backup-table-list-test-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 
 await build({

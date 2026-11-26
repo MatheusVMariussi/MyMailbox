@@ -369,20 +369,20 @@ export function useMessages(
 		const unsubscribePending = subscribePendingOverlay(() => {
 			dispatch({ type: "update", updater: (current) => applyPendingToMessages(current) });
 		});
-		window.addEventListener("mailflare:messages-changed", onMessagesChanged);
-		window.addEventListener("mailflare:messages-changed", patchReadState);
-		window.addEventListener("mailflare:messages-changed", patchFieldState);
-		window.addEventListener("mailflare:messages-changed", patchRemovedState);
-		window.addEventListener("mailflare:messages-changed", patchRestoredState);
+		window.addEventListener("mymailbox:messages-changed", onMessagesChanged);
+		window.addEventListener("mymailbox:messages-changed", patchReadState);
+		window.addEventListener("mymailbox:messages-changed", patchFieldState);
+		window.addEventListener("mymailbox:messages-changed", patchRemovedState);
+		window.addEventListener("mymailbox:messages-changed", patchRestoredState);
 
 		return () => {
 			cancelled = true;
 			unregisterRefresh();
-			window.removeEventListener("mailflare:messages-changed", onMessagesChanged);
-			window.removeEventListener("mailflare:messages-changed", patchReadState);
-			window.removeEventListener("mailflare:messages-changed", patchFieldState);
-			window.removeEventListener("mailflare:messages-changed", patchRemovedState);
-			window.removeEventListener("mailflare:messages-changed", patchRestoredState);
+			window.removeEventListener("mymailbox:messages-changed", onMessagesChanged);
+			window.removeEventListener("mymailbox:messages-changed", patchReadState);
+			window.removeEventListener("mymailbox:messages-changed", patchFieldState);
+			window.removeEventListener("mymailbox:messages-changed", patchRemovedState);
+			window.removeEventListener("mymailbox:messages-changed", patchRestoredState);
 			unsubscribePending();
 			if (refreshTimer) window.clearTimeout(refreshTimer);
 		};

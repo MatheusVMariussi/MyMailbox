@@ -383,6 +383,6 @@ function NoteAvatar({ note, author }: { note: ConversationNote; author: string }
 
 function scrollToEmail(messageId: string) {
 	// A collapsed thread or card reveals the email on this event before it is scrolled to.
-	window.dispatchEvent(new CustomEvent("mailflare:reveal-message", { detail: messageId }));
+	window.dispatchEvent(new CustomEvent("mymailbox:reveal-message", { detail: messageId }));
 	document.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }

@@ -121,7 +121,7 @@ export function clearMessageThreadCache(): void {
 
 if (typeof window !== "undefined") {
 	window.addEventListener(AUTH_SESSION_CHANGED_EVENT, clearMessageThreadCache);
-	window.addEventListener("mailflare:messages-changed", (event) => {
+	window.addEventListener("mymailbox:messages-changed", (event) => {
 		const detail = getMessagesChangedDetail(event);
 		if (!detail?.kind) {
 			clearMessageThreadCache();

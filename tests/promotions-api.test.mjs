@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-promotions-api-test-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-promotions-api-test-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 // Only the session lookup is replaced; routes run against a real in-memory SQLite database.
 await build({

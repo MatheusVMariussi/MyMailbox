@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = mkdtempSync(join(tmpdir(), "mailflare-pwa-manifest-"));
+const outDir = mkdtempSync(join(tmpdir(), "mymailbox-pwa-manifest-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 
 async function loadManifest() {

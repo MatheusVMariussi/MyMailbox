@@ -1,7 +1,7 @@
 import { getDb } from "@/db";
 import { recordRuleMatch, resolveInboundAddress, type RoutingDecision } from "@/lib/email/routing";
 import { matchReportAddress } from "@/lib/deliverability/report-address";
-import { forwardedMarker, MAILFLARE_FORWARDED_HEADER } from "@/lib/email/account-forwarding";
+import { forwardedMarker, MYMAILBOX_FORWARDED_HEADER } from "@/lib/email/account-forwarding";
 
 /** A routing decision, or `report`: DMARC report mail, which only the report queue consumer may touch. */
 export type IncomingDecision = RoutingDecision | { action: "report" };
@@ -52,7 +52,7 @@ export async function forwardMessage(
 ): Promise<boolean> {
 	try {
 		const headers = new Headers();
-		headers.set(MAILFLARE_FORWARDED_HEADER, await forwardedMarker(env));
+		headers.set(MYMAILBOX_FORWARDED_HEADER, await forwardedMarker(env));
 		await message.forward(destination, headers);
 		return true;
 	} catch (error) {

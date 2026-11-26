@@ -57,7 +57,7 @@ export default function CalendarPage() {
   // Only a choice made in the view switcher is remembered; jumping into a day from the month grid is not.
   const [view, setView] = useState<CalendarView>(() => {
     try {
-      const saved = window.localStorage.getItem("mailflare.calendar.view");
+      const saved = window.localStorage.getItem("mymailbox.calendar.view");
       if (saved === "month" || saved === "week" || saved === "day") return saved;
     } catch { /* storage can be blocked; the default view is fine */ }
     return "week";
@@ -65,7 +65,7 @@ export default function CalendarPage() {
   const [pendingInvite, setPendingInvite] = useState<CalendarEvent | null>(null);
   function chooseView(next: CalendarView) {
     setView(next);
-    try { window.localStorage.setItem("mailflare.calendar.view", next); } catch { /* not remembered */ }
+    try { window.localStorage.setItem("mymailbox.calendar.view", next); } catch { /* not remembered */ }
   }
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);

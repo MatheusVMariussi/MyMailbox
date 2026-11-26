@@ -43,8 +43,8 @@ export function ApiKeysSettings() {
 		let cancelled = false;
 		const refresh = () => void loadManagedApiKeys().then((items) => { if (!cancelled) { setKeys(items); setError(null); } }).catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : t("apiKeys.loadFailed")); }).finally(() => { if (!cancelled) setLoading(false); });
 		refresh();
-		window.addEventListener("mailflare:api-keys-changed", refresh);
-		return () => { cancelled = true; window.removeEventListener("mailflare:api-keys-changed", refresh); };
+		window.addEventListener("mymailbox:api-keys-changed", refresh);
+		return () => { cancelled = true; window.removeEventListener("mymailbox:api-keys-changed", refresh); };
 	}, [t]);
 
 	// A jmap key signs in like an app password, so it needs the same fresh confirmation first.

@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = mkdtempSync(join(tmpdir(), "mailflare-ssrf-ipv6-"));
+const outDir = mkdtempSync(join(tmpdir(), "mymailbox-ssrf-ipv6-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 
 await build({

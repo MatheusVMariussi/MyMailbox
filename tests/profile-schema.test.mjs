@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-profile-schema-test-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-profile-schema-test-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: { contents: `export { updateProfileSchema } from "./src/lib/validators.ts";`, resolveDir: root, sourcefile: "profile-schema-entry.ts" },

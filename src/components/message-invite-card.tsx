@@ -225,7 +225,7 @@ export function MessageInviteCard({ messageId, hasCalendarAttachment, className 
 			try {
 				const headers: Record<string, string> = { "Content-Type": "application/json" };
 				try {
-					const token = window.localStorage.getItem("mailflare-session-token");
+					const token = window.localStorage.getItem("mymailbox-session-token");
 					if (token) headers["Authorization"] = `Bearer ${token}`;
 					headers["X-Time-Zone"] = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
 				} catch { /* private mode */ }

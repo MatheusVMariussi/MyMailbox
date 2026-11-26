@@ -12,7 +12,7 @@ await build({ entryPoints: { record: join(root, "src/lib/deliverability/dmarc-re
 const record = await import(pathToFileURL(join(outDir, "record.mjs")).href);
 const { withTlsRuaUri, withoutTlsRuaUri, hasTlsRuaUri, withRuaUri } = record;
 
-const ADDRESS = "mailflare-reports@example.com";
+const ADDRESS = "mymailbox-reports@example.com";
 const URI = `mailto:${ADDRESS}`;
 
 test("adds rua to a TLSRPTv1 record, appends to an existing one and keeps what was there", () => {

@@ -10,7 +10,7 @@ import { build } from "esbuild";
 // match it as well, not only the envelope sender (often a bounce address).
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-forward-sender-test-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-forward-sender-test-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: {

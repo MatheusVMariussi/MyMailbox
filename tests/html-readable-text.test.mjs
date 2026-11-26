@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dir = mkdtempSync(join(tmpdir(), "mailflare-readable-text-"));
+const dir = mkdtempSync(join(tmpdir(), "mymailbox-readable-text-"));
 after(() => rmSync(dir, { recursive: true, force: true }));
 await build({
 	entryPoints: { r: join(root, "src/lib/email/reply-content-utils.ts"), p: join(root, "src/lib/email/parse.ts") },

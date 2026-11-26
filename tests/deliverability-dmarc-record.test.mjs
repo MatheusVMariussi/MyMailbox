@@ -11,7 +11,7 @@ after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({ entryPoints: { record: join(root, "src/lib/deliverability/dmarc-record.ts") }, outdir: outDir, outExtension: { ".js": ".mjs" }, bundle: true, platform: "node", format: "esm", target: "node22", tsconfig: join(root, "tsconfig.json"), logLevel: "silent" });
 const { withRuaUri, withoutRuaUri, hasRuaUri } = await import(pathToFileURL(join(outDir, "record.mjs")).href);
 
-const ADDRESS = "mailflare-reports@example.com";
+const ADDRESS = "mymailbox-reports@example.com";
 const URI = `mailto:${ADDRESS}`;
 
 test("adds rua when the record has none, keeping the other tags byte for byte", () => {
@@ -32,7 +32,7 @@ test("appends to an existing rua without touching the existing destinations", ()
 test("is idempotent, including a different case and a size suffix", () => {
 	const once = withRuaUri("v=DMARC1; p=none", ADDRESS);
 	assert.equal(withRuaUri(once, ADDRESS), once);
-	assert.equal(withRuaUri(`v=DMARC1; p=none; RUA=MAILTO:MailFlare-Reports@Example.com!5m`, ADDRESS), `v=DMARC1; p=none; RUA=MAILTO:MailFlare-Reports@Example.com!5m`);
+	assert.equal(withRuaUri(`v=DMARC1; p=none; RUA=MAILTO:MyMailbox-Reports@Example.com!5m`, ADDRESS), `v=DMARC1; p=none; RUA=MAILTO:MyMailbox-Reports@Example.com!5m`);
 });
 
 test("preserves unknown tags and the order of tags", () => {

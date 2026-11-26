@@ -61,7 +61,7 @@ export async function notifyUsersOfNewMessage(
 	const results = await Promise.allSettled([
 		...userIds.map((userId) => {
 			const hub = env.REALTIME.getByName(userId);
-			return hub.fetch("https://mailflare-realtime/notify", {
+			return hub.fetch("https://mymailbox-realtime/notify", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload),
@@ -78,7 +78,7 @@ export async function notifyUsersOfNewMessage(
 async function refreshUsersSilently(env: CloudflareEnv, userIds: string[]): Promise<void> {
 	const results = await Promise.allSettled(userIds.map(async (userId) => {
 		const notification: RevisionNotification = { type: "revision", revision: await getUserMailRevision(env, userId), changed: true };
-		await env.REALTIME.getByName(userId).fetch("https://mailflare-realtime/notify", {
+		await env.REALTIME.getByName(userId).fetch("https://mymailbox-realtime/notify", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(notification),

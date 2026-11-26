@@ -626,7 +626,7 @@ export const domainDeliverability = sqliteTable("domain_deliverability", {
 	alertEmail: bool("alert_email").notNull().default(false),
 	lastReportAt: timestamp("last_report_at"),
 	updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-	/** The `_dmarc` record text Mailflare created because none existed, so turning reports off can remove it again (only while it is unchanged). */
+	/** The `_dmarc` record text MyMailbox created because none existed, so turning reports off can remove it again (only while it is unchanged). */
 	dmarcCreatedRecord: text("dmarc_created_record"),
 	/** TLS-RPT reporting (`_smtp._tls`) shares the DMARC report address, so it needs `reportsEnabled`. */
 	tlsRptEnabled: bool("tls_rpt_enabled").notNull().default(false),
@@ -1328,7 +1328,7 @@ export const backupSettings = sqliteTable("backup_settings", {
 
 export const appSettings = sqliteTable("app_settings", {
 	id: text("id").primaryKey(),
-	appName: text("app_name").notNull().default("Mailflare"),
+	appName: text("app_name").notNull().default("MyMailbox"),
 	outboundAttachmentMaxMb: integer("outbound_attachment_max_mb").notNull().default(25),
 	resendApiKey: text("resend_api_key"),
 	resendWebhookId: text("resend_webhook_id"),

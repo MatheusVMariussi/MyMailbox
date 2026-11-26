@@ -9,7 +9,7 @@ export const R2_STORAGE_STATUS = { provider: "r2", configured: true } as const;
 export async function testStorage(env: CloudflareEnv): Promise<StorageTestResult> {
 	const started = Date.now();
 	const key = `healthcheck/${newId("chk")}`;
-	const payload = `mailflare ${new Date().toISOString()}`;
+	const payload = `mymailbox ${new Date().toISOString()}`;
 	try {
 		await env.BUCKET.put(key, payload, { httpMetadata: { contentType: "text/plain" } });
 		const object = await env.BUCKET.get(key);

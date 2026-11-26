@@ -196,6 +196,6 @@ INSERT INTO `backup_settings` (`id`, `enabled`, `schedule_type`, `retention_enab
 VALUES ('default', false, 'daily', false, 30, unixepoch());
 --> statement-breakpoint
 INSERT INTO `app_settings` (`id`, `app_name`, `updated_at`)
-VALUES ('default', 'Mailflare', unixepoch());
+VALUES ('default', 'MyMailbox', unixepoch());
 --> statement-breakpoint
 INSERT INTO `jmap_change_floor` (`id`, `seq`) VALUES (1, 0);

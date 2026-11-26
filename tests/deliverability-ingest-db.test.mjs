@@ -44,7 +44,7 @@ function mime({ attachment, text = "DMARC aggregate report" }) {
 	const boundary = "b0undary";
 	const parts = [`--${boundary}\r\nContent-Type: text/plain\r\n\r\n${text}\r\n`];
 	if (attachment) parts.push(`--${boundary}\r\nContent-Type: ${attachment.type ?? "application/gzip"}\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="${attachment.name ?? "report.xml.gz"}"\r\n\r\n${Buffer.from(attachment.bytes).toString("base64").replace(/.{76}/g, "$&\r\n")}\r\n`);
-	return Buffer.from(`From: noreply-dmarc-support@google.com\r\nTo: mailflare-reports@example.com\r\nSubject: Report Domain: example.com\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=${boundary}\r\n\r\n${parts.join("")}--${boundary}--\r\n`);
+	return Buffer.from(`From: noreply-dmarc-support@google.com\r\nTo: mymailbox-reports@example.com\r\nSubject: Report Domain: example.com\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=${boundary}\r\n\r\n${parts.join("")}--${boundary}--\r\n`);
 }
 const gz = (xml) => ({ bytes: gzipSync(xml) });
 
@@ -364,23 +364,23 @@ test("an infrastructure error before anything is written is thrown so the queue 
 
 test("matchReportAddress finds only the reserved local part on a domain with reports enabled", async (t) => {
 	const f = await fixture(t);
-	assert.equal(REPORT_ADDRESS_LOCAL_PART, "mailflare-reports");
-	assert.deepEqual(await matchReportAddress(f.env, "mailflare-reports@example.com"), { domainId: "d1", hostname: "example.com" });
-	assert.deepEqual(await matchReportAddress(f.env, "MailFlare-Reports@EXAMPLE.com"), { domainId: "d1", hostname: "example.com" });
+	assert.equal(REPORT_ADDRESS_LOCAL_PART, "mymailbox-reports");
+	assert.deepEqual(await matchReportAddress(f.env, "mymailbox-reports@example.com"), { domainId: "d1", hostname: "example.com" });
+	assert.deepEqual(await matchReportAddress(f.env, "MyMailbox-Reports@EXAMPLE.com"), { domainId: "d1", hostname: "example.com" });
 	assert.equal(await matchReportAddress(f.env, "kevin@example.com"), null);
-	assert.equal(await matchReportAddress(f.env, "mailflare-reports@other.org"), null, "reports not enabled for that domain");
-	assert.equal(await matchReportAddress(f.env, "mailflare-reports@unknown.net"), null);
-	assert.equal(await matchReportAddress(f.env, "mailflare-reports+tag@example.com"), null);
+	assert.equal(await matchReportAddress(f.env, "mymailbox-reports@other.org"), null, "reports not enabled for that domain");
+	assert.equal(await matchReportAddress(f.env, "mymailbox-reports@unknown.net"), null);
+	assert.equal(await matchReportAddress(f.env, "mymailbox-reports+tag@example.com"), null);
 	const off = await fixture(t, { enabled: false });
-	assert.equal(await matchReportAddress(off.env, "mailflare-reports@example.com"), null);
+	assert.equal(await matchReportAddress(off.env, "mymailbox-reports@example.com"), null);
 });
 
 test("the reserved local part is refused for a mailbox or alias only while reports are on for that domain", async (t) => {
 	const f = await fixture(t);
-	assert.equal(await isReportAddressReserved(f.env, "d1", "mailflare-reports"), true);
-	assert.equal(await isReportAddressReserved(f.env, "d1", " MailFlare-Reports "), true);
+	assert.equal(await isReportAddressReserved(f.env, "d1", "mymailbox-reports"), true);
+	assert.equal(await isReportAddressReserved(f.env, "d1", " MyMailbox-Reports "), true);
 	assert.equal(await isReportAddressReserved(f.env, "d1", "kevin"), false);
-	assert.equal(await isReportAddressReserved(f.env, "d2", "mailflare-reports"), false, "reports were never turned on for d2");
+	assert.equal(await isReportAddressReserved(f.env, "d2", "mymailbox-reports"), false, "reports were never turned on for d2");
 	const off = await fixture(t, { enabled: false });
-	assert.equal(await isReportAddressReserved(off.env, "d1", "mailflare-reports"), false);
+	assert.equal(await isReportAddressReserved(off.env, "d1", "mymailbox-reports"), false);
 });

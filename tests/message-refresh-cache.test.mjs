@@ -6,7 +6,7 @@ import test, { after } from "node:test";
 import { build } from "esbuild";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const temp = mkdtempSync(join(root, "node_modules", "mailflare-message-refresh-cache-"));
+const temp = mkdtempSync(join(root, "node_modules", "mymailbox-message-refresh-cache-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 await build({
@@ -39,7 +39,7 @@ await build({
 			b.onResolve({ filter: /^@\/lib\/auth\/client$/ }, () => ({ path: "auth-client", namespace: "test-stub" }));
 			b.onLoad({ filter: /.*/, namespace: "test-stub" }, () => ({
 				contents: `
-					export const AUTH_SESSION_CHANGED_EVENT = "mailflare:test-auth";
+					export const AUTH_SESSION_CHANGED_EVENT = "mymailbox:test-auth";
 					export function authFetch(...args) { return globalThis.__testAuthFetch(...args); }
 					export function getClientSessionToken() { return null; }
 					export function setClientSessionToken() {}

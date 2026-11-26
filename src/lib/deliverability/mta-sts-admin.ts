@@ -7,7 +7,7 @@ import { buildMtaStsPolicy, MTA_STS_LIMITS, nextPolicyId, normalizeMx, parseMaxA
 import { DnsReadError, isManual, isZoneUnavailable, MultipleRecordsError, readTxtRecord, reportsDeps, unquote, type ReportsDeps } from "./reports-admin";
 
 type Domain = { id: string; hostname: string; zoneId: string };
-/** `queryMx`: the public MX answers (`10 host.`). `zoneMx`: the zone's own MX records in the same shape, which no resolver cache can make stale right after Mailflare changed them. */
+/** `queryMx`: the public MX answers (`10 host.`). `zoneMx`: the zone's own MX records in the same shape, which no resolver cache can make stale right after MyMailbox changed them. */
 export type MtaStsDeps = ReportsDeps & { queryMx(name: string): Promise<string[]>; zoneMx(env: CloudflareEnv, domain: Domain): Promise<string[]> };
 export const mtaStsDeps: MtaStsDeps = {
 	...reportsDeps,
@@ -23,7 +23,7 @@ export type MtaStsState = {
 	status: MtaStsStatus;
 	policyId: string | null;
 	mx: string[];
-	/** MX hosts that are neither Cloudflare Email Routing nor the SES inbound hosts Resend receives through: Mailflare cannot vouch for their certificates. */
+	/** MX hosts that are neither Cloudflare Email Routing nor the SES inbound hosts Resend receives through: MyMailbox cannot vouch for their certificates. */
 	unverifiedMx: string[];
 	maxAge: number;
 	/** The exact body served at `policyUrl`, so the browser can compare it with what the host returns. */
@@ -142,7 +142,7 @@ export async function mxDrift(domain: Pick<Domain, "hostname">, state: Pick<MtaS
  * whenever mode, MX list or max_age changes. Enforce needs testing first, an explicit acknowledgement and an MX list
  * that matches the one stored (a changed list goes through testing). Turning it off serves `mode: none` under a new id
  * until `now` plus the longest max_age any policy of this run was served with (RFC 8461 §8.3); the daily job then
- * deletes the record. A record at `_mta-sts` that Mailflare did not publish is never overwritten.
+ * deletes the record. A record at `_mta-sts` that MyMailbox did not publish is never overwritten.
  */
 export async function updateMtaSts(env: CloudflareEnv, domain: Domain, body: unknown, deps: MtaStsDeps = mtaStsDeps, now: Date = new Date()): Promise<MtaStsResult> {
 	const input = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
@@ -187,7 +187,7 @@ export async function updateMtaSts(env: CloudflareEnv, domain: Domain, body: unk
 		if (error instanceof DnsReadError) return fail(502, "DNS_FAILED", "Could not read the current MTA-STS record");
 		throw error;
 	}
-	if (existing && !published) return fail(409, "MTA_STS_RECORD_EXISTS", "An MTA-STS record that Mailflare did not publish already exists; remove it first");
+	if (existing && !published) return fail(409, "MTA_STS_RECORD_EXISTS", "An MTA-STS record that MyMailbox did not publish already exists; remove it first");
 
 	const changed = !published || current.mode !== mode || current.mx !== mxJson || current.maxAge !== maxAge || current.retireAfter !== null;
 	if (!changed) return { kind: "ok", state: toState(domain, stored) };
@@ -221,7 +221,7 @@ export async function markMtaStsVerified(env: CloudflareEnv, domain: Domain, now
 	return { kind: "ok", state: toState(domain, { ...row, verifiedAt: now }) };
 }
 
-/** Deletes the `_mta-sts` record Mailflare published. False when the zone cannot be changed from here (manual, gone or off limits): the admin removes the record. */
+/** Deletes the `_mta-sts` record MyMailbox published. False when the zone cannot be changed from here (manual, gone or off limits): the admin removes the record. */
 export async function deleteMtaStsRecord(env: CloudflareEnv, domain: Domain, deps: MtaStsDeps = mtaStsDeps): Promise<boolean> {
 	if (isManual(domain)) return false;
 	try {

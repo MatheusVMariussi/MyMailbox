@@ -2,7 +2,7 @@ import type { ThreadUnreadTarget } from "./field-store";
 import type { MessageMembershipFields } from "./list-membership";
 import type { ReversibleMessageAction } from "./actions/types";
 
-export const MESSAGES_CHANGED_EVENT = "mailflare:messages-changed";
+export const MESSAGES_CHANGED_EVENT = "mymailbox:messages-changed";
 
 export type MessageFieldPatch = {
 	id: string;

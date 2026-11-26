@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const temp = mkdtempSync(join(root, "node_modules", "mailflare-message-refresh-"));
+const temp = mkdtempSync(join(root, "node_modules", "mymailbox-message-refresh-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -91,7 +91,7 @@ export function useConversationView() { return [false, () => {}]; }
 export function DueFollowUps() { return null; }
 `],
 	["@/lib/auth/client", `
-export const AUTH_SESSION_CHANGED_EVENT = "mailflare:test-auth";
+export const AUTH_SESSION_CHANGED_EVENT = "mymailbox:test-auth";
 export function authFetch(...args) { return globalThis.__testAuthFetch(...args); }
 export function getClientSessionToken() { return null; }
 export function setClientSessionToken() {}

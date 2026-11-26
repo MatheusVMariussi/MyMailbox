@@ -8,7 +8,7 @@ import { JSDOM } from "jsdom";
 import { act } from "react";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-action-pending-hooks-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-action-pending-hooks-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -193,7 +193,7 @@ test("mounted list and counts consumers keep the optimistic undo through refresh
 	const listCallsBefore = listCalls;
 	const countCallsBefore = countCalls;
 	await act(async () => {
-		window.dispatchEvent(new window.CustomEvent("mailflare:messages-changed", { detail: { realtime: true } }));
+		window.dispatchEvent(new window.CustomEvent("mymailbox:messages-changed", { detail: { realtime: true } }));
 	});
 	await m.settle();
 	assert.equal(listCalls, listCallsBefore + 1, "the list still performs the generic refresh");

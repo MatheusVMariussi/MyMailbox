@@ -9,7 +9,7 @@ import { build } from "esbuild";
 // forward itself failed, so the queue must store it rather than drop it.
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-failed-forward-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-failed-forward-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: {

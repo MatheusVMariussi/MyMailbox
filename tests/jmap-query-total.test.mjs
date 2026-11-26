@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = mkdtempSync(join(root, "node_modules", "mailflare-jmap-query-total-"));
+const outDir = mkdtempSync(join(root, "node_modules", "mymailbox-jmap-query-total-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 
 await build({

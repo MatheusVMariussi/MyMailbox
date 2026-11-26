@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const outDir = mkdtempSync(join(tmpdir(), "mailflare-prepare-attachments-"));
+const outDir = mkdtempSync(join(tmpdir(), "mymailbox-prepare-attachments-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));
 
 // The database-backed collaborators are replaced; everything else (planner, notice, i18n) is the real code.

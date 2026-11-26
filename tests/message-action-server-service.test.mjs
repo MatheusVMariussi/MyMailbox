@@ -8,7 +8,7 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-undo-service-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-undo-service-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 
 await build({

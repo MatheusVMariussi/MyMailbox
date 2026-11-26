@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 async function getDefaultIcon(env: CloudflareEnv): Promise<Response> {
-	const asset = await env.ASSETS.fetch("https://mailflare.local/icon-96.png");
+	const asset = await env.ASSETS.fetch("https://mymailbox.local/icon-96.png");
 	const headers = new Headers(asset.headers);
 	// The asset binding defaults to revalidation; this endpoint uses a versioned URL on changes.
 	if (asset.ok) headers.set("Cache-Control", "public, max-age=3600");

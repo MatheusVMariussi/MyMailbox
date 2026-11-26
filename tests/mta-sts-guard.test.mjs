@@ -18,7 +18,7 @@ const guard = await load("guard");
 const { SqliteDatabase } = await load("database");
 const { applyMigrations } = await load("migrate");
 const NOW = new Date("2025-11-19T12:34:56Z");
-const ADDRESS = "mailflare-reports@example.com";
+const ADDRESS = "mymailbox-reports@example.com";
 
 async function fixture(t, { zoneId = "zone1", row = null, tlsRecord = null, failDns = false, zoneMx = ["10 new1.mx.cloudflare.net.", "20 new2.mx.cloudflare.net."] } = {}) {
 	const database = new SqliteDatabase(join(outDir, `${crypto.randomUUID()}.sqlite`));

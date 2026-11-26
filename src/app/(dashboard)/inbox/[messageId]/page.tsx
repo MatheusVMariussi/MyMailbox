@@ -203,11 +203,11 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
         return { ...current, message: { ...current.message, ...next } };
       });
     }
-    window.addEventListener("mailflare:messages-changed", syncCachedState);
+    window.addEventListener("mymailbox:messages-changed", syncCachedState);
     const unsubscribePending = subscribePendingOverlay(syncCachedState);
     return () => {
       cancelled = true;
-      window.removeEventListener("mailflare:messages-changed", syncCachedState);
+      window.removeEventListener("mymailbox:messages-changed", syncCachedState);
       unsubscribePending();
     };
   }, [messageId]);

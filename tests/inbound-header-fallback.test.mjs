@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-header-fallback-test-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-header-fallback-test-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 
 // Intake is replaced by a recorder, so the tests see exactly which header map reaches it.

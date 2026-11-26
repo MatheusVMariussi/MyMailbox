@@ -4,8 +4,11 @@ import { BACKUP_TABLE_GROUPS, getSelectedBackupTables } from "./table-groups";
 
 /** Every backed-up table, in foreign-key order: restore inserts in this order and deletes in reverse. */
 export const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "user_compose_preferences", "domains", "domain_tracking_hosts", "email_suppressions", "domain_deliverability", "mailboxes", "mailbox_access", "contacts", "folders", "mailbox_promotion_settings", "mailbox_sender_preferences", "api_keys", "messages", "message_attachments", "shared_attachment_links", "outbound_jobs", "message_tracking", "message_opens", "follow_ups", "conversation_notes", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "deliverability_reports", "dmarc_daily_stats", "tls_daily_stats", "deliverability_alerts", "email_templates", "calendar_events", "calendar_event_overrides", "calendar_occurrence_responses", "calendar_invite_tombstones", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback", "mailbox_aliases", "password_reset_tokens", "mfa_recovery_codes", "login_challenges", "passkey_credentials", "api_key_mailboxes"];
-/** The document format this release writes and restores. Mailflare's formats 1 and 2 carry tables this schema no longer has. */
+/** The document format this release writes and restores. */
+const BACKUP_FORMAT = "mymailbox-database-backup";
 const BACKUP_FORMAT_VERSION = 3;
+/** The format name of Mailflare, the upstream project. Its documents carry tables and columns this schema does not have, so they are refused with a clear message. */
+const UPSTREAM_BACKUP_FORMAT = "mailflare-database-backup";
 const INSERT_BATCH_SIZE = 50;
 /**
  * Serial ids that are never backed up or restored: the row's identity is its unique key, not the id, so a
@@ -85,7 +88,7 @@ export async function exportDatabaseRecords(db: D1Database, excludedGroups: Back
 		const omitted = OMITTED_COLUMNS[table];
 		tables[table] = omitted ? result.results.map((row) => Object.fromEntries(Object.entries(row).filter(([column]) => !omitted.includes(column)))) : result.results;
 	}
-	const document: DatabaseBackupDocument = { format: "mailflare-database-backup", version: BACKUP_FORMAT_VERSION, createdAt: new Date().toISOString(), includedTables, tables };
+	const document: DatabaseBackupDocument = { format: BACKUP_FORMAT, version: BACKUP_FORMAT_VERSION, createdAt: new Date().toISOString(), includedTables, tables };
 	return new TextEncoder().encode(JSON.stringify(document));
 }
 
@@ -123,17 +126,19 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 
 function parseDatabaseBackup(content: ArrayBuffer): DatabaseBackupDocument {
 	let value: unknown;
-	try { value = JSON.parse(new TextDecoder().decode(content)); } catch { throw new Error("The selected file is not a valid Mailflare backup"); }
-	const version = (value as { format?: unknown; version?: unknown } | null)?.format === "mailflare-database-backup" ? (value as { version?: unknown }).version : undefined;
-	if (typeof version === "number" && version < BACKUP_FORMAT_VERSION) throw new Error("This backup was written by an older Mailflare release and cannot be restored into this database.");
-	if (!isDatabaseBackupDocument(value)) throw new Error("The selected file is not a valid Mailflare backup");
+	try { value = JSON.parse(new TextDecoder().decode(content)); } catch { throw new Error("The selected file is not a valid MyMailbox backup"); }
+	const format = (value as { format?: unknown } | null)?.format;
+	if (format === UPSTREAM_BACKUP_FORMAT) throw new Error("This backup was written by Mailflare and cannot be restored into MyMailbox.");
+	const version = format === BACKUP_FORMAT ? (value as { version?: unknown }).version : undefined;
+	if (typeof version === "number" && version < BACKUP_FORMAT_VERSION) throw new Error("This backup was written by an older MyMailbox release and cannot be restored into this database.");
+	if (!isDatabaseBackupDocument(value)) throw new Error("The selected file is not a valid MyMailbox backup");
 	return value;
 }
 
 function isDatabaseBackupDocument(value: unknown): value is DatabaseBackupDocument {
 	if (!value || typeof value !== "object") return false;
 	const document = value as Partial<DatabaseBackupDocument>;
-	if (document.format !== "mailflare-database-backup" || document.version !== BACKUP_FORMAT_VERSION || !document.tables || typeof document.tables !== "object") return false;
+	if (document.format !== BACKUP_FORMAT || document.version !== BACKUP_FORMAT_VERSION || !document.tables || typeof document.tables !== "object") return false;
 	if (!Array.isArray(document.includedTables) || !document.includedTables.length || new Set(document.includedTables).size !== document.includedTables.length) return false;
 	if (!document.includedTables.every((table) => BACKUP_TABLES.includes(table) && Array.isArray(document.tables?.[table]))) return false;
 	return BACKUP_TABLES.every((table) => {

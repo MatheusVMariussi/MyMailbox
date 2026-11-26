@@ -9,7 +9,7 @@ export const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 /** Bundles the given entry source against the real app code; only the session lookup is replaced. */
 /** `mocks` maps a module specifier to replacement source, for network and provider calls a test must not make. */
 export async function loadRoutes(name, contents, mocks = {}) {
-	const directory = mkdtempSync(join(root, "node_modules", `mailflare-${name}-`));
+	const directory = mkdtempSync(join(root, "node_modules", `mymailbox-${name}-`));
 	after(() => rmSync(directory, { recursive: true, force: true }));
 	await build({
 		stdin: {

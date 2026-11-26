@@ -9,7 +9,7 @@ import { build } from "esbuild";
 // loads up to 200 messages, so its per-message lookups must be chunked.
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-thread-view-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-thread-view-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: { contents: `

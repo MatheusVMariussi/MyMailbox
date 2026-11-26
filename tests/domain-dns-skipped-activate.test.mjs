@@ -10,7 +10,7 @@ import { build } from "esbuild";
 // domains. Confirming the records from the banner must make it receive (#335).
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const directory = mkdtempSync(join(root, "node_modules", "mailflare-dns-skipped-"));
+const directory = mkdtempSync(join(root, "node_modules", "mymailbox-dns-skipped-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
 await build({
 	stdin: {

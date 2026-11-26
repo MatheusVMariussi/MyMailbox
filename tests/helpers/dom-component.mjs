@@ -26,7 +26,7 @@ export function installDom() {
  */
 export async function loadComponent(sourceFile, stubs = {}) {
 	installDom();
-	const temp = mkdtempSync(join(root, "node_modules", "mailflare-dom-component-"));
+	const temp = mkdtempSync(join(root, "node_modules", "mymailbox-dom-component-"));
 	after(() => rmSync(temp, { recursive: true, force: true }));
 	const outfile = join(temp, "out.mjs");
 	await build({

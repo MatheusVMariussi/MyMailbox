@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dir = mkdtempSync(join(root, "node_modules", "mailflare-calendar-feed-month-end-"));
+const dir = mkdtempSync(join(root, "node_modules", "mymailbox-calendar-feed-month-end-"));
 after(() => rmSync(dir, { recursive: true, force: true }));
 await build({
 	stdin: {

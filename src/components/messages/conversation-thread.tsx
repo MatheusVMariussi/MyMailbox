@@ -57,8 +57,8 @@ export function ConversationThread({
 			revealTarget.current = id;
 			onExpandedAllChange(true);
 		}
-		window.addEventListener("mailflare:reveal-message", reveal);
-		return () => window.removeEventListener("mailflare:reveal-message", reveal);
+		window.addEventListener("mymailbox:reveal-message", reveal);
+		return () => window.removeEventListener("mymailbox:reveal-message", reveal);
 	}, [expandedAll, messages, currentMessageId, position, latestMessagesFirst, onExpandedAllChange]);
 
 	useEffect(() => {
@@ -170,8 +170,8 @@ export function ConversationMessageCard({
 		function reveal(event: Event) {
 			if ((event as CustomEvent<string>).detail === message.id) setLocallyExpanded(true);
 		}
-		window.addEventListener("mailflare:reveal-message", reveal);
-		return () => window.removeEventListener("mailflare:reveal-message", reveal);
+		window.addEventListener("mymailbox:reveal-message", reveal);
+		return () => window.removeEventListener("mymailbox:reveal-message", reveal);
 	}, [message.id]);
 
 	const body = useMemo(() => {
