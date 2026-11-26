@@ -1,7 +1,9 @@
 "use client";
 
-import { Archive, ArchiveRestore, ChevronDown, Folder, FolderInput, Inbox, Mail, MailOpen, MoreVertical, ShieldAlert, ShieldCheck, Trash2, Undo2, X } from "@/components/icons";
+import { useState } from "react";
+import { Archive, ArchiveRestore, ChevronDown, FolderInput, Inbox, Mail, MailOpen, MoreVertical, ShieldAlert, ShieldCheck, Tag, Trash2, Undo2, X } from "@/components/icons";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { LabelMenu } from "@/components/labels/label-menu";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -12,8 +14,6 @@ import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import type { BulkMessageToolbarProps } from "./types";
 
 const menuItemClass = "flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-neutral-700 outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-neutral-100";
-const menuLabelClass = "mt-1 px-3 pb-1 pt-2 text-sm font-medium text-neutral-500";
-const menuContentClass = "z-[130] max-h-[min(24rem,var(--radix-dropdown-menu-content-available-height))] w-54 overflow-y-auto rounded-xl border border-neutral-200 bg-white p-2 shadow-lg";
 
 export function BulkMessageToolbar({
 	selectedCount,
@@ -23,8 +23,21 @@ export function BulkMessageToolbar({
 	onClearSelection,
 	pending,
 	folder,
+	selectedLabelCounts,
+	openMenu,
 }: BulkMessageToolbarProps) {
 	const { t } = useLanguage();
+	const [menu, setMenu] = useState<"label" | "move" | null>(null);
+	// A keyboard shortcut (`l`, `v`) opens a menu by bumping the request key.
+	const [handledRequest, setHandledRequest] = useState(openMenu?.key ?? 0);
+	if (openMenu && openMenu.key !== handledRequest) {
+		setHandledRequest(openMenu.key);
+		setMenu(openMenu.kind);
+	}
+	const labelState = (labelId: string) => {
+		const count = selectedLabelCounts?.get(labelId) ?? 0;
+		return count === 0 ? false : count >= selectedCount ? true : "indeterminate" as const;
+	};
 	// In archived, spam and trash the usual button would be a no-op, so it becomes the way back to the inbox.
 	const archive = folder === "archived"
 		? { action: "inbox", label: t("common.unarchive"), Icon: ArchiveRestore }
@@ -44,9 +57,9 @@ export function BulkMessageToolbar({
 		{ value: "trash", label: t("navigation.trash"), Icon: Trash2, hidden: folder === "trash" },
 	].filter((option) => !option.hidden);
 	const { selectedMailbox } = useSelectedMailbox();
-	const folders = useMailboxLabels(selectedMailbox?.id);
+	const labels = useMailboxLabels(selectedMailbox?.id);
 	return (
-		<div className="flex min-w-0 items-center gap-2 text-neutral-600 w-full">
+		<div className="flex min-w-0 items-center gap-2 text-neutral-600 w-full" data-bulk-toolbar="">
 			{!hideSelectedCount && (
 				<span className="mr-2 text-sm font-medium text-neutral-800">
 					{t("common.selectedCount", { count: selectedCount })}
@@ -87,36 +100,40 @@ export function BulkMessageToolbar({
 				</Button>
 			</Tooltip>
 			<span className="flex-1 max-md:hidden" />
-			<DropdownMenu.Root>
-				<Tooltip label={t("common.moveSelected")} className="max-md:hidden">
-					<DropdownMenu.Trigger asChild>
-						<Button variant="ghost" size="sm" className="max-md:hidden gap-1.5 bg-white text-xs font-medium text-neutral-700" disabled={pending}>
-							<FolderInput className="h-4 w-4" />
-							{t("common.moveTo")}
-							<ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
-						</Button>
-					</DropdownMenu.Trigger>
-				</Tooltip>
-				<DropdownMenu.Portal>
-					<DropdownMenu.Content align="end" sideOffset={4} className={menuContentClass}>
-						{moveOptions.map(({ value, label, Icon }) => (
-							<DropdownMenu.Item key={value} className={menuItemClass} onSelect={() => onAction(value as BulkMessageAction)}><Icon className="h-4 w-4" />{label}</DropdownMenu.Item>
-						))}
-						{folders.length > 0 && (
-							<>
-								<DropdownMenu.Separator className="my-1 h-px bg-neutral-100" />
-								<DropdownMenu.Label className={menuLabelClass}>{t("navigation.labels")}</DropdownMenu.Label>
-								{folders.map((item) => (
-									<DropdownMenu.Item key={item.id} className={menuItemClass} onSelect={() => onAction("move", item.id)}>
-										<Folder className="h-4 w-4 shrink-0" style={{ color: item.color }} />
-										<span className="truncate">{item.name}</span>
-									</DropdownMenu.Item>
-								))}
-							</>
-						)}
-					</DropdownMenu.Content>
-				</DropdownMenu.Portal>
-			</DropdownMenu.Root>
+			<LabelMenu
+				mode="label"
+				labels={labels}
+				labelState={labelState}
+				onPick={(labelId, add) => onAction(add ? "label" : "unlabel", labelId)}
+				open={menu === "label"}
+				onOpenChange={(open) => setMenu(open ? "label" : null)}
+				disabled={pending}
+				trigger={
+					<Button variant="ghost" size="sm" className="max-md:hidden gap-1.5 bg-white text-xs font-medium text-neutral-700" disabled={pending} aria-label={t("labels.labelAs")} data-bulk-label-as="">
+						<Tag className="h-4 w-4" />
+						{t("labels.labelAs")}
+						<ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
+					</Button>
+				}
+			/>
+			<LabelMenu
+				mode="move"
+				labels={labels}
+				onPick={(labelId) => onAction("move", labelId)}
+				open={menu === "move"}
+				onOpenChange={(open) => setMenu(open ? "move" : null)}
+				disabled={pending}
+				before={moveOptions.map(({ value, label, Icon }) => (
+					<DropdownMenu.Item key={value} className={menuItemClass} onSelect={() => onAction(value as BulkMessageAction)}><Icon className="h-4 w-4" />{label}</DropdownMenu.Item>
+				))}
+				trigger={
+					<Button variant="ghost" size="sm" className="max-md:hidden gap-1.5 bg-white text-xs font-medium text-neutral-700" disabled={pending} aria-label={t("common.moveSelected")} data-bulk-move-to="">
+						<FolderInput className="h-4 w-4" />
+						{t("common.moveTo")}
+						<ChevronDown className="h-3.5 w-3.5 text-neutral-500" />
+					</Button>
+				}
+			/>
 			<Tooltip label={t("common.clearSelection")} className="max-md:hidden">
 				<Button variant="ghost" size="sm" onClick={onClearSelection} disabled={pending} aria-label={t("common.clearSelection")}>
 					<X className="h-4 w-4" />

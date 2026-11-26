@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
+import { ReaderLabelMenus } from "@/components/labels/reader-label-menus";
 import type { MessageActionsProps, ReplyMode } from "./types";
 import { getPermanentDeleteConfirmText, PartialDeleteError, supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
 import {
@@ -62,6 +63,7 @@ export function MessageActions({
 	bodyHtml,
 	category,
 	senderKey,
+	labelIds,
 }: MessageActionsProps) {
 	const { t } = useLanguage();
 	const router = useRouter();
@@ -96,6 +98,21 @@ export function MessageActions({
 			setPendingAction(null);
 		}
 	}, [messageId, listHref, router, t, autoAdvance]);
+
+	// "Label as" never moves the message; "Move to" a label also takes it out of the inbox (or Trash/Spam).
+	const runLabelAction = useCallback(async (action: "label" | "unlabel" | "move", labelId: string) => {
+		setPendingAction(action);
+		setError(null);
+		try {
+			await runSingleMessageAction(messageId, action, { labelId });
+			if (action === "move" && (status === "received" || status === "trash" || status === "spam")) router.push(autoAdvance() ?? listHref);
+			router.refresh();
+		} catch {
+			setError(t("actions.error.update"));
+		} finally {
+			setPendingAction(null);
+		}
+	}, [messageId, status, listHref, router, t, autoAdvance]);
 
 	// In Trash and Spam the delete button removes the message for good instead of
 	// being a no-op, after the user confirms.
@@ -574,6 +591,15 @@ export function MessageActions({
 					))}
 				</MessageActionMenu>
 			</div>
+			{status !== "draft" && (
+				<ReaderLabelMenus
+					mailboxId={mailboxId}
+					labelIds={labelIds}
+					disabled={disabled}
+					onLabel={(labelId, add) => void runLabelAction(add ? "label" : "unlabel", labelId)}
+					onMove={(labelId) => void runLabelAction("move", labelId)}
+				/>
+			)}
 
 			<MessageSourceDialog messageId={messageId} open={sourceOpen} onOpenChange={setSourceOpen} />
 			<MessageSnoozeDialog messageId={messageId} open={snoozeOpen} onOpenChange={setSnoozeOpen} />

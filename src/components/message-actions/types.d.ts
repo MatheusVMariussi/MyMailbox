@@ -25,6 +25,8 @@ export type MessageActionsProps = {
 	category?: string | null;
 	/** The normalised sender address the "Always for ..." rule is stored under; null on rows from before promotions. */
 	senderKey?: string | null;
+	/** The message's labels, for "Label as" check marks. */
+	labelIds?: string[];
 };
 
 export type MessageSnoozeDialogProps = {

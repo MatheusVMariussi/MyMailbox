@@ -45,11 +45,11 @@ export function getMessageBackHref(
 export async function runSingleMessageAction(
   messageId: string,
   action: BulkMessageAction,
-  options: { undo?: boolean; notify?: boolean } = {},
+  options: { undo?: boolean; notify?: boolean; labelId?: string } = {},
 ) {
   if (isReversibleMessageAction(action)) {
     await performMessageAction(
-      { action, messageIds: [messageId] },
+      { action, messageIds: [messageId], ...(options.labelId ? { labelId: options.labelId } : {}) },
       { undo: options.undo !== false, notify: options.notify !== false },
     );
     return;

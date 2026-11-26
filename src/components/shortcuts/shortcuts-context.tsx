@@ -22,6 +22,7 @@ import { useHotkeys } from "./use-hotkeys";
 import { CommandPalette } from "./command-palette";
 import { ShortcutsHelpDialog } from "./shortcuts-help-dialog";
 import { useShortcutsEnabled } from "./use-shortcuts-enabled";
+import { ShortcutsEnabledContext } from "./shortcuts-enabled-context";
 
 interface ShortcutsContextValue {
   shortcutsEnabled: boolean;
@@ -319,7 +320,9 @@ export function ShortcutsProvider({
         commands: allCommands,
       }}
     >
-      {children}
+      <ShortcutsEnabledContext.Provider value={shortcutsEnabled && !shortcutsPreferenceLoading}>
+        {children}
+      </ShortcutsEnabledContext.Provider>
       {shortcutsEnabled && !shortcutsPreferenceLoading && (
         <>
           <CommandPalette

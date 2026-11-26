@@ -23,6 +23,7 @@ const { app, newDatabase } = await loadApp("labels-api", `
 	export * as counts from "./src/app/api/messages/counts/route.ts";
 	export * as navigation from "./src/app/api/messages/navigation/route.ts";
 	export * as v1 from "./src/app/api/v1/messages/route.ts";
+	export { getMessageWithBodyForUser } from "./src/lib/email/inbound.ts";
 	export { isLabelBulkAction, getStatusForBulkAction } from "./src/app/api/messages/bulk/utils.ts";
 `, { mocks });
 
@@ -156,4 +157,15 @@ test("the public messages API lists label ids per row and no folder", async (t) 
 	assert.deepEqual(byId.get("in-1").labelIds, [work.id]);
 	assert.deepEqual(byId.get("sent-1").labelIds, []);
 	assert.ok(body.messages.every((message) => !("folderId" in message)));
+});
+
+test("the reader detail carries the message's labels and no folder", async (t) => {
+	const { env } = await setup(t);
+	env.BUCKET = { get: async () => null };
+	const work = await createLabel("mb-team", "Work");
+	await app.actions.POST(send("POST", { op: "apply", action: "label", labelId: work.id, messageIds: ["in-1"] }));
+	const detail = await app.getMessageWithBodyForUser(env, user("admin"), "in-1");
+	assert.deepEqual(detail.message.labelIds, [work.id]);
+	assert.equal("legacyFolderId" in detail.message, false);
+	assert.equal("folderId" in detail.message, false);
 });

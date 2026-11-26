@@ -1,5 +1,5 @@
 import { and, eq, isNotNull } from "drizzle-orm";
-import { addMessageLabels } from "@/lib/labels/service";
+import { addMessageLabels, loadMessageLabelIds } from "@/lib/labels/service";
 import { getDb } from "@/db";
 import { messages, outboundJobs, users } from "@/db/schema";
 import { newId } from "@/lib/ids";
@@ -378,7 +378,7 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 	if (!message?.mailboxId || isOthersDraft(message, user.id)) return null;
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
 	if (!access?.canRead) return null;
-	const [scheduledJob, contactNames, attachments, unsubscribe] = await Promise.all([
+	const [scheduledJob, contactNames, attachments, unsubscribe, labelIds] = await Promise.all([
 		message.direction === "outbound" && message.status === "queued"
 			? db
 				.select({ scheduledAt: outboundJobs.scheduledAt })
@@ -389,11 +389,13 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 		getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr),
 		listMessageAttachments(env, messageId),
 		getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key),
+		loadMessageLabelIds(db, [messageId]),
 	]);
-	const { rawR2Key, textBody, htmlBody, ...header } = message;
+	const { rawR2Key, textBody, htmlBody, legacyFolderId, ...header } = message;
 	void rawR2Key;
+	void legacyFolderId;
 	return {
-		message: { ...header, ...contactNames },
+		message: { ...header, ...contactNames, labelIds: labelIds.get(messageId) ?? [] },
 		body: { textBody: textBody ?? null, htmlBody: htmlBody ?? null },
 		attachments,
 		unsubscribeUrl: unsubscribe?.url ?? null,

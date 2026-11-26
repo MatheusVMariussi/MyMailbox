@@ -12,6 +12,7 @@ import { useSelectedMailbox } from "@/components/mailbox-provider";
 import { ContactDetailsTrigger } from "@/components/contacts/contact-details";
 import { ContactAvatar } from "@/components/contacts/contact-avatar";
 import { MessageActions } from "@/components/message-actions/message-actions";
+import { ReaderLabelChips } from "@/components/labels/label-chips";
 import { MessageAttachmentViewer } from "@/components/message-attachment-viewer";
 import { MessageAttachmentCard } from "@/components/message-attachment-card";
 import { MessageInviteCard } from "@/components/message-invite-card";
@@ -345,6 +346,7 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
         bodyHtml={body?.htmlBody}
         category={message.category}
         senderKey={message.senderAddress}
+        labelIds={message.labelIds}
       />
       <MessageDetailNavigation messageId={message.id} unread={message.direction === "inbound" && !message.read} />
     </div>
@@ -353,6 +355,7 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
       <h1 className={clsx("sm:pl-[78px] px-4 pb-2 pt-2 text-2xl text-neutral-900 sm:pr-6")} title={message.subject ?? t("list.noSubject")}>
         {message.subject ?? t("list.noSubject")}
       </h1>
+      <ReaderLabelChips mailboxId={message.mailboxId} labelIds={message.labelIds} className="sm:pl-[78px] px-4 pb-2 sm:pr-6" />
       <MessageInviteCard key={message.id} messageId={message.id} hasCalendarAttachment={!!findInviteAttachment(attachments)} className={clsx("sm:ml-[78px] mx-4 mb-3 sm:mr-6")} />
       <ConversationNotes
         className={clsx("sm:pl-[78px] px-4 sm:pr-6")}

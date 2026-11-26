@@ -56,6 +56,10 @@ import {
 } from "@/lib/messages/permanent-delete-utils";
 import clsx from "clsx";
 import { DueFollowUps } from "@/components/follow-ups/due-follow-ups";
+import { LabelChips } from "@/components/labels/label-chips";
+import { useMailboxLabels } from "./use-mailbox-labels";
+import { useHotkeys } from "@/components/shortcuts/use-hotkeys";
+import { useShortcutsActive } from "@/components/shortcuts/shortcuts-enabled-context";
 import { getUserTimeZone, zonedDateFields } from "@/lib/time/utils";
 import { moveMessagesToCategory } from "@/lib/promotions/move-client";
 import { canMoveCategory, moveTargetFor, showsPromotionChip } from "@/lib/promotions/move-utils";
@@ -123,6 +127,7 @@ function MessageListRowComponent({
 	todayKey,
 	promotionMode,
 	canMovePromotions = false,
+	labelsById,
 }: MessageListRowProps) {
 	const { t } = useLanguage();
 	const Icon = config.icon;
@@ -256,6 +261,7 @@ function MessageListRowComponent({
 							{message.scheduledAt ? formatScheduledSendTime(message.scheduledAt, t) : formatMessageListTimestamp(message.createdAt, todayKey)}
 						</span>
 					</span>
+					{labelsById && <LabelChips labelIds={message.labelIds} labelsById={labelsById} exclude={config.labelId} className="mt-1 max-w-full" />}
 					<span
 						className={`mt-1 block truncate text-sm ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
 							}`}
@@ -341,6 +347,7 @@ function MessageListRowComponent({
 				<span className="w-11 shrink-0">
 					{message.noteCount ? <MessageNotesPopover messageId={message.id} count={message.noteCount} preview={message.notePreview} /> : null}
 				</span>
+				{labelsById && <LabelChips labelIds={message.labelIds} labelsById={labelsById} exclude={config.labelId} className="mr-2 max-w-[45%]" />}
 				<Link
 					href={href}
 					onClick={config.folder === "drafts" ? undefined : onMessageNavigate}
@@ -480,6 +487,8 @@ export function MessageFolderPage({
 	}, !mailboxesLoading, config.labelId);
 	const { counts, isLoading: countsLoading } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
 	const { mailboxes: accessibleMailboxes } = useSelectedMailbox();
+	const mailboxLabels = useMailboxLabels(selectedMailbox?.id);
+	const labelsById = useMemo(() => new Map(mailboxLabels.map((label) => [label.id, label])), [mailboxLabels]);
 	const getPromotionMode = useCallback((message: Message): "show" | "separate" | undefined => counts.promotionModes?.[message.mailboxId ?? ""], [counts.promotionModes]);
 	// Only received mail in Inbox or Promotions moves between them, in mailboxes with Promotions on that the user manages.
 	const canMovePromotions = useCallback((message: Message) => (config.folder === "promotions" || (config.folder === "inbox" && !config.labelId)) && canMoveCategory({
@@ -506,6 +515,23 @@ export function MessageFolderPage({
 		[selectedMessages],
 	);
 	const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+	const shortcutsEnabled = useShortcutsActive();
+	// `l` opens "Label as" and `v` opens "Move to" for the selection (the reader handles them for the open message).
+	const [labelMenuRequest, setLabelMenuRequest] = useState<{ kind: "label" | "move"; key: number } | null>(null);
+	const selectionShortcuts = useMemo(() => [
+		{ key: "l", label: t("labels.labelAs"), category: "Actions" as const, action: () => setLabelMenuRequest({ kind: "label", key: Date.now() }) },
+		{ key: "v", label: t("common.moveTo"), category: "Actions" as const, action: () => setLabelMenuRequest({ kind: "move", key: Date.now() }) },
+	], [t]);
+	useHotkeys(selectionShortcuts, { enabled: shortcutsEnabled && selectedIds.length > 0 && !compact });
+	// How many selected rows carry each label: "Label as" checks a label every selected row has.
+	const selectedLabelCounts = useMemo(() => {
+		const tally = new Map<string, number>();
+		for (const message of messages) {
+			if (!selectedIdSet.has(message.id)) continue;
+			for (const labelId of message.labelIds ?? []) tally.set(labelId, (tally.get(labelId) ?? 0) + 1);
+		}
+		return tally;
+	}, [messages, selectedIdSet]);
 	const hasUnreadSelection = selectedMessages.some((message) => !message.read);
 	const allVisibleSelected = messages.length > 0 && messages.every((message) => selectedIdSet.has(message.id));
 	// In conversation view a row stands for every message of its thread in this
@@ -733,6 +759,8 @@ export function MessageFolderPage({
 							onClearSelection={() => setSelectedMessages([])}
 							pending={pendingBulkAction}
 							folder={config.labelId ? undefined : config.folder}
+							selectedLabelCounts={selectedLabelCounts}
+							openMenu={labelMenuRequest}
 						/>
 					) : (
 						(compact || isMobile) && (
@@ -834,6 +862,7 @@ export function MessageFolderPage({
 							todayKey={todayKey}
 							promotionMode={getPromotionMode(message)}
 							canMovePromotions={canMovePromotions(message)}
+							labelsById={labelsById}
 						/>
 					))}
 				</div>

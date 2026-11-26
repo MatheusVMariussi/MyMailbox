@@ -250,7 +250,7 @@ export function DashboardNav({ className }: { className?: string }) {
                   <button
                     type="button"
                     onClick={() => setDialog({ key: Date.now(), label })}
-                    className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded-md text-neutral-500 opacity-0 transition-opacity hover:bg-neutral-200 hover:text-neutral-800 focus-visible:opacity-100 group-hover/label:opacity-100 max-md:opacity-100"
+                    className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 text-neutral-500 opacity-0 transition-opacity hover:bg-neutral-200 hover:text-neutral-800 focus-visible:opacity-100 group-hover/label:opacity-100 max-md:opacity-100"
                     aria-label={t("labels.options", { name: label.name })}
                     title={t("labels.edit")}
                   >

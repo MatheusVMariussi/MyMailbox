@@ -3,6 +3,7 @@ import type { LucideIcon } from "@/components/icons";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { Message, MessageFolder } from "@/hooks/types";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
+import type { NavLabel } from "@/components/dashboard-nav-types";
 
 export type MessageFolderConfig = {
 	folder: MessageFolder;
@@ -38,6 +39,8 @@ export type MessageListRowProps = {
 	promotionMode?: "show" | "separate";
 	/** Offer "Move to Promotions / Inbox" on this row. */
 	canMovePromotions?: boolean;
+	/** The labels of the listed mailbox, for the chips on each row. */
+	labelsById?: ReadonlyMap<string, NavLabel>;
 };
 
 export type RowMessageAction = "archive" | "trash" | "read" | "unread" | "inbox" | "delete";
@@ -84,6 +87,10 @@ export type BulkMessageToolbarProps = {
 	onAction: (action: BulkMessageAction, labelId?: string) => void;
 	onClearSelection: () => void;
 	pending: boolean;
+	/** How many selected rows carry each label, for the "Label as" check marks. */
+	selectedLabelCounts?: ReadonlyMap<string, number>;
+	/** Which menu a keyboard shortcut asked to open (`l` or `v`); bumping `key` reopens it. */
+	openMenu?: { kind: "label" | "move"; key: number } | null;
 	/** Folder being listed; archived, spam and trash offer a way back instead of the same move. */
 	folder?: MessageFolder;
 };
