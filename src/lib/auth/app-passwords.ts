@@ -36,7 +36,7 @@ export async function availableAppPasswordProtocols(env: CloudflareEnv): Promise
 /**
  * Check an app password for one protocol. Null on any failure, and never says
  * why. Only `kind = 'app'` keys count, and only when they carry the protocol's
- * scope, so older JMAP keys, device keys and API keys cannot be used here.
+ * scope, so older JMAP keys and API keys cannot be used here.
  * Spaces and dashes are dropped first because the password is shown in groups.
  * The account password is never accepted.
  */

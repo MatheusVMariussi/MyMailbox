@@ -4,7 +4,6 @@ import { domains, mailboxAccess, mailboxes } from "@/db/schema";
 import { getUserMailRevision } from "./revision";
 import type { NewMessageNotification, RevisionNotification } from "./types";
 import { sendPushNotifications } from "@/lib/push/server";
-import { sendNativePush } from "@/lib/push/native";
 
 export function getSessionTokenFromRequest(request: Request): string | undefined {
 	const cookie = request.headers.get("Cookie");
@@ -69,7 +68,6 @@ export async function notifyUsersOfNewMessage(
 			});
 		}),
 		sendPushNotifications(env, userIds, payload),
-		sendNativePush(env, userIds, payload),
 	]);
 	for (const result of results) {
 		if (result.status === "rejected") console.error("New-message notification failed", result.reason);

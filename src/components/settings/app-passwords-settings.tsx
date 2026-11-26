@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import QRCode from "qrcode";
 import { Copy, KeyRound } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { useSelectedMailbox } from "@/components/mailbox-provider";
@@ -14,7 +13,6 @@ import { ClientRequestError } from "@/lib/http/client-error";
 import { formatUserDate } from "@/lib/time/utils";
 import type { AppPasswordList, AppPasswordSummary, CreatedAppPassword } from "./app-passwords-types";
 import { appPasswordProtocolName, createAppPassword, groupAppPassword, loadAppPasswords, revokeAppPassword } from "./app-passwords-utils";
-import { buildSignInQrPayload } from "./sign-in-qr-utils";
 import { useSecurityStatus } from "./security-status-store";
 import { StepUpDialog } from "./step-up-dialog";
 
@@ -47,7 +45,6 @@ export function AppPasswordsSettings() {
 	const [created, setCreated] = useState<Created | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [copied, setCopied] = useState<string | null>(null);
-	const [qr, setQr] = useState<string | null>(null);
 	const server = typeof window !== "undefined" ? window.location.origin : "";
 
 	const protocols = chosenProtocols ?? list?.availableProtocols ?? [];
@@ -59,19 +56,6 @@ export function AppPasswordsSettings() {
 		loadAppPasswords().then((next) => { setList(next); setLoadFailed(false); }).catch(() => setLoadFailed(true));
 	}, []);
 	useEffect(refresh, [refresh]);
-
-	// The mobile app scans this to fill in its sign-in form; it carries the password, so it is
-	// rendered in the browser and never leaves the page. Only JMAP is what the app speaks.
-	const createdKey = created?.protocols.includes("jmap") ? created.key : null;
-	const createdUsername = created?.username ?? "";
-	useEffect(() => {
-		if (!createdKey) return;
-		let cancelled = false;
-		QRCode.toDataURL(buildSignInQrPayload({ server, email: createdUsername, key: createdKey }), { margin: 1, width: 240, errorCorrectionLevel: "M" })
-			.then((url) => { if (!cancelled) setQr(url); })
-			.catch(() => { if (!cancelled) setQr(null); });
-		return () => { cancelled = true; };
-	}, [createdKey, server, createdUsername]);
 
 	async function authorized(stepUpToken: string) {
 		try {
@@ -128,16 +112,9 @@ export function AppPasswordsSettings() {
 					<Field label={t("emailClients.server")} value={server} onCopy={copy} copied={copied} />
 					<Field label={t("emailClients.username")} value={created.username || t("emailClients.anyValue")} onCopy={copy} copied={copied} />
 					<Field label={t("emailClients.passwordApiKey")} value={groupAppPassword(created.key)} copyValue={created.key} onCopy={copy} copied={copied} mono />
-					{qr && createdKey && (
-						<div className="flex flex-col items-center gap-2 rounded-xl bg-white p-4">
-							{/* eslint-disable-next-line @next/next/no-img-element */}
-							<img src={qr} alt={t("emailClients.qrAlt")} width={240} height={240} />
-							<p className="text-center text-xs text-neutral-500">{t("emailClients.qrHint")}</p>
-						</div>
-					)}
 					<p className="text-xs text-neutral-500">{t("appPasswords.shownOnce")}</p>
 					{created.protocols.includes("jmap") && <p className="text-xs text-neutral-500">{t("appPasswords.jmapDiscovery", { url: `${server}/.well-known/jmap` })}</p>}
-					<Button type="button" variant="outline" onClick={() => { setCreated(null); setQr(null); }}>{t("common.done")}</Button>
+					<Button type="button" variant="outline" onClick={() => setCreated(null)}>{t("common.done")}</Button>
 				</div>
 			) : (
 				<form onSubmit={(event) => { event.preventDefault(); setConfirming(true); }} className="space-y-4">

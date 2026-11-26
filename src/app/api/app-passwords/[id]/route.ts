@@ -18,7 +18,7 @@ export async function DELETE(request: Request, { params }: Params) {
 	const { id } = await params;
 	const db = getDb(env);
 	const [key] = await db.select({ kind: apiKeys.kind, scopes: apiKeys.scopes }).from(apiKeys).where(and(eq(apiKeys.id, id), eq(apiKeys.userId, auth.user.id))).limit(1);
-	// Only what the list shows: device keys, API keys and admin keys are managed elsewhere.
+	// Only what the list shows: API keys and admin keys are managed elsewhere.
 	if (!key || !isListedAsAppPassword(key)) return NextResponse.json({ error: "App password not found" }, { status: 404 });
 	await db.delete(apiKeys).where(and(eq(apiKeys.id, id), eq(apiKeys.userId, auth.user.id)));
 	await recordAuthActivity(env, { action: "auth.app_password_revoked", userId: auth.user.id, request });

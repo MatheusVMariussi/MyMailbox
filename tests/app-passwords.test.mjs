@@ -249,11 +249,10 @@ test("a limiter that throws does not lock everyone out", async (t) => {
 	assert.equal(result.keyId, "dav");
 });
 
-test("deleteUserSessions revokes app passwords, device keys and JMAP-only keys, and nothing else", async (t) => {
+test("deleteUserSessions revokes app passwords and JMAP-only keys, and nothing else", async (t) => {
 	const { database, env } = await fixture(t);
 	await addKey(database, { id: "app-dav", kind: "app", scopes: ["dav"] });
 	await addKey(database, { id: "app-jmap", kind: "app", scopes: ["jmap"] });
-	await addKey(database, { id: "device", kind: "device", scopes: ["jmap"] });
 	await addKey(database, { id: "old-jmap", kind: "legacy", scopes: ["jmap"] });
 	await addKey(database, { id: "old-mixed", kind: "legacy", scopes: ["send", "jmap"] });
 	await addKey(database, { id: "api-read", kind: "legacy", scopes: ["read", "send"] });

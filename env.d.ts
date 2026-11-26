@@ -25,17 +25,10 @@ interface CloudflareEnv {
 		import("./src/lib/realtime/hub").RealtimeHub
 	>;
 	LOGIN_RATE_LIMIT?: RateLimit;
-	/** Mobile device sign-in (`/api/auth/device`), stricter than the web login. */
+	/** Per-client budget for unverified app-password guesses (JMAP Basic auth); falls back to LOGIN_RATE_LIMIT. */
 	DEVICE_LOGIN_RATE_LIMIT?: RateLimit;
 	/** CalDAV/CardDAV requests per app password (600 per minute) and writes per user. */
 	DAV_RATE_LIMIT?: RateLimit;
-	/** APNs auth key for the mobile push relay (src/lib/push/native.ts). */
-	APNS_KEY_ID?: string;
-	APNS_TEAM_ID?: string;
-	/** The .p8 file contents (PKCS#8 PEM). */
-	APNS_PRIVATE_KEY?: string;
-	/** Origin of a Mailflare push relay (mailflare-relay); lets this server push without APNS_* keys. */
-	APNS_RELAY_URL?: string;
 	/** Spamhaus Data Query Service key; enables ZEN (sending IP) and DBL (domain) checks in spam analysis. */
 	SPAMHAUS_DQS_KEY?: string;
 	/** abuse.ch Auth-Key; enables URLhaus malware-host checks for links in incoming mail. */

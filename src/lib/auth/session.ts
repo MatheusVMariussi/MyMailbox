@@ -1,6 +1,5 @@
 import { and, eq, gt, ne } from "drizzle-orm";
 import { revokeAllAppPasswords } from "@/lib/auth/app-passwords";
-import { revokeAllDeviceKeys } from "@/lib/auth/device-keys";
 import { newId } from "@/lib/ids";
 import { getDb } from "@/db";
 import { sessions, users } from "@/db/schema";
@@ -77,12 +76,11 @@ export async function deleteSession(env: CloudflareEnv, token: string): Promise<
  */
 /**
  * Signs the user out everywhere: every session (but `keepToken`'s), every
- * mobile device key, every app password and every older JMAP key, so a
- * password change or "sign out everywhere" also disconnects the apps.
+ * app password and every older JMAP key, so a password change or "sign out
+ * everywhere" also disconnects the apps.
  */
 export async function deleteUserSessions(env: CloudflareEnv, userId: string, keepToken?: string): Promise<void> {
 	const db = getDb(env);
-	await revokeAllDeviceKeys(env, userId);
 	await revokeAllAppPasswords(env, userId);
 	if (keepToken) {
 		const keepHash = await hashSessionToken(keepToken);
