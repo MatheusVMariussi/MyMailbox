@@ -7,7 +7,7 @@ export function groupAppPassword(password: string): string {
 	return password.replace(/(.{4})(?=.)/g, "$1 ");
 }
 
-const PROTOCOL_NAMES: Record<string, string> = { jmap: "JMAP", caldav: "CalDAV", carddav: "CardDAV", imap: "IMAP", submission: "SMTP" };
+const PROTOCOL_NAMES: Record<string, string> = { jmap: "JMAP" };
 
 /** Protocol names are technical terms, so they are not translated. */
 export function appPasswordProtocolName(protocol: string): string {

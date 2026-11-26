@@ -23,7 +23,7 @@ test("the password is shown in groups of four", () => {
 });
 
 test("protocols keep their technical names", () => {
-	assert.deepEqual(["jmap", "caldav", "carddav", "imap", "submission", "other"].map(appPasswordProtocolName), ["JMAP", "CalDAV", "CardDAV", "IMAP", "SMTP", "other"]);
+	assert.deepEqual(["jmap", "other"].map(appPasswordProtocolName), ["JMAP", "other"]);
 });
 
 test("creating sends the step-up token and does not bounce to sign-in on a 401", async () => {

@@ -19,9 +19,6 @@ import { StepUpDialog } from "./step-up-dialog";
 /** Upper bound `POST /api/app-passwords` places on `mailboxIds`. */
 const MAX_KEY_MAILBOXES = 30;
 
-/** Protocols that read mail are limited to the mailboxes picked below; `dav` is user-level. */
-const needsMailboxes = (protocols: string[]) => protocols.some((protocol) => protocol !== "dav");
-
 type Created = CreatedAppPassword & { username: string };
 
 /**
@@ -49,8 +46,7 @@ export function AppPasswordsSettings() {
 
 	const protocols = chosenProtocols ?? list?.availableProtocols ?? [];
 	const mailboxIds = chosenMailboxIds ?? (mailboxes.length <= MAX_KEY_MAILBOXES ? mailboxes.map((mailbox) => mailbox.id) : [selectedMailbox?.id ?? mailboxes[0]?.id].filter((id): id is string => !!id));
-	const mailboxScoped = needsMailboxes(protocols);
-	const canSubmit = !!list && !isLoading && protocols.length > 0 && (!mailboxScoped || (mailboxIds.length > 0 && mailboxIds.length <= MAX_KEY_MAILBOXES));
+	const canSubmit = !!list && !isLoading && protocols.length > 0 && mailboxIds.length > 0 && mailboxIds.length <= MAX_KEY_MAILBOXES;
 
 	const refresh = useCallback(() => {
 		loadAppPasswords().then((next) => { setList(next); setLoadFailed(false); }).catch(() => setLoadFailed(true));
@@ -59,7 +55,7 @@ export function AppPasswordsSettings() {
 
 	async function authorized(stepUpToken: string) {
 		try {
-			const made = await createAppPassword({ name: name.trim() || t("emailClients.defaultName"), protocols, mailboxIds: mailboxScoped ? mailboxIds : [] }, stepUpToken);
+			const made = await createAppPassword({ name: name.trim() || t("emailClients.defaultName"), protocols, mailboxIds }, stepUpToken);
 			// The server ignores the username, but mail apps want an email address there.
 			const first = mailboxes.find((mailbox) => mailbox.id === made.mailboxIds[0]);
 			setCreated({ ...made, username: first ? `${first.localPart}@${first.hostname}` : "" });
@@ -140,24 +136,22 @@ export function AppPasswordsSettings() {
 							{protocols.length === 0 && <p role="alert" className="text-sm text-red-600">{t("appPasswords.chooseProtocol")}</p>}
 						</fieldset>
 					)}
-					{mailboxScoped && (
-						<fieldset className="space-y-2">
-							<legend className="text-sm font-medium">{t("emailClients.mailboxesLegend")}</legend>
-							{isLoading ? (
-								<p className="text-sm text-neutral-500">{t("emailClients.loadingMailboxes")}</p>
-							) : mailboxes.length === 0 ? (
-								<p className="text-sm text-neutral-500">{t("apiKeys.noMailboxes")}</p>
-							) : (
-								mailboxes.map((mailbox) => (
-									<label key={mailbox.id} className="flex items-center gap-3 text-sm">
-										<Checkbox checked={mailboxIds.includes(mailbox.id)} onChange={(event) => setChosenMailboxIds(toggle(mailboxIds, mailbox.id, event.target.checked))} />
-										{mailbox.localPart}@{mailbox.hostname}
-									</label>
-								))
-							)}
-							<p className="text-xs text-neutral-500">{t("emailClients.aliasLimit", { max: MAX_KEY_MAILBOXES })}</p>
-						</fieldset>
-					)}
+					<fieldset className="space-y-2">
+						<legend className="text-sm font-medium">{t("emailClients.mailboxesLegend")}</legend>
+						{isLoading ? (
+							<p className="text-sm text-neutral-500">{t("emailClients.loadingMailboxes")}</p>
+						) : mailboxes.length === 0 ? (
+							<p className="text-sm text-neutral-500">{t("apiKeys.noMailboxes")}</p>
+						) : (
+							mailboxes.map((mailbox) => (
+								<label key={mailbox.id} className="flex items-center gap-3 text-sm">
+									<Checkbox checked={mailboxIds.includes(mailbox.id)} onChange={(event) => setChosenMailboxIds(toggle(mailboxIds, mailbox.id, event.target.checked))} />
+									{mailbox.localPart}@{mailbox.hostname}
+								</label>
+							))
+						)}
+						<p className="text-xs text-neutral-500">{t("emailClients.aliasLimit", { max: MAX_KEY_MAILBOXES })}</p>
+					</fieldset>
 				</form>
 			)}
 			{error && <p role="alert" className="text-sm text-red-600">{error}</p>}

@@ -34,11 +34,9 @@ import { runTrashRetention } from "./src/lib/email/trash-retention";
 import { runAccountRetention } from "./src/lib/accounts/deletion";
 import { purgeExpiredAuthRows } from "./src/lib/auth/purge";
 import { runJmapChangeRetention } from "./src/lib/jmap/changes";
-import { runDavChangeRetention } from "./src/lib/dav/changes";
 import { runFollowUpReminders } from "./src/lib/follow-ups/service";
 import { runPromotionsBackfill } from "@/lib/promotions/backfill";
 import { runCalendarReminders } from "./src/lib/calendar/reminders";
-import { handleDavRequest, isDavPath } from "./src/lib/dav/handler";
 import { runDeliverabilityDaily } from "./src/lib/deliverability/daily";
 import { guardMtaStsHost, isMtaStsHost } from "./src/lib/deliverability/mta-sts";
 export { RealtimeHub } from "./src/lib/realtime/hub";
@@ -49,11 +47,6 @@ export default {
 		const requestUrl = new URL(request.url);
 		const blocked = guardMtaStsHost({ hostname: requestUrl.hostname, pathname: requestUrl.pathname, method: request.method });
 		if (blocked) return blocked;
-		// CalDAV/CardDAV use methods Next route handlers cannot express (PROPFIND, REPORT). They skip the D1 read
-		// session on purpose: a client that writes and then asks for changes must read its own writes.
-		if (isDavPath(requestUrl.pathname)) {
-			return (await handleDavRequest(request, withDatabase(withStorage(rawEnv)))) ?? new Response("Not found", { status: 404 });
-		}
 		// Reads go through a D1 session anchored at the client's bookmark cookie so D1 can serve
 		// them from read replicas; email/queue/scheduled below keep primary reads on purpose.
 		// The policy answer stays cookie free, so it opens no read session (which would add a bookmark cookie).
@@ -178,8 +171,6 @@ export default {
 		ctx.waitUntil(runCalendarReminders(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runPromotionsBackfill(env, new Date(controller.scheduledTime)).catch((error) => console.error("Promotions backfill failed", error)));
 		ctx.waitUntil(pruneExpiredMessageActionUndoClaims(env, new Date(controller.scheduledTime)));
-		// DAV log retention takes a small slice per run (one collection, 90 rows, 3 queries), so it runs on every cron tick.
-		ctx.waitUntil(runDavChangeRetention(env, new Date(controller.scheduledTime)).catch((error) => console.error("DAV change retention failed", error)));
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runAccountRetention(env, new Date(controller.scheduledTime)));
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(purgeExpiredAuthRows(env, new Date(controller.scheduledTime)));
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runJmapChangeRetention(env, new Date(controller.scheduledTime)));

@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 	const appPasswords = rows
 		.filter(isListedAsAppPassword)
 		.map(({ kind, scopes, ...row }) => ({ ...row, legacy: kind !== "app", protocols: parseScopes(scopes) }));
-	return NextResponse.json({ appPasswords, availableProtocols: await availableAppPasswordProtocols(env) }, { headers: NO_STORE });
+	return NextResponse.json({ appPasswords, availableProtocols: availableAppPasswordProtocols() }, { headers: NO_STORE });
 }
 
 /**
@@ -57,14 +57,13 @@ export async function POST(request: Request) {
 	if (!parsed.success) return authError("invalid_request", 400);
 	const { name, stepUpToken } = parsed.data;
 	const protocols = [...new Set(parsed.data.protocols)];
-	const available = await availableAppPasswordProtocols(env);
+	const available = availableAppPasswordProtocols();
 	if (protocols.some((protocol) => !available.includes(protocol))) return authError("invalid_request", 400);
 
 	const db = getDb(env);
 	const mailboxIds = [...new Set(parsed.data.mailboxIds)];
-	// Every protocol offered today reads mail, so a mailbox is always needed; `dav` (user-level) will relax this.
-	const mailboxScoped = protocols.some((protocol) => protocol !== "dav");
-	if (mailboxScoped && !mailboxIds.length) return NextResponse.json({ error: "Choose a mailbox for mail access" }, { status: 400 });
+	// Every protocol offered reads mail, so a mailbox is always needed.
+	if (!mailboxIds.length) return NextResponse.json({ error: "Choose a mailbox for mail access" }, { status: 400 });
 	for (const mailboxId of mailboxIds) if (!(await getMailboxAccessLevel(db, auth.user, mailboxId))?.canRead) return NextResponse.json({ error: "Mailbox not found" }, { status: 403 });
 
 	const sessionToken = getSessionTokenFromRequestHeaders(request);
@@ -84,9 +83,9 @@ export async function POST(request: Request) {
 		keyHash: hash,
 		keySha256: sha256,
 		scopes: scopesToJson(protocols),
-		mailboxScopeEnabled: mailboxScoped,
+		mailboxScopeEnabled: true,
 	});
-	if (mailboxScoped) await db.insert(mcpKeyMailboxes).values(mailboxIds.map((mailboxId) => ({ keyId: id, mailboxId })));
+	await db.insert(mcpKeyMailboxes).values(mailboxIds.map((mailboxId) => ({ keyId: id, mailboxId })));
 	await recordAuthActivity(env, { action: "auth.app_password_created", userId: auth.user.id, request });
 	return NextResponse.json({ id, name, key: fullKey, protocols, mailboxIds }, { headers: NO_STORE });
 }

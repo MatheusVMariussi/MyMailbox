@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { loadGeneralSettings, saveGeneralSettings } from "./utils";
 
 export default function GeneralSettingsPage() {
@@ -16,14 +15,11 @@ export default function GeneralSettingsPage() {
 	const [loaded, setLoaded] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [status, setStatus] = useState("");
-	const [davEnabled, setDavEnabled] = useState(false);
-	const [davSaving, setDavSaving] = useState(false);
-	const [davStatus, setDavStatus] = useState("");
 
 	useEffect(() => {
 		let active = true;
 		void loadGeneralSettings().then((settings) => {
-			if (active) { setMaxMb(settings.outboundAttachmentMaxMb); setCeilingMb(settings.outboundAttachmentCeilingMb); setDavEnabled(settings.davEnabled); setLoaded(true); }
+			if (active) { setMaxMb(settings.outboundAttachmentMaxMb); setCeilingMb(settings.outboundAttachmentCeilingMb); setLoaded(true); }
 		}).catch((error) => { if (active) setStatus(error instanceof Error ? error.message : t("general.loadFailed")); });
 		return () => { active = false; };
 	}, [t]);
@@ -41,19 +37,6 @@ export default function GeneralSettingsPage() {
 		} finally { setSaving(false); }
 	}
 
-	async function saveDav(event: React.FormEvent<HTMLFormElement>) {
-		event.preventDefault();
-		setDavSaving(true);
-		setDavStatus("");
-		try {
-			const settings = await saveGeneralSettings({ davEnabled });
-			setDavEnabled(settings.davEnabled);
-			setDavStatus(t("general.davSaved"));
-		} catch (error) {
-			setDavStatus(error instanceof Error ? error.message : t("general.saveFailed"));
-		} finally { setDavSaving(false); }
-	}
-
 	return <div className="space-y-6">
 		<div><h1 className="text-2xl md:text-3xl font-medium text-neutral-900">{t("general.title")}</h1><p className="mt-2 text-sm text-neutral-500">{t("general.description")}</p></div>
 		<Card className="rounded-3xl border-0 bg-white p-6">
@@ -63,15 +46,6 @@ export default function GeneralSettingsPage() {
 				<div className="space-y-2 rounded-xl bg-neutral-50 p-4 text-sm text-neutral-700"><p>{t("general.cloudflareLimit")}</p><p>{t("general.largeFiles")}</p><p>{t("general.largeFilesOthers")}</p></div>
 				{status && <p role="status" className="text-sm text-neutral-700">{status}</p>}
 				<Button type="submit" disabled={!loaded || saving || !Number.isInteger(maxMb) || maxMb < 1 || maxMb > ceilingMb}>{saving ? t("common.saving") : t("general.save")}</Button>
-			</form></CardContent>
-		</Card>
-		<Card className="rounded-3xl border-0 bg-white p-6">
-			<CardHeader className="py-0"><CardTitle>{t("general.dav")}</CardTitle></CardHeader>
-			<CardContent className="pt-6"><form onSubmit={saveDav} className="space-y-4">
-				<div className="flex items-center gap-3"><Switch id="dav-enabled" checked={davEnabled} onCheckedChange={setDavEnabled} disabled={!loaded || davSaving} /><Label htmlFor="dav-enabled">{t("general.davEnabled")}</Label></div>
-				<p className="text-sm text-neutral-500">{t("general.davHint")}</p>
-				{davStatus && <p role="status" className="text-sm text-neutral-700">{davStatus}</p>}
-				<Button type="submit" disabled={!loaded || davSaving}>{davSaving ? t("common.saving") : t("general.save")}</Button>
 			</form></CardContent>
 		</Card>
 	</div>;

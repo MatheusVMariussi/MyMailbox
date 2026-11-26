@@ -16,7 +16,7 @@ const mocks = {
 	"@/lib/mailboxes/access": "export async function getMailboxAccessLevel(db,user,id){return globalThis.appPwRoute.readable.includes(id)?{canRead:true}:null}",
 	"@/lib/auth/activity": "export async function recordAuthActivity(env,input){globalThis.appPwRoute.audit.push(input.action)}",
 	// The app-password module pulls in the verification stack, which these routes do not use.
-	"@/lib/auth/app-passwords": "export async function availableAppPasswordProtocols(){return globalThis.appPwRoute.protocols ?? ['jmap']}",
+	"@/lib/auth/app-passwords": "export function availableAppPasswordProtocols(){return ['jmap']}",
 };
 
 const route = await loadFixture({ name: "app-password-route", entryPoint: "src/app/api/app-passwords/route.ts", mocks });
@@ -101,7 +101,7 @@ test("a valid grant creates a mailbox-scoped app password, shown once, and is sp
 	assert.equal(keys().length, 1);
 });
 
-test("protocols the server cannot serve yet are refused, and keep the grant", async () => {
+test("protocols other than JMAP are refused, and keep the grant", async () => {
 	setup();
 	const token = await grant();
 	for (const protocols of [["dav"], ["imap"], ["submission"], ["jmap", "dav"], ["caldav"], ["*"], [], "jmap"]) {
@@ -233,22 +233,5 @@ test("a jmap key request that fails validation keeps the grant", async () => {
 	assert.equal((await postKey(keyBody(["jmap"], { stepUpToken: token, mailboxIds: ["not-mine"] }))).status, 403);
 	assert.equal((await postKey(keyBody(["jmap"], { stepUpToken: token, mailboxIds: [] }))).status, 400);
 	assert.equal(unspentGrants(), 1);
-	assert.equal(keys().length, 0);
-});
-
-test("a calendar-and-contacts password needs no mailbox, and only exists while DAV is enabled", async () => {
-	setup();
-	globalThis.appPwRoute.protocols = ["jmap", "dav"];
-	const response = await post(valid(await grant(), { protocols: ["dav"], mailboxIds: [] }));
-	assert.equal(response.status, 200);
-	const [row] = keys();
-	assert.equal(row.scopes, '["dav"]');
-	assert.equal(row.mailbox_scope_enabled, 0);
-	assert.equal(sqlite.prepare("SELECT count(*) AS n FROM mcp_key_mailboxes").get().n, 0);
-	assert.deepEqual((await (await GET(new Request("https://mail.test/api/app-passwords"))).json()).availableProtocols, ["jmap", "dav"]);
-
-	setup();
-	const off = await post(valid(await grant(), { protocols: ["dav"], mailboxIds: [] }));
-	assert.equal(off.status, 400);
 	assert.equal(keys().length, 0);
 });
