@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { LanguageProvider } from "@/components/language-provider";
 import { DEFAULT_LOCALE } from "@/lib/i18n/utils";
@@ -9,22 +9,30 @@ import { themeBootstrapScript } from "@/components/theme-utils";
 import { getHomeBranding } from "./home-server-utils";
 import "./globals.css";
 
-const geistSans = Geist({
-	variable: "--font-geist-sans",
+// The ~/matheus type pairing: Inter for reading, Space Grotesk for headings, JetBrains Mono for terminal accents.
+const inter = Inter({
+	variable: "--font-inter",
 	subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
+const spaceGrotesk = Space_Grotesk({
+	variable: "--font-space-grotesk",
 	subsets: ["latin"],
+	weight: ["500", "600", "700"],
 });
 
-// Colours are the --background tokens in globals.css (light #f6f8fc, dark #202124).
+const jetBrainsMono = JetBrains_Mono({
+	variable: "--font-jetbrains-mono",
+	subsets: ["latin"],
+	weight: ["400", "500"],
+});
+
+// Colours are the --ground tokens in globals.css (light #f2f3f6, dark #07080a).
 // viewportFit "cover" lets the shell reach the notch and home indicator; the env(safe-area-inset-*) padding keeps content clear of them.
 export const viewport: Viewport = {
 	themeColor: [
-		{ media: "(prefers-color-scheme: light)", color: "#f6f8fc" },
-		{ media: "(prefers-color-scheme: dark)", color: "#202124" },
+		{ media: "(prefers-color-scheme: light)", color: "#f2f3f6" },
+		{ media: "(prefers-color-scheme: dark)", color: "#07080a" },
 	],
 	viewportFit: "cover",
 };
@@ -33,12 +41,12 @@ export async function generateMetadata(): Promise<Metadata> {
 	const { appName } = await getHomeBranding();
 	return {
 		title: appName,
-		description: "Multi-tenant email on Cloudflare",
+		description: "My own inbox, on my own domain.",
 		icons: { icon: "/api/branding/icon", apple: "/apple-touch-icon.png" },
 		appleWebApp: {
 			capable: true,
 			title: appName,
-			statusBarStyle: "default",
+			statusBarStyle: "black-translucent",
 		},
 		robots: {
 			index: false,
@@ -68,7 +76,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 				<script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
 				<link rel="icon" href="/api/branding/icon"></link>
 			</head>
-			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+			<body className={`${inter.variable} ${spaceGrotesk.variable} ${jetBrainsMono.variable} antialiased`}>
 				<LanguageProvider initialLocale={locale} initialMessages={messages}><Providers initialBranding={branding}>{children}</Providers></LanguageProvider>
 			</body>
 		</html>

@@ -37,26 +37,28 @@ test("manifest has a maskable icon entry that exists in public/", async () => {
 test("manifest keeps the existing any-purpose icons", async () => {
 	const manifest = await loadManifest();
 	const anyIcons = manifest.icons.filter((icon) => !icon.purpose || icon.purpose === "any");
-	assert.deepEqual(anyIcons.map((icon) => icon.src), ["/icon-192.png", "/icon-512.png"]);
+	assert.deepEqual(anyIcons.map((icon) => icon.src), ["/icon.svg", "/icon-192.png", "/icon-512.png"]);
 });
 
-test("manifest theme_color matches the light viewport theme colour", async () => {
+test("manifest theme_color matches the dark (default) viewport theme colour", async () => {
 	const manifest = await loadManifest();
 	const layout = readFileSync(join(root, "src/app/layout.tsx"), "utf8");
-	const light = layout.match(/prefers-color-scheme: light\)", color: "(#[0-9a-f]{6})"/i)?.[1];
-	assert.ok(light);
-	assert.equal(manifest.theme_color, light);
+	const dark = layout.match(/prefers-color-scheme: dark\)", color: "(#[0-9a-f]{6})"/i)?.[1];
+	assert.ok(dark);
+	assert.equal(manifest.theme_color, dark);
 });
 
 // Android masks the icon to a circle of 40% of the width; the artwork must sit inside the 80% safe zone (radius 205 of 512).
 test("maskable icon artwork fits inside the safe-zone circle", async () => {
 	const { default: sharp } = await import("sharp");
 	const { data, info } = await sharp(join(root, "public/icon-maskable-512.png")).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+	// The maskable icon is full-bleed: its background is the corner colour, everything else is artwork.
+	const [br, bg, bb] = [data[0], data[1], data[2]];
 	let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
 	for (let y = 0; y < info.height; y++) {
 		for (let x = 0; x < info.width; x++) {
 			const i = (y * info.width + x) * 4;
-			if (data[i + 3] > 16 && !(data[i] > 250 && data[i + 1] > 250 && data[i + 2] > 250)) {
+			if (data[i + 3] > 16 && Math.abs(data[i] - br) + Math.abs(data[i + 1] - bg) + Math.abs(data[i + 2] - bb) > 24) {
 				x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
 			}
 		}

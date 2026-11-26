@@ -26,8 +26,8 @@ export function AuthShell({
   }
 
   return (
-    <div className="min-h-dvh bg-[#f1f4fa] pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] text-neutral-900 sm:px-6 sm:py-6 lg:flex lg:items-center lg:px-10 lg:py-10">
-      <main className="mx-auto grid min-h-dvh w-full max-w-4xl grid-rows-[auto_1fr] overflow-hidden bg-white sm:min-h-0 sm:grid-rows-none sm:rounded-4xl lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+    <div className="atmosphere min-h-dvh pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] text-ink sm:px-6 sm:py-6 lg:flex lg:items-center lg:px-10 lg:py-10">
+      <main className="mx-auto grid min-h-dvh w-full max-w-4xl grid-rows-[auto_1fr] overflow-hidden bg-surface-1 sm:min-h-0 sm:grid-rows-none sm:rounded-3xl sm:border sm:border-line sm:shadow-[0_24px_80px_-32px_rgb(0_0_0/0.55)] lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
         <section className="flex flex-col p-7 sm:p-10 lg:p-14">
           <div className="flex items-center gap-2">
             <span className="flex items-center justify-center overflow-hidden">
@@ -45,17 +45,19 @@ export function AuthShell({
                 />
               )}
             </span>
-            <span className="truncate text-md font-semibold text-neutral-800">
-              {branding.appName}
+            <span className="wordmark truncate text-sm text-ink-soft" aria-label={branding.appName}>
+              <span className="text-accent">~/</span>
+              {branding.appName.toLowerCase().replace(/\s+/g, "-")}
+              <span aria-hidden="true" className="ml-1 inline-block h-3.5 w-2 translate-y-0.5 bg-ink motion-safe:animate-caret-blink" />
             </span>
           </div>
 
           <div className="mt-10 sm:mt-6 lg:mt-8">
-            <h1 className="max-w-md text-3xl font-medium leading-tight tracking-tight text-neutral-950 sm:text-4xl">
+            <h1 className="max-w-md text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
               {title}
             </h1>
             {description && (
-              <p className="mt-5 max-w-md text-base leading-7 text-neutral-600">
+              <p className="mt-5 max-w-md text-base leading-7 text-ink-muted">
                 {description}
               </p>
             )}
@@ -66,9 +68,9 @@ export function AuthShell({
           </div>
         </section>
 
-        <section className="flex min-w-0 flex-col justify-start px-7 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-0 sm:justify-center sm:p-10 lg:p-14">
+        <section className="flex min-w-0 flex-col justify-start border-line px-7 lg:border-l pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-0 sm:justify-center sm:p-10 lg:p-14">
           {steps && (
-            <div className="mb-7 flex flex-wrap gap-2 text-xs font-semibold">
+            <div className="mb-7 flex flex-wrap gap-2 font-mono text-xs font-medium">
               {steps.map((step, index) => (
                 <span key={step.label} className="flex items-center gap-2">
                   <span

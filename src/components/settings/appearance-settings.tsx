@@ -5,6 +5,7 @@ import { useLanguage } from "@/components/language-provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { Select } from "@/components/ui/select";
 import {
+	DEFAULT_THEME_PREFERENCE,
 	isThemePreference,
 	readThemePreference,
 	saveThemePreference,
@@ -23,7 +24,7 @@ function subscribeThemePreference(onChange: () => void) {
 	return () => window.removeEventListener(THEME_CHANGED_EVENT, onChange);
 }
 
-const serverThemePreference = (): ThemePreference => "system";
+const serverThemePreference = (): ThemePreference => DEFAULT_THEME_PREFERENCE;
 
 export function AppearanceSettings() {
 	const { t } = useLanguage();
