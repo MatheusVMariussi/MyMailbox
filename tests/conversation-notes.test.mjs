@@ -96,7 +96,7 @@ const owner = { id: "owner", role: "user" };
 const reader = { id: "reader", role: "user" };
 const stranger = { id: "stranger", role: "user" };
 
-/** A shared mailbox owned by `owner`, with `reader` given read-only access on a Team license. */
+/** A shared mailbox owned by `owner`, with `reader` given read-only access. */
 async function createFixture(t) {
 	const database = new SqliteDatabase(join(outDir, `${crypto.randomUUID()}.sqlite`));
 	t.after(() => database.db.close());

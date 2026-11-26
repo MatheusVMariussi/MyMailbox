@@ -5,12 +5,12 @@ import { users } from "@/db/schema";
 import { adminApiKeyRevocations } from "@/lib/api/admin-key-revocation";
 import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { requireTeamAdmin } from "../../utils";
+import { requireAdminSession } from "../../utils";
 import type { AccountRouteParams } from "../types";
 import { selectAccountById } from "../utils";
 
 export async function POST(request: Request, { params }: AccountRouteParams) {
-	const access = await requireTeamAdmin(request);
+	const access = await requireAdminSession(request);
 	if (access.error) return access.error;
 	const actor = access.user!;
 	if (!isPrimaryAdmin(actor)) {

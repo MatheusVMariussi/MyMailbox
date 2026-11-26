@@ -8,7 +8,6 @@ export type ProfileFormResponse = {
 		timeZone: string | null;
 		resetEmail: string | null;
 		forwardingEmail: string | null;
-		canForwardEmail: boolean;
 	};
 	error?: unknown;
 };
@@ -21,7 +20,6 @@ export type AccountSettingsResponse = {
 		timeZone: string | null;
 		resetEmail: string | null;
 		forwardingEmail: string | null;
-		canForwardEmail: boolean;
 	};
 	error?: unknown;
 };

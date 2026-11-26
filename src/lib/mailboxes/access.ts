@@ -3,7 +3,6 @@ import type { AppDatabase } from "@/db";
 import { domains, mailboxAccess, mailboxes, users } from "@/db/schema";
 import { getAccountStatus } from "@/lib/accounts/deletion-utils";
 import type { SessionUser } from "@/lib/auth/types";
-import { isTeamMailboxSharingEnabled } from "./access-utils";
 import type { MailboxAccessLevel, MailboxPermission } from "./types";
 
 const permissionRank: Record<MailboxPermission, number> = {
@@ -27,7 +26,7 @@ export async function getMailboxAccessLevel(
 
 	const isOwner = mailbox.userId === user.id;
 	if (isOwner) return buildAccess(mailbox, "full_access", true);
-	if (mailbox.type !== "shared" || !(await isTeamMailboxSharingEnabled(db))) return null;
+	if (mailbox.type !== "shared") return null;
 
 	const [delegatedAccess] = await db
 		.select({ permission: mailboxAccess.permission })
@@ -42,7 +41,7 @@ export async function getMailboxAccessLevel(
 /** Enabled users who may send for the mailbox: its owner plus, on a shared mailbox, anyone granted send_on_behalf or more. */
 export async function listMailboxSenders(db: AppDatabase, mailbox: Pick<MailboxAccessLevel["mailbox"], "id" | "userId" | "type">) {
 	const ids = new Set([mailbox.userId]);
-	if (mailbox.type === "shared" && (await isTeamMailboxSharingEnabled(db))) {
+	if (mailbox.type === "shared") {
 		const grants = await db
 			.select({ userId: mailboxAccess.userId })
 			.from(mailboxAccess)
@@ -98,7 +97,6 @@ export async function listAccessibleMailboxes(db: AppDatabase, user: Pick<Sessio
 			};
 		});
 
-	if (!(await isTeamMailboxSharingEnabled(db))) return owned;
 	const sharedRows = await db
 		.select({
 			id: mailboxes.id,

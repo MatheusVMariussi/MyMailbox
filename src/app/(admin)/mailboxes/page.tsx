@@ -153,21 +153,19 @@ export default function MailboxesPage() {
 							<DialogDescription>{t("mailboxes.createDescription")}</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4">
-							{mailboxes.data?.canCreateShared && (
-								<div className="space-y-2">
-									<Label htmlFor="mailbox-type">{t("mailboxes.type")}</Label>
-									<Select
-										id="mailbox-type"
-										value={mailboxType}
-										onChange={(event) => setMailboxType(event.target.value as "personal" | "shared")}
-										containerClassName="flex w-full rounded-none border-0 p-0"
-										className="h-10 rounded-md border border-neutral-200 bg-white px-3 text-sm shadow-sm shadow-neutral-200/50 focus-visible:border-blue-600"
-									>
-										<option value="personal">{t("mailboxes.personalInbox")}</option>
-										<option value="shared">{t("mailboxes.sharedInbox")}</option>
-									</Select>
-								</div>
-							)}
+							<div className="space-y-2">
+								<Label htmlFor="mailbox-type">{t("mailboxes.type")}</Label>
+								<Select
+									id="mailbox-type"
+									value={mailboxType}
+									onChange={(event) => setMailboxType(event.target.value as "personal" | "shared")}
+									containerClassName="flex w-full rounded-none border-0 p-0"
+									className="h-10 rounded-md border border-neutral-200 bg-white px-3 text-sm shadow-sm shadow-neutral-200/50 focus-visible:border-blue-600"
+								>
+									<option value="personal">{t("mailboxes.personalInbox")}</option>
+									<option value="shared">{t("mailboxes.sharedInbox")}</option>
+								</Select>
+							</div>
 							{mailboxType === "personal" ? (
 							<div className="space-y-2">
 								<Label htmlFor="mailbox-owner">{t("mailboxes.account")}</Label>

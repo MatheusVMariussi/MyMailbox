@@ -10,7 +10,6 @@ import { bumpSecurityVersion } from "@/lib/auth/webauthn/grants";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { authError } from "@/lib/http/auth-error";
 import { getEnv } from "@/lib/cloudflare";
-import { getLicenseEntitlements } from "@/lib/licenses/service";
 import type { UpdateForwardingEmailInput } from "./types";
 import { parseUpdateForwardingEmailRequest } from "./utils";
 
@@ -26,10 +25,6 @@ export async function PATCH(request: Request) {
 			return NextResponse.json({ error: error.flatten() }, { status: 400 });
 		}
 		return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-	}
-
-	if (!(await getLicenseEntitlements(env)).canForwardEmail) {
-		return NextResponse.json({ error: "A Pro or Team license is required for email forwarding" }, { status: 403 });
 	}
 
 	// A forwarding address receives a copy of all mail: changing it needs a password or step-up proof.

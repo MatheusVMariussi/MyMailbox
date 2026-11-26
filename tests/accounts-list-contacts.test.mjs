@@ -18,8 +18,6 @@ const mocks = {
 	"@/db": "const rows={from(){return rows},orderBy(){return Promise.resolve([{id:'u2',email:'b@example.com',name:'B',resetEmail:'private@example.org',role:'user',disabled:false,createdAt:new Date(0)}])}};export function getDb(){return {select(){return rows}}}",
 	"@/lib/auth/cookies": "export async function requireUser(){return globalThis.__actor}",
 	"@/lib/cloudflare": "export function getEnv(){return {}}",
-	"@/lib/licenses/service": "export async function getLicenseEntitlements(){return {canManageAccounts:true,accountSeatLimit:null}}",
-	"@/lib/licenses/seats": "export async function countUsedAccountSeats(){return 1}",
 	"@/lib/accounts/deletion": "export async function deleteAccounts(){}",
 	"./create": "export async function createAccountResponse(){}",
 };

@@ -11,7 +11,7 @@ const { app, newDatabase } = await loadApp("forwarding-reauth", `
 	export { createStepUpGrant } from "./src/lib/auth/webauthn/grants.ts";
 `, { mocks: {
 	// The API-key path is exercised as the owner of the key (id from globalThis.keyOwner).
-	"@/lib/api/admin-auth": "export async function authenticateAdminApiKey(){return {userId:globalThis.keyOwner,user:{id:globalThis.keyOwner,role:'admin',isPrimaryAdmin:true}}} export async function canManageAdminAccounts(){return true}",
+	"@/lib/api/admin-auth": "export async function authenticateAdminApiKey(){return {userId:globalThis.keyOwner,user:{id:globalThis.keyOwner,role:'admin',isPrimaryAdmin:true}}}",
 } });
 
 async function setup(t) {

@@ -34,5 +34,4 @@ export type MailboxOwner = {
 
 export type MailboxesResponse = {
 	mailboxes: Mailbox[];
-	canCreateShared: boolean;
 };

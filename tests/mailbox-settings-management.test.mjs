@@ -39,7 +39,7 @@ const { SqliteDatabase, applyMigrations, getDb, createSession, getMailboxAccessL
 	getAuthorizedSenderAddress, detail, aliases, avatar, accountMailboxes } = await import(pathToFileURL(join(directory, "entry.mjs")).href);
 const context = id => ({ params: Promise.resolve({ id }) });
 
-async function fixture(t, plan = "team") {
+async function fixture(t) {
 	const database = new SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
 	await applyMigrations(database, join(root, "drizzle/migrations"));
@@ -74,7 +74,6 @@ async function fixture(t, plan = "team") {
 		INSERT INTO license_settings (id, instance_id, plan, state, features, updated_at)
 			VALUES ('default', 'settings-test', 'team', 'active', '[]', 1);
 	`);
-	sql.prepare("UPDATE license_settings SET plan=?, state=? WHERE id='default'").run(plan, plan === "community" ? "inactive" : "active");
 	const objects = new Map([["avatars/sam", new Uint8Array([1, 2, 3])]]);
 	const env = {
 		DB: database, MAILFLARE_RUNTIME: "node", CF_TOKEN: "test-only",
@@ -191,13 +190,11 @@ test("owners and shared mailbox grants keep their existing settings permissions"
 	assert.equal((await f.patch("sam", "m-shared", { displayName: "Shared Updated" })).status, 200);
 });
 
-test("administrative mailbox settings preserve the account license requirement", async t => {
-	for (const plan of ["community", "pro"]) {
-		const f = await fixture(t, plan);
-		assert.equal((await f.read("primary", "m-sam")).status, plan === "pro" ? 200 : 404);
-		assert.equal((await f.patch("primary", "m-sam", { displayName: "Licensed" })).status, plan === "pro" ? 200 : 404);
-		assert.equal((await f.patch("sam", "m-sales", { displayName: "My Sales" })).status, 200);
-	}
+test("administrative mailbox settings need no license", async t => {
+	const f = await fixture(t);
+	assert.equal((await f.read("primary", "m-sam")).status, 200);
+	assert.equal((await f.patch("primary", "m-sam", { displayName: "Managed" })).status, 200);
+	assert.equal((await f.patch("sam", "m-sales", { displayName: "My Sales" })).status, 200);
 });
 
 test("administrators can manage aliases within the mailbox's domain-owner scope", async t => {
