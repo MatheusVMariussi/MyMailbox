@@ -194,9 +194,28 @@ Mail is organised with labels, Gmail-style. A label belongs to one mailbox, a me
 
 `GET /api/messages?labelId=` lists a label: every message with it, in any direction and status except Trash and Spam (send no `status` or `direction`). Every list row, the reader detail (`GET /api/messages/{id}`) and `GET /api/v1/messages` rows carry `labelIds` (oldest first); `folderId` is gone. `GET /api/messages/counts` returns `counts.labels`, `{ [labelId]: { total, unread } }` for what each label view lists, and `GET /api/messages/navigation` accepts `labelId` for reader prev/next.
 
-`POST /api/messages/actions` takes `action: "label"` or `"unlabel"` with a `labelId` to add or remove one label, and `action: "move"` to add a label and take the message out of the inbox (received mail, and mail in Trash or Spam, goes to Archive; sent mail stays sent). Drafts take no labels, and a label applies only to mail of its own mailbox (`skipped` with `not_applicable` otherwise). The response records carry `labels: { added, removed }` with the pairs that really changed, and the undo token reverts exactly those. `POST /api/messages/bulk` accepts the same three actions with `labelId`.
+`labelId` may also be a comma-separated group of label ids (at most 100): the unified sidebar shows same-named labels of different mailboxes as one entry, and the list and navigation then match mail carrying any of them (the group is bound as one JSON parameter).
+
+`POST /api/messages/actions` takes `action: "label"` or `"unlabel"` with a `labelId` to add or remove one label, and `action: "move"` to add a label and take the message out of the inbox (received mail, and mail in Trash or Spam, goes to Archive; sent mail stays sent). Drafts take no labels. A label belongs to one mailbox, so a message of another mailbox takes that mailbox's label of the same name instead, and is `skipped` with `not_applicable` when its mailbox has none. The response records carry `labels: { added, removed }` with the pairs that really changed, and the undo token reverts exactly those. `POST /api/messages/bulk` accepts the same three actions with `labelId`.
 
 Mailbox rules (`/api/routing-rules`) take `destination: "label:<id>"` with an optional `skipInbox: true`, or `destination: "archive"` to skip the inbox without a label. Every matching rule adds its label and any matching `skipInbox` archives the message; the first matching spam or trash rule wins outright and that mail gets no labels. The `message.inbound` webhook payload includes the `labelIds` the rules applied.
+
+## Projects
+
+A project is a named, colored identity that owns whole domains or single addresses, so one unified inbox can show and filter mail per product. Every message carries `deliveredTo` (inbound only: the lower-cased bare envelope recipient, null on mail stored before projects) and `projectId`: the project of its own address, which is the envelope recipient for inbound mail and the From address for sent mail and drafts. An address resolves to the project owning its exact local part on that domain (dots and plus tags ignored, as routing does), else the project owning the whole domain, else none. A failed lookup never blocks delivery.
+
+| Route (session auth) | Purpose |
+| --- | --- |
+| `GET /api/projects` | `{ projects, domains }`: the user's projects in order, each with its `addresses` (`{ id, domainId, hostname, localPart }`, an empty `localPart` owns the whole domain), and the domains the user may map (their own and those of mailboxes they can read) |
+| `POST /api/projects` | Create: `{ name, color? }` (1 to 60 characters, unique per user, `409` on a duplicate; `color` is one of the identity accents or label colors in `src/lib/projects/colors.ts`) |
+| `PATCH /api/projects/{id}` | Rename, recolor or reorder: `{ name?, color?, sortOrder? }` |
+| `DELETE /api/projects/{id}` | Delete the project and its addresses. Messages keep the id until the next re-stamp |
+| `PUT /api/projects/{id}/addresses` | Replace what the project owns: `{ addresses: [{ domainId, localPart }] }`, at most 100; `localPart` is trimmed and lower-cased, without spaces, `@` or a plus tag. An unknown or inaccessible domain answers `404`; an address another project owns (also when it only differs by dots) answers `409` and keeps the old set |
+| `POST /api/projects/{id}/restamp` | Recompute `projectId` of the stored mail in every mailbox the user can read, after mappings changed. Bounded: send `{ cursor }` back while the answer `{ done, scanned, updated, cursor }` has `done: false` |
+
+`GET /api/messages`, `GET /api/messages/navigation` and `GET /api/v1/messages` accept `projectId`. `GET /api/messages/counts` returns `counts.projects`, `{ [projectId]: { total, unread } }` for each project's Inbox (Promotions a `separate` mailbox files away excluded), and with `projectId` narrows the folder counts to that project while `counts.projects` keeps covering every project. Without `mailboxId` these endpoints cover every accessible mailbox: the web app's default list scope is that unified inbox. The `message.inbound` webhook carries `deliveredTo`, `projectId` and `projectName`; `message.outbound` carries `projectId`.
+
+A reply leaves from the address the message was delivered to when the mailbox can send as it (exactly, or ignoring dots and plus tags), else from a To or Cc address it can send as, else from its first address on the delivered domain, else from its first address. New mail in the web composer starts from the first sender address of the project the lists are filtered to.
 
 ## JMAP
 
