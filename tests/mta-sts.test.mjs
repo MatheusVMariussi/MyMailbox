@@ -148,13 +148,13 @@ test("a stored policy that no longer validates is not served, and a missing tabl
 	assert.equal((await f.get("mta-sts.example.com")).status, 404);
 });
 
-test("on Node the request URL carries the bind address, so the domain comes from the Host header", async (t) => {
+test("the domain comes from the request host name, whatever its case or port", async (t) => {
 	const f = await fixture(t, { d1: {} });
-	const serve = (host) => f.serveRaw(new Request("http://0.0.0.0:3000/.well-known/mta-sts.txt", { headers: { host } }));
-	const published = await serve("mta-sts.example.com");
+	const serve = (host) => f.serveRaw(new Request(`https://${host}/.well-known/mta-sts.txt`));
+	const published = await serve("MTA-STS.Example.com");
 	assert.equal(published.status, 200);
 	assert.match(await published.text(), /^version: STSv1\r\nmode: testing\r\n/);
-	assert.equal((await serve("mta-sts.example.com:3000")).status, 200, "a port in the Host header is ignored");
+	assert.equal((await serve("mta-sts.example.com:8443")).status, 200, "a port is ignored");
 	assert.equal((await serve("mta-sts.unknown.test")).status, 404);
-	assert.equal((await serve("0.0.0.0:3000")).status, 404, "a request with no mta-sts host never serves");
+	assert.equal((await serve("mail.example.com")).status, 404, "a request with no mta-sts host never serves");
 });

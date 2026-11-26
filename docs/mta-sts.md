@@ -64,15 +64,6 @@ If the policy cannot be run down (the zone is gone, DNS keeps failing), an admin
 Senders fetch `https://mta-sts.<domain>/.well-known/mta-sts.txt`. **Mailflare does not create this host for you** (no Workers Custom Domain or route is created automatically); you attach it once per domain:
 
 - **Cloudflare Workers.** Workers & Pages → your Worker → Settings → Domains & Routes → Add → Custom domain → `mta-sts.<domain>`. Cloudflare issues the certificate; it can take a few minutes. (The same step as the read-receipt host.)
-- **Docker.** Point `mta-sts.<domain>` at the server and route it to the container with a certificate, for example with Caddy:
-
-  ```
-  mta-sts.example.com {
-  	reverse_proxy mailflare:3000
-  }
-  ```
-
-  The proxy must pass the `Host` header on (Caddy's `reverse_proxy` does).
 
 The **Check the host** button fetches the policy from your browser and compares it with what Mailflare expects. A redirect counts as a failure (RFC 8461 forbids redirects). The result is recorded as "checked on <date>"; it is informational and changes nothing that is served.
 

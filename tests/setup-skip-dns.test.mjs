@@ -52,9 +52,9 @@ async function fixture(t) {
 	const database = new SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
 	await applyMigrations(database, join(root, "drizzle/migrations"));
-	const env = { DB: database, MAILFLARE_RUNTIME: "node", EMAIL: { configured: true } };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database, EMAIL: { configured: true } };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const calls = [];
 	t.mock.method(globalThis, "fetch", async (url) => {
 		calls.push(String(url));
@@ -101,14 +101,14 @@ test("missing Cloudflare credentials are treated as a manual domain even when sk
 
 test("skipDns skips the zone lookup even when a Cloudflare token is configured", async (t) => {
 	const f = await fixture(t);
-	globalThis.__mailflareNodeEnv.CF_TOKEN = "token-that-must-not-be-used";
+	globalThis.__testEnv.CF_TOKEN = "token-that-must-not-be-used";
 	const response = await f.setupDomain({ hostname: "example.com", skipDns: true });
 	const body = await response.json();
 	assert.equal(response.status, 200, JSON.stringify(body));
 	assert.equal(body.domain.zone.id, "manual");
 	assert.deepEqual(f.calls, []);
 
-	globalThis.__mailflareNodeEnv.CF_TOKEN = "token";
+	globalThis.__testEnv.CF_TOKEN = "token";
 	const lookedUp = await f.setupDomain({ hostname: "example.com" });
 	const lookedUpBody = await lookedUp.json();
 	assert.equal(lookedUp.status, 502);

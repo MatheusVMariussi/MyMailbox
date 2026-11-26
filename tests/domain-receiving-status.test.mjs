@@ -20,7 +20,7 @@ const mocks = {
 	"@/lib/cloudflare-api": "export async function enableEmailRouting(){return globalThis.__routing;}export async function getZone(){return {name:'example.com'};}export async function disableEmailRouting(){}",
 	"@/lib/cloudflare-dns": "export async function createDnsRecord(){}export async function listDnsRecords(){return [];}export async function deleteDnsRecord(){}",
 	"@/lib/domains/catch-all-routing": "export async function ensureEmailRoutingCatchAllToWorker(){}",
-	"@/lib/domains/provision": "export const isManualZone=(z)=>z==='manual';export const shouldBindEmailCatchAllToWorker=()=>false;",
+	"@/lib/domains/provision": "export const isManualZone=(z)=>z==='manual';",
 	"@/lib/domains/sending-subdomain": "export async function ensureSendingSubdomain(){return {subdomain:globalThis.__subdomain};}",
 	"@/lib/domains/cloudflare-cleanup": "export async function deleteEmailRoutingRulesForDomain(){}",
 	"@/lib/domains/mx-records": "export async function removeMxRecords(){}export async function restoreMxRecords(){}export async function restoreMxRecordsAfterFailure(){}",

@@ -55,10 +55,10 @@ async function fixture(t, modes) {
 	insert.run("a-plain", "a", null, 0, 3);
 	insert.run("b-promo", "b", "promotions", 0, 4);
 	insert.run("b-plain", "b", null, 0, 5);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node" };
-	globalThis.__mailflareNodeEnv = env;
+	const env = { DB: database };
+	globalThis.__testEnv = env;
 	globalThis.__testUser = { id: "u", role: "admin", email: "o@one.test", timeZone: "UTC" };
-	t.after(() => { delete globalThis.__mailflareNodeEnv; delete globalThis.__testUser; });
+	t.after(() => { delete globalThis.__testEnv; delete globalThis.__testUser; });
 }
 
 const list = async (query) => {
@@ -111,7 +111,7 @@ test("counts: promotions fill for opted-in mailboxes, and separate ones leave In
 
 test("the promotions count is answered from a covering index", async (t) => {
 	await fixture(t, { a: "show" });
-	const database = globalThis.__mailflareNodeEnv.DB;
+	const database = globalThis.__testEnv.DB;
 	const captured = [];
 	const prepare = database.prepare.bind(database);
 	database.prepare = (sql) => {
@@ -131,7 +131,7 @@ test("the promotions count is answered from a covering index", async (t) => {
 
 test("a row marked primary (manual Move to Inbox) behaves like uncategorised: in Inbox, not in Promotions, counted in Inbox", async (t) => {
 	await fixture(t, { a: "separate" });
-	globalThis.__mailflareNodeEnv.DB.db.prepare("UPDATE messages SET category = 'primary' WHERE id = 'a-promo'").run();
+	globalThis.__testEnv.DB.db.prepare("UPDATE messages SET category = 'primary' WHERE id = 'a-promo'").run();
 	assert.deepEqual(ids(await list(`${INBOX}&mailboxId=a`)), ["a-plain", "a-promo"]);
 	assert.deepEqual(ids(await list(`${INBOX}&category=promotions&mailboxId=a`)), ["a-promo-read"]);
 	const { counts } = await (await m.counts.GET(new Request("https://mail.test/api/messages/counts"))).json();

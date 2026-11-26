@@ -62,9 +62,9 @@ async function fixture(t, { migrate = true } = {}) {
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('one', 'admin', 'one.test', 'zone-one', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at) VALUES ('box', 'admin', 'one', 'me', 1);
 	`);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node" };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	return { db: m.getDb(env), raw: database.db };
 }
 

@@ -7,7 +7,7 @@ Mailbox providers (Google, Microsoft, Yahoo and others) send a daily summary of 
 "Turn on DMARC reports" for a domain:
 
 1. **Report address.** `mailflare-reports@<your domain>`, the same local part on every domain. It is not a mailbox and cannot be renamed. It is refused if a mailbox or alias on that domain already uses `mailflare-reports`. Using an address on your own domain means no extra "external destination" DNS record is needed.
-2. **Receiving.** On Cloudflare receiving, an Email Routing rule sends the address to the Worker. With Resend receiving, and with the self-hosted SMTP listener, every recipient on the domain already arrives, so no rule is created. A domain with receiving off cannot turn reports on.
+2. **Receiving.** On Cloudflare receiving, an Email Routing rule sends the address to the Worker. With Resend receiving every recipient on the domain already arrives, so no rule is created. A domain with receiving off cannot turn reports on.
 3. **`_dmarc` record.** The page shows the current and the new record and changes nothing until you confirm.
    - No record: `v=DMARC1; p=none; rua=mailto:<address>` is created. For a subdomain, the new record copies its organisation's effective policy instead of `p=none` (the organisation's `sp`, else `p`, with `adkim`, `aspf` and `pct` kept), because a subdomain without a record inherits that policy and enabling reports must not change what receivers do with its mail. The organisation's own record is looked up first; if that lookup fails nothing is changed.
    - A record without our address: `mailto:<address>` is appended to `rua` (or a `rua` tag is added). Every other tag, its spacing and its order stay as they were.
@@ -22,13 +22,13 @@ The policy (`p=none`, `quarantine`, `reject`) is yours to change. Mailflare neve
 
 ## How a report is handled
 
-Report mail is not stored in any mailbox. `resolveIncomingMail` answers `{ action: "report" }` for the address: no reject or forward rule (a catch-all included) applies and the mail is never forwarded, neither by a rule nor by an account's forwarding address, on the Worker and on the SMTP and relay paths. It is stored and queued, and the queue consumer parses it before routing. The raw mail is deleted afterwards. Only totals are kept: one row per report and one row per day, source IP and result.
+Report mail is not stored in any mailbox. `resolveIncomingMail` answers `{ action: "report" }` for the address: no reject or forward rule (a catch-all included) applies and the mail is never forwarded, neither by a rule nor by an account's forwarding address, on the Worker and for Resend intake. It is stored and queued, and the queue consumer parses it before routing. The raw mail is deleted afterwards. Only totals are kept: one row per report and one row per day, source IP and result.
 
 ### Who is believed
 
 Anyone can email the address, and anyone can claim to be Google. A report is a **verified reporter's** only when both hold:
 
-1. the report mail's own `From` domain passed DMARC (same trust rules as spam analysis: `Authentication-Results` written by Cloudflare, Resend (SES) verdicts, or the self-hosted listener's own check), and
+1. the report mail's own `From` domain passed DMARC (same trust rules as spam analysis: `Authentication-Results` written by Cloudflare, or Resend (SES) verdicts), and
 2. the organisational domain of that `From` equals the organisational domain of the contact `email` inside the report's `report_metadata`.
 
 So an attacker's own domain can pass DMARC, but it cannot pass itself off as `google.com`: the report would have to be sent from `google.com`. Organisational domains come from the Public Suffix List (`tldts`, private suffixes included), so `example.co.uk`, `example.eu.org` and `alice.github.io` are each their own organisation and tenants of a shared suffix never count as one.

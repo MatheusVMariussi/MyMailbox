@@ -1,22 +1,14 @@
 import type { DomainDnsView } from "@/lib/domains/service";
 
 /**
- * The DNS a self-hosted install needs when Mailflare is not managing the
- * zone. Rendered as "missing" until the operator confirms, since the app
- * cannot read their DNS; the records are what the SMTP listener and an
- * SMTP relay expect.
+ * The DNS view for a domain Mailflare does not manage on Cloudflare. The app cannot read or write
+ * that zone, so the DMARC record shows as missing until it is attached to its Cloudflare zone;
+ * MX and SPF depend on the receiving and sending provider and come from that provider's own setup.
  */
-export async function getManualDomainDns(env: CloudflareEnv, hostname: string): Promise<DomainDnsView> {
-	const mailHost = process.env.MAIL_HOSTNAME?.trim() || `mail.${hostname}`;
-	const records = [
-		{ type: "MX", name: hostname, content: `10 ${mailHost}`, ttl: 3600 },
-		{ type: "TXT", name: hostname, content: `v=spf1 a:${mailHost} ~all`, ttl: 3600 },
-		{ type: "TXT", name: `_dmarc.${hostname}`, content: "v=DMARC1; p=none", ttl: 3600 },
-	];
-	const mailer = env.EMAIL as unknown as { configured?: boolean };
+export function getManualDomainDns(hostname: string): DomainDnsView {
 	return {
-		routing: { records: [], missing: records, status: "manual" },
+		routing: { records: [], missing: [{ type: "TXT", name: `_dmarc.${hostname}`, content: "v=DMARC1; p=none", ttl: 3600 }], status: "manual" },
 		sending: [],
-		sendingEnabled: mailer?.configured === true,
+		sendingEnabled: false,
 	};
 }

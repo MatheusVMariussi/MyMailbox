@@ -1,6 +1,5 @@
 /**
- * MTA-STS (RFC 8461) policy text and the host guard. Pure and framework free so the Worker, the Node server and the
- * Next route share it. Nothing here reads the request beyond the host name and path.
+ * MTA-STS (RFC 8461) policy text and the host guard. Pure and framework free so the Worker and the Next route share it. Nothing here reads the request beyond the host name and path.
  */
 export const MTA_STS_LIMITS = Object.freeze({
 	/** One day to one year, in seconds. RFC 8461 allows up to 31,557,600. */
@@ -26,11 +25,6 @@ export function mtaStsHostDomain(hostname: string): string | null {
 	return HOSTNAME.test(domain) ? domain : null;
 }
 
-/** A host name or Host header value without port: `Example.COM:8080` becomes `example.com`. */
-export function hostnameOf(hostHeader: string): string {
-	return hostHeader.trim().toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
-}
-
 /** True for any `mta-sts.*` host name, valid or not: such a host never gets the application. */
 export const isMtaStsHost = (hostname: string) => hostname.toLowerCase().replace(/\.$/, "").startsWith(MTA_STS_HOST_PREFIX);
 
@@ -39,7 +33,7 @@ const text = (body: string, status: number, headers: Record<string, string> = {}
 /**
  * Keeps the full application off `mta-sts.*` hosts: on such a host only GET and HEAD of the policy path continue (to the
  * route, which answers for configured domains only); any other path is a 404 and any other method a 405. Returns null when
- * the request should continue. A Workers Custom Domain or a reverse proxy routes the whole host to the app, so without this
+ * the request should continue. A Workers Custom Domain routes the whole host to the app, so without this
  * the login page and the APIs would be served there too.
  */
 export function guardMtaStsHost(request: { hostname: string; pathname: string; method: string }): Response | null {

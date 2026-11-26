@@ -21,8 +21,8 @@ async function setup(t) {
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('d1', 'u1', 'example.com', 'z', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ('mb1', 'u1', 'd1', 'u1', 'personal', 1), ('mb2', 'u1', 'd1', 'sales', 'personal', 1);
 	`);
-	globalThis.__mailflareNodeEnv = fixture.env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = fixture.env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const token = await app.createSession(fixture.env, "u1");
 	const send = (handler, body, id = "x", method = "POST") => handler(new Request("http://localhost/api/routing-rules", {
 		method, headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(body),

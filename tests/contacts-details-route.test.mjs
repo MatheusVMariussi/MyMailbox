@@ -46,9 +46,9 @@ async function fixture(t) {
 		INSERT INTO contact_details (contact_id, details, updated_at) VALUES ('owner:jane@x.test', '{"phones":[{"type":"cell","value":"+1 555 0100"}],"note":"private"}', 1);
 		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, status, created_at) VALUES ('seen1', 'owner', 'm-shared', 'inbound', 'jane@x.test', 'shared@one.test', 'received', 1);
 	`);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node", CF_TOKEN: "test-only" };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database, CF_TOKEN: "test-only" };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const sessions = new Map();
 	for (const id of ["owner", "manager", "reader"]) sessions.set(id, await createSession(env, id));
 	return (actor, mailboxId) => contactsRoute.GET(new Request(`https://mail.test/api/contacts?mailboxId=${mailboxId}&address=jane%40x.test`, { headers: { Authorization: `Bearer ${sessions.get(actor)}` } }));

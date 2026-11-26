@@ -60,9 +60,9 @@ async function fixture(t, { rules = [], failAddress, slowAddress } = {}) {
 	`);
 	database.db.prepare("INSERT INTO api_keys (id, user_id, name, prefix, key_hash, key_sha256, scopes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
 		.run("key", "admin", "Test", key.prefix, key.hash, key.sha256, '["accounts"]', 1);
-	const env = { DB: database, CF_TOKEN: "test-only", MAILFLARE_RUNTIME: "node" };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database, CF_TOKEN: "test-only" };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const session = await createSession(env, "admin");
 	const currentRules = structuredClone(rules);
 	const calls = [];

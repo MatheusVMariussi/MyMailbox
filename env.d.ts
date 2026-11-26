@@ -39,18 +39,8 @@ interface CloudflareEnv {
 	CF_API_KEY?: string;
 	CF_EMAIL?: string;
 	TURNSTILE_SECRET_KEY?: string;
-	/** "node" when served by the self-hosted runtime in server/; unset on Workers. */
-	MAILFLARE_RUNTIME?: "node";
-	/** Shared secret the Cloudflare email relay signs inbound webhooks with (self-hosted only). */
-	INBOUND_WEBHOOK_SECRET?: string;
-	/** "1" refuses relays that do not sign the header map with a timestamp (relay Worker v2). */
-	INBOUND_REQUIRE_SIGNED_HEADERS?: string;
-	/** Cloudflare account id, needed for the Email Sending REST API off Workers. */
-	CF_ACCOUNT_ID?: string;
-	/** Public origin of this install (https://mail.example.com) when it sits behind a proxy. */
+	/** Public origin of this install (https://mail.example.com); used for links in mail and for provider webhooks. */
 	APP_URL?: string;
-	/** Node runtime only: set when a reverse proxy terminates TLS, so x-forwarded-proto is trusted. */
-	TRUST_PROXY?: string;
 	/** VAPID public key (uncompressed P-256 point, URL-safe base64) for Web Push. */
 	VAPID_PUBLIC_KEY?: string;
 	/** VAPID private scalar (URL-safe base64). Keep this secret. */

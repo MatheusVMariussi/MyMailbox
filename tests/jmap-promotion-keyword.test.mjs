@@ -42,7 +42,7 @@ test("keywordCondition: present is category = promotions, absent is null or anyt
 	insert.run("promo", "promotions");
 	insert.run("primary", "primary");
 	insert.run("plain", null);
-	const db = m.getDb(globalThis.__mailflareNodeEnv);
+	const db = m.getDb(globalThis.__testEnv);
 	const ids = async (present) => (await db.select({ id: m.messages.id }).from(m.messages).where(m.keywordCondition(m.KEYWORD_PROMOTION, present))).map((r) => r.id).sort();
 	assert.deepEqual(await ids(true), ["promo"]);
 	assert.deepEqual(await ids(false), ["plain", "primary"]);
@@ -54,7 +54,7 @@ test("keywordCondition ignores promotions of a mailbox that is off: hasKeyword m
 	const insert = database.db.prepare("INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, status, category, created_at) VALUES (?, 'u', ?, 'inbound', 'x@x.test', 'o@one.test', 'received', 'promotions', 1)");
 	insert.run("off-promo", "a");
 	insert.run("on-promo", "s");
-	const db = m.getDb(globalThis.__mailflareNodeEnv);
+	const db = m.getDb(globalThis.__testEnv);
 	const ids = async (present) => (await db.select({ id: m.messages.id }).from(m.messages).where(m.keywordCondition(m.KEYWORD_PROMOTION, present))).map((r) => r.id).sort();
 	assert.deepEqual(await ids(true), ["on-promo"]);
 	assert.deepEqual(await ids(false), ["off-promo"]);

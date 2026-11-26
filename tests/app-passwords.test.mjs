@@ -221,35 +221,32 @@ test("without an IP the limiter works per key instead of sharing one bucket", as
 	assert.notEqual(calls[0], calls[1]);
 });
 
-const jmapGet = (headers, url = "https://mail.example/jmap/session") => handleJmapRequest(new Request(url, { headers }), nodeEnv);
-let nodeEnv;
+const jmapGet = (headers, url = "https://mail.example/jmap/session") => handleJmapRequest(new Request(url, { headers }), jmapEnv);
+let jmapEnv;
 
 test("JMAP Basic still works over plain HTTP, is rate limited, and Bearer is unaffected", async (t) => {
-	const previous = process.env.TRUST_PROXY;
-	delete process.env.TRUST_PROXY;
-	t.after(() => { if (previous === undefined) delete process.env.TRUST_PROXY; else process.env.TRUST_PROXY = previous; });
 	let allow = true;
 	const calls = [];
 	const limiter = { limit: async ({ key }) => { calls.push(key); return { success: allow }; } };
-	const { database, env } = await fixture(t, { MAILFLARE_RUNTIME: "node", DEVICE_LOGIN_RATE_LIMIT: limiter });
-	nodeEnv = env;
+	const { database, env } = await fixture(t, { DEVICE_LOGIN_RATE_LIMIT: limiter });
+	jmapEnv = env;
 	const old = await addKey(database, { id: "old", kind: "legacy", scopes: ["send", "jmap"] });
-	const plain = (auth) => ({ Authorization: auth, host: "mail.example.com", "x-mailflare-client-ip": "203.0.113.5" });
-	// Plain HTTP Basic keeps working for existing clients (Docker/LAN), as before app passwords.
-	const plainHttp = await jmapGet(plain(basic(old.fullKey)), "http://mail.example.com/jmap/session");
+	const client = (auth) => ({ Authorization: auth, host: "mail.example.com", "cf-connecting-ip": "203.0.113.5" });
+	// Plain HTTP Basic keeps working for existing clients, as before app passwords.
+	const plainHttp = await jmapGet(client(basic(old.fullKey)), "http://mail.example.com/jmap/session");
 	assert.equal(plainHttp.status, 200);
 	assert.equal(lastUsed(database, "old").last_used_protocol, "jmap");
 	// Bearer is not Basic and keeps working.
-	assert.equal((await jmapGet(plain(`Bearer ${old.fullKey}`), "http://mail.example.com/jmap/session")).status, 200);
-	// Behind a trusted TLS proxy Basic works; a first sight of the secret spends the budget, later ones do not.
+	assert.equal((await jmapGet(client(`Bearer ${old.fullKey}`), "http://mail.example.com/jmap/session")).status, 200);
+	// A first sight of the secret spends the budget, later ones do not.
 	clearApiKeyVerificationCache();
-	process.env.TRUST_PROXY = "1";
-	const proxied = { ...plain(basic(old.fullKey)), "x-forwarded-proto": "https" };
-	assert.equal((await jmapGet(proxied, "http://mail.example.com/jmap/session")).status, 200);
-	assert.equal((await jmapGet(proxied, "http://mail.example.com/jmap/session")).status, 200);
+	const secure = client(basic(old.fullKey));
+	assert.equal((await jmapGet(secure, "https://mail.example.com/jmap/session")).status, 200);
+	assert.equal((await jmapGet(secure, "https://mail.example.com/jmap/session")).status, 200);
 	assert.equal(calls.length, 2);
+	assert.ok(calls.every((key) => key === "app-auth:ip:203.0.113.5"), "the guess budget is keyed by the platform client IP");
 	allow = false;
-	const guess = await jmapGet({ ...proxied, Authorization: basic("not-a-real-key-123") }, "http://mail.example.com/jmap/session");
+	const guess = await jmapGet({ ...secure, Authorization: basic("not-a-real-key-123") }, "https://mail.example.com/jmap/session");
 	assert.equal(guess.status, 429);
-	assert.equal((await jmapGet(proxied, "http://mail.example.com/jmap/session")).status, 200, "a verified secret is not throttled");
+	assert.equal((await jmapGet(secure, "https://mail.example.com/jmap/session")).status, 200, "a verified secret is not throttled");
 });

@@ -53,11 +53,11 @@ async function fixture(t, permission) {
 	database.db.prepare("INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, created_by_user_id, created_at) VALUES ('grant', 'm-shared', 'sam', ?, 'primary', 1)").run(permission);
 	const deleted = [];
 	const env = {
-		DB: database, MAILFLARE_RUNTIME: "node", APP_URL: "https://mail.test",
+		DB: database, APP_URL: "https://mail.test",
 		BUCKET: { async delete(keys) { deleted.push(...[keys].flat()); } },
 	};
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const token = await createSession(env, "sam");
 	return {
 		sql: database.db,

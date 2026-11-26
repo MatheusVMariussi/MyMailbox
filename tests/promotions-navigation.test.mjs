@@ -83,7 +83,7 @@ test("a delegate with no mailbox access gets an empty promotions navigation", as
 
 test("categoryScopeCondition binds the shorter mailbox list, so 120 mailboxes stay under D1's 100 parameters", async (t) => {
 	const database = await seed(t, m);
-	const db = m.getDb(globalThis.__mailflareNodeEnv);
+	const db = m.getDb(globalThis.__testEnv);
 	const insert = database.db.prepare("INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES (?, 'u', 'd', ?, 'personal', 1)");
 	const setting = database.db.prepare("INSERT INTO mailbox_promotion_settings (mailbox_id, mode, updated_at) VALUES (?, ?, 1)");
 	const scope = [];

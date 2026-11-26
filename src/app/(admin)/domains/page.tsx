@@ -31,7 +31,7 @@ export default function DomainsPage() {
   const { t } = useLanguage();
   const qc = useQueryClient();
   const [hostname, setHostname] = useState("");
-  // Self-hosted installs without Cloudflare credentials manage DNS by hand.
+  // Without Cloudflare API credentials DNS is managed by hand.
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: async () => (await (await authFetch("/api/auth/me")).json()) as { managesDns?: boolean },

@@ -14,8 +14,8 @@ const { app, newDatabase } = await loadApp("webhook-reauth", `
 async function setup(t) {
 	const fixture = await newDatabase(t);
 	fixture.sqlite.prepare("INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES ('u1', 'u1@example.com', ?, 'U One', 'admin', 1, 1)").run(app.hashPassword("correct horse"));
-	globalThis.__mailflareNodeEnv = fixture.env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = fixture.env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const token = await app.createSession(fixture.env, "u1");
 	const send = (handler, body, id = "x", method = "POST") => handler(new Request("http://localhost/api/webhooks", {
 		method, headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(body),

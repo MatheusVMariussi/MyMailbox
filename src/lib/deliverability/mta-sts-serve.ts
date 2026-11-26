@@ -2,7 +2,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { domainDeliverability, domains } from "@/db/schema";
 import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
-import { buildMtaStsPolicy, hostnameOf, mtaStsHostDomain, normalizeMx, parseMaxAge } from "./mta-sts";
+import { buildMtaStsPolicy, mtaStsHostDomain, normalizeMx, parseMaxAge } from "./mta-sts";
 
 const notFound = () => new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
@@ -20,8 +20,8 @@ function storedMx(value: string | null): string[] | null {
  * from stored, re-validated values; nothing from the request is echoed. Never redirects (RFC 8461 forbids it).
  */
 export async function serveMtaStsPolicy(env: Pick<CloudflareEnv, "DB">, request: Request): Promise<Response> {
-	// The Host header, as the host guards read it: on Node the URL's host is the bind address, not what the sender asked for.
-	const domain = mtaStsHostDomain(hostnameOf(request.headers.get("host") ?? new URL(request.url).hostname));
+	// The request's host name, as the Worker's host guard reads it.
+	const domain = mtaStsHostDomain(new URL(request.url).hostname);
 	if (!domain) return notFound();
 	let row: { mode: string; mx: string | null; maxAge: number } | undefined;
 	try {

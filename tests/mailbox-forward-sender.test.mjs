@@ -62,9 +62,9 @@ async function fixture(t, rule) {
 		"rule", rule.folderId ?? null, rule.value, rule.field ?? "email", rule.operator ?? "exact",
 		rule.value, rule.action ?? "forward", rule.action && rule.action !== "forward" ? null : "elsewhere@other.test",
 	);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node" };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	return getDb(env);
 }
 

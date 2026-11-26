@@ -22,8 +22,8 @@ const seed = `${sharedMailboxSeed("read_only")}
 
 async function request(t, userId, path) {
 	const fixture = await newDatabase(t, seed);
-	globalThis.__mailflareNodeEnv = fixture.env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = fixture.env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const token = await app.createSession(fixture.env, userId);
 	return { ...fixture, get: (handler, query) => handler(new Request(`http://localhost${path}?${query}`, { headers: { authorization: `Bearer ${token}` } })) };
 }

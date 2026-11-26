@@ -1,28 +1,21 @@
 import type { SendingProvider } from "./outbound-provider-types";
 
 export const DEFAULT_OUTBOUND_ATTACHMENT_MAX_MB = 25;
-/** Workers hold each file in a 128 MB isolate while it is read and sent, so 25 MB stays the ceiling there. */
-const WORKERS_ATTACHMENT_CEILING_MB = 25;
-/** Node/Docker have far more memory. */
-const NODE_ATTACHMENT_CEILING_MB = 50;
+/** Workers hold each file in a 128 MB isolate while it is read and sent, so 25 MB is the most an administrator can allow. */
+export const OUTBOUND_ATTACHMENT_CEILING_MB = 25;
 /** Cloudflare Email Sending sends files over this size as download links. */
 export const CLOUD_ATTACHMENT_THRESHOLD_BYTES = 3_000_000;
 
-/** The most an administrator can allow on this runtime. */
-export function outboundAttachmentCeilingMb(nodeRuntime: boolean): number {
-	return nodeRuntime ? NODE_ATTACHMENT_CEILING_MB : WORKERS_ATTACHMENT_CEILING_MB;
-}
-
-/** A stored or submitted limit forced into 1 to the runtime's ceiling; unusable values give the default. */
-export function clampOutboundAttachmentMb(value: number | null | undefined, nodeRuntime: boolean): number {
+/** A stored or submitted limit forced into 1 to the ceiling; unusable values give the default. */
+export function clampOutboundAttachmentMb(value: number | null | undefined): number {
 	if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_OUTBOUND_ATTACHMENT_MAX_MB;
-	return Math.min(Math.max(Math.trunc(value), 1), outboundAttachmentCeilingMb(nodeRuntime));
+	return Math.min(Math.max(Math.trunc(value), 1), OUTBOUND_ATTACHMENT_CEILING_MB);
 }
 
 const LEGACY_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
 const CLOUDFLARE_MESSAGE_LIMIT_BYTES = 5 * 1024 * 1024;
 const MIME_SAFETY_MARGIN_BYTES = 256 * 1024;
-/** Resend and SES attach directly up to 20 MB: encoding grows a file by a third, and many receiving servers refuse messages over about 25 MB. Larger files go as download links. */
+/** Resend attaches directly up to 20 MB: encoding grows a file by a third, and many receiving servers refuse messages over about 25 MB. Larger files go as download links. */
 const OTHER_PROVIDER_ATTACHMENT_BYTES = 20_000_000;
 
 /** An error message when the files break the administrator's limit (each file and all files together), else null. */

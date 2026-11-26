@@ -56,9 +56,9 @@ export async function seed(t, m, { delegatePermission = "read_only", migrations 
 		INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'i', 'team', 'active', 1);
 		INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, created_at) VALUES ('x', 's', 'r', '${delegatePermission}', 1);
 	`);
-	globalThis.__mailflareNodeEnv = { DB: database, MAILFLARE_RUNTIME: "node" };
+	globalThis.__testEnv = { DB: database };
 	globalThis.__testUser = user;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; delete globalThis.__testUser; });
+	t.after(() => { delete globalThis.__testEnv; delete globalThis.__testUser; });
 	return database;
 }
 

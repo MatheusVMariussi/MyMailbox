@@ -35,9 +35,8 @@ await build({
 			const stubs = new Map([
 				["@/lib/api/auth", "export async function requireSessionUser() { return globalThis.remoteImageTestAuthenticated === false ? { user: null, error: Response.json({ error: 'Unauthorized' }, { status: 401 }) } : { user: { id: 'u' }, error: null }; }"],
 				["@/lib/cloudflare", "export function getEnv() { return {}; }"],
-				["@/lib/runtime", "export function isNodeRuntime() { return false; }"],
 			]);
-			esbuild.onResolve({ filter: /^@\/lib\/(?:api\/auth|cloudflare|runtime)$/ }, (args) => ({ path: args.path, namespace: "route-stub" }));
+			esbuild.onResolve({ filter: /^@\/lib\/(?:api\/auth|cloudflare)$/ }, (args) => ({ path: args.path, namespace: "route-stub" }));
 			esbuild.onLoad({ filter: /.*/, namespace: "route-stub" }, (args) => ({ contents: stubs.get(args.path), loader: "js" }));
 		},
 	}],

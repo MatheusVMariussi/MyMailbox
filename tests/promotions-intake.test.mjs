@@ -46,11 +46,10 @@ async function fixture(t) {
 	const objects = new Map();
 	const env = {
 		DB: database,
-		MAILFLARE_RUNTIME: "node",
 		BUCKET: { get: async (key) => (objects.has(key) ? { arrayBuffer: async () => objects.get(key) } : null), put: async () => {}, delete: async (key) => { objects.delete(key); } },
 	};
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	let n = 0;
 	const deliver = async (from, headers = "", payloadHeaders, body) => {
 		const key = `raw/${++n}`;

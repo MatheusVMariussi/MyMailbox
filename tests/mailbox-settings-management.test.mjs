@@ -76,7 +76,7 @@ async function fixture(t) {
 	`);
 	const objects = new Map([["avatars/sam", new Uint8Array([1, 2, 3])]]);
 	const env = {
-		DB: database, MAILFLARE_RUNTIME: "node", CF_TOKEN: "test-only",
+		DB: database, CF_TOKEN: "test-only",
 		BUCKET: {
 			async put(key, data) { objects.set(key, new Uint8Array(data)); },
 			async get(key) {
@@ -85,8 +85,8 @@ async function fixture(t) {
 			},
 		},
 	};
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const sessions = new Map();
 	for (const id of ["primary", "manager", "mailbox-admin", "other-admin", "sam", "remote"]) {
 		sessions.set(id, await createSession(env, id));

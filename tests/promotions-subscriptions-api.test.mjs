@@ -255,7 +255,7 @@ async function unsubscribeFixture(t, raw) {
 	const f = await fixture(t);
 	f.add("msg", {});
 	f.database.db.exec("UPDATE messages SET raw_r2_key = 'raw/msg' WHERE id = 'msg'");
-	globalThis.__mailflareNodeEnv.BUCKET = { get: async () => ({ arrayBuffer: async () => new TextEncoder().encode(raw).buffer }) };
+	globalThis.__testEnv.BUCKET = { get: async () => ({ arrayBuffer: async () => new TextEncoder().encode(raw).buffer }) };
 	globalThis.__sent = 0;
 	globalThis.__mailFails = false;
 	const fetches = [];

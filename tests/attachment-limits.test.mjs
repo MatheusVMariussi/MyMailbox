@@ -24,15 +24,14 @@ async function bundle(entry, outfile) {
 	return import(pathToFileURL(join(outDir, outfile)).href);
 }
 
-const { DEFAULT_OUTBOUND_ATTACHMENT_MAX_MB, outboundAttachmentCeilingMb, clampOutboundAttachmentMb, outgoingSizeError, requestBodyLimit, planAttachmentDelivery } = await bundle("src/lib/email/attachment-limits.ts", "limits.mjs");
+const { DEFAULT_OUTBOUND_ATTACHMENT_MAX_MB, OUTBOUND_ATTACHMENT_CEILING_MB, clampOutboundAttachmentMb, outgoingSizeError, requestBodyLimit, planAttachmentDelivery } = await bundle("src/lib/email/attachment-limits.ts", "limits.mjs");
 const { sharedFileNotice } = await bundle("src/lib/email/shared-file-notice.ts", "notice.mjs");
 
 const MB = 1_000_000;
 
-test("the default limit stays at 25 MB and the ceiling allows an administrator to raise it", () => {
+test("the default limit and the Workers ceiling are both 25 MB", () => {
 	assert.equal(DEFAULT_OUTBOUND_ATTACHMENT_MAX_MB, 25);
-	assert.equal(outboundAttachmentCeilingMb(false), 25);
-	assert.equal(outboundAttachmentCeilingMb(true), 50);
+	assert.equal(OUTBOUND_ATTACHMENT_CEILING_MB, 25);
 });
 
 test("outgoing size limit: each file and the total stay within the administrator's setting", () => {
@@ -65,13 +64,12 @@ test("small attachments stay attached on Resend", () => {
 	assert.deepEqual(planAttachmentDelivery("resend", [8 * MB, 10 * MB], 10_000), [false, false]);
 });
 
-test("the ceiling is 25 MB on Workers and 50 MB on Node/Docker; stored values are clamped per runtime", () => {
-	assert.equal(clampOutboundAttachmentMb(50, false), 25);
-	assert.equal(clampOutboundAttachmentMb(40, false), 25);
-	assert.equal(clampOutboundAttachmentMb(40, true), 40);
-	assert.equal(clampOutboundAttachmentMb(500, true), 50);
-	assert.equal(clampOutboundAttachmentMb(10, false), 10);
-	assert.equal(clampOutboundAttachmentMb(0, true), 1);
-	assert.equal(clampOutboundAttachmentMb(Number.NaN, true), 25);
-	assert.equal(clampOutboundAttachmentMb(undefined, false), 25);
+test("stored values are clamped to the 25 MB ceiling", () => {
+	assert.equal(clampOutboundAttachmentMb(50), 25);
+	assert.equal(clampOutboundAttachmentMb(40), 25);
+	assert.equal(clampOutboundAttachmentMb(500), 25);
+	assert.equal(clampOutboundAttachmentMb(10), 10);
+	assert.equal(clampOutboundAttachmentMb(0), 1);
+	assert.equal(clampOutboundAttachmentMb(Number.NaN), 25);
+	assert.equal(clampOutboundAttachmentMb(undefined), 25);
 });

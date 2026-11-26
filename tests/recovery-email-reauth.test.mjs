@@ -15,8 +15,8 @@ async function setup(t) {
 		INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'inst', 'team', 'active', 1);
 	`);
 	fixture.sqlite.prepare("INSERT INTO users (id, email, password_hash, name, reset_email, created_at) VALUES ('u1', 'u1@example.com', ?, 'U One', 'old@example.org', 1)").run(app.hashPassword("correct horse"));
-	globalThis.__mailflareNodeEnv = fixture.env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = fixture.env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const token = await app.createSession(fixture.env, "u1");
 	const send = (handler, body) => handler(new Request("http://localhost/api/settings/x", {
 		method: "PATCH",

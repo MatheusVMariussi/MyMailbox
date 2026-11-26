@@ -8,23 +8,16 @@ import {
 	getEmailRoutingCatchAll,
 } from "@/lib/domains/catch-all-routing";
 import { isZoneApex, normalizeHostname } from "@/lib/domains/utils";
-import { hasCloudflareCredentials, isNodeRuntime } from "@/lib/runtime";
+import { hasCloudflareCredentials } from "@/lib/runtime";
 import type { DomainProvisioningChanges, DomainProvisioningResult } from "@/lib/domains/types";
 import { removeMxRecords } from "@/lib/domains/mx-records";
 import { rollbackDomainProvisioning } from "@/lib/domains/rollback";
 import { ensureSendingSubdomain } from "@/lib/domains/sending-subdomain";
 
-/** Node/Docker has no Email Worker; a catch-all PUT to one 404s (CF 2016). */
-export function shouldBindEmailCatchAllToWorker(
-	env?: Pick<CloudflareEnv, "MAILFLARE_RUNTIME">,
-): boolean {
-	return !isNodeRuntime(env);
-}
-
 /**
- * Zone id recorded for domains the app does not manage on Cloudflare (a
- * self-hosted install without API credentials). Every Cloudflare call that
- * receives it is a no-op, and the DNS page shows records to set by hand.
+ * Zone id recorded for domains the app does not manage on Cloudflare (DNS
+ * skipped when the domain was added, or no Cloudflare API credentials). Every
+ * Cloudflare call that receives it is a no-op until the zone is adopted.
  */
 export const MANUAL_ZONE_ID = "manual";
 
@@ -39,12 +32,10 @@ export async function provisionDomainOnCloudflare(
 ): Promise<DomainProvisioningResult> {
 	const normalized = normalizeHostname(hostname);
 	if (options?.skipDns || !hasCloudflareCredentials(env)) {
-		// Nothing to provision: the operator points MX at this server themselves,
-		// or chose to skip DNS for now.
+		// Nothing to provision: DNS was skipped for now, or there are no API credentials.
 		return {
 			hostname: normalized,
 			zone: { id: MANUAL_ZONE_ID, name: normalized },
-			// Mail arrives whenever MX points at this server, so the domain is live at once.
 			routingEnabled: options?.enableRouting ?? true,
 			sendingRequested: options?.enableSending ?? true,
 			sendingEnabled: false,
@@ -100,9 +91,7 @@ export async function provisionDomainOnCloudflare(
 			changes.enabledEmailRouting = !routingWasEnabled;
 			routingEnabled = routing.enabled ?? true;
 			routingStatus = routing.status;
-			if (shouldBindEmailCatchAllToWorker(env)) {
-				await ensureEmailRoutingCatchAllToWorker(env, zone.id);
-			}
+			await ensureEmailRoutingCatchAllToWorker(env, zone.id);
 		}
 
 		if (enableSending) {

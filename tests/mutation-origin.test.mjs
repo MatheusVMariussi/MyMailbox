@@ -38,56 +38,24 @@ test("reads and bearer-token requests are unaffected", async () => {
 	await assert.rejects(app.requireUser({}, new Request("https://mail.example.com/api/x", { method: "POST" })));
 });
 
-// On the Node server Next builds request.url from the bind address, so the expected origin comes from
-// APP_URL, or from Host plus a trusted x-forwarded-proto, never from request.url.
-const node = (env, run) => {
-	globalThis.__mailflareNodeEnv = { MAILFLARE_RUNTIME: "node", ...env };
-	try { return run(); } finally { delete globalThis.__mailflareNodeEnv; }
-};
-const nodeCall = (env, headers, method = "POST") => node(env, () => app.getCurrentUser({}, new Request("http://0.0.0.0:3000/api/x", { method, headers })));
-
-test("Node behind APP_URL: the public origin is accepted, the bind address and others are not", async () => {
-	const env = { APP_URL: "https://mail.example.com" };
-	assert.ok(await nodeCall(env, { Origin: "https://mail.example.com", host: "127.0.0.1:3000" }));
-	assert.ok(await nodeCall(env, { "Sec-Fetch-Site": "same-origin" }));
-	assert.equal(await nodeCall(env, { Origin: "http://0.0.0.0:3000" }), null);
-	assert.equal(await nodeCall(env, { Origin: "https://evil.example.net" }), null);
-	assert.equal(await nodeCall(env, { "Sec-Fetch-Site": "same-site", Origin: "https://mail.example.com" }), null);
-});
-
-test("Node without APP_URL: Host is the origin, a proxy's scheme counts only under TRUST_PROXY", async () => {
-	assert.ok(await nodeCall({}, { Origin: "http://mail.example.com:3000", host: "mail.example.com:3000" }));
-	assert.equal(await nodeCall({}, { Origin: "http://0.0.0.0:3000", host: "mail.example.com:3000" }), null);
-	assert.equal(await nodeCall({}, { Origin: "https://evil.example.net", host: "mail.example.com:3000" }), null);
-	const proxied = { host: "mail.example.com", "x-forwarded-proto": "https" };
-	assert.ok(await nodeCall({ TRUST_PROXY: "1" }, { ...proxied, Origin: "https://mail.example.com" }));
-	assert.equal(await nodeCall({ TRUST_PROXY: "1" }, { ...proxied, Origin: "http://mail.example.com" }), null);
-	// Without a trusted proxy the forwarded scheme is attacker-controlled and ignored.
-	assert.equal(await nodeCall({}, { ...proxied, Origin: "https://mail.example.com" }), null);
-	assert.ok(await nodeCall({}, { ...proxied, Origin: "http://mail.example.com" }));
-});
-
-test("a request with neither Origin nor Sec-Fetch-Site is refused, on Workers and on Node", async () => {
+test("a request with neither Origin nor Sec-Fetch-Site is refused", async () => {
 	assert.equal(await call("POST"), null);
-	assert.equal(await nodeCall({ APP_URL: "https://mail.example.com" }, {}), null);
-	assert.equal(await nodeCall({}, { host: "mail.example.com" }), null);
-	assert.equal(await nodeCall({}, { host: "mail.example.com", "Sec-Fetch-Site": "none" }), null);
+	assert.equal(await call("POST", { "Sec-Fetch-Site": "none" }), null);
 });
 
 test("the account switcher uses the same strict check, with no bearer or missing-Origin exemption", () => {
-	const strict = (env, headers) => node(env, () => app.isSameOriginRequest(new Request("http://0.0.0.0:3000/api/auth/switch", { method: "POST", headers })));
-	assert.equal(strict({ APP_URL: "https://mail.example.com" }, {}), false);
-	assert.equal(strict({ APP_URL: "https://mail.example.com" }, { Authorization: "Bearer x" }), false);
-	assert.equal(strict({ APP_URL: "https://mail.example.com" }, { Origin: "https://mail.example.com" }), true);
-	assert.equal(strict({ APP_URL: "https://mail.example.com" }, { Origin: "https://evil.example.com" }), false);
-	assert.equal(strict({}, { host: "mail.example.com:3000", Origin: "http://mail.example.com:3000" }), true);
+	const strict = (headers) => app.isSameOriginRequest(new Request("https://mail.example.com/api/auth/switch", { method: "POST", headers }));
+	assert.equal(strict({}), false);
+	assert.equal(strict({ Authorization: "Bearer x" }), false);
+	assert.equal(strict({ Origin: "https://mail.example.com" }), true);
+	assert.equal(strict({ Origin: "https://evil.example.com" }), false);
+	assert.equal(strict({ "Sec-Fetch-Site": "same-origin" }), true);
 });
 
 // Handlers that never authenticate with the session cookie, so the origin rule does not apply to them.
 const EXEMPT = {
 	"v1/": "API-key bearer surface (authenticateApiKey / authenticateAdminApiKey); browsers never attach the key",
 	"accounts/[id]/mailbox-access/route.ts": "stub that answers 410 and does nothing",
-	"inbound/route.ts": "signed webhook from the relay Worker (INBOUND_WEBHOOK_SECRET)",
 	"inbound/resend/route.ts": "Svix-signed provider webhook",
 	"provider-events/resend/route.ts": "Svix-signed provider webhook (bounce and complaint events)",
 	"auth/login/route.ts": "pre-session credential endpoint (Turnstile and password), no cookie authority to ride",

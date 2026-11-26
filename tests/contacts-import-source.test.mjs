@@ -38,7 +38,7 @@ async function fixture(t, source) {
 		INSERT INTO contacts (id, user_id, email, display_name, source, blocked, remote_content_allowed, created_at)
 			VALUES ('u1:pal@x.test', 'u1', 'pal@x.test', 'Pal', '${source}', 0, 0, 1);
 	`);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node" };
+	const env = { DB: database };
 	return { env, db: getDb(env), sql: database.db };
 }
 

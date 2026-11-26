@@ -44,21 +44,21 @@ test("only objects under the prefix and older than the cutoff are removed, acros
 	const old = new Date("2026-01-01T00:00:00Z");
 	const fresh = new Date("2026-01-09T23:59:00Z");
 	const bucket = fakeBucket([
-		["relay-seen/a", old],
-		["relay-seen/b", fresh],
-		["relay-seen/c", old],
-		["relay-seen/d", old],
+		["jmap-uploads/a", old],
+		["jmap-uploads/b", fresh],
+		["jmap-uploads/c", old],
+		["jmap-uploads/d", old],
 		["inbound/x", old],
 	]);
-	const removed = await sweepStaleObjects(bucket, "relay-seen/", 60 * 60 * 1000, now);
+	const removed = await sweepStaleObjects(bucket, "jmap-uploads/", 60 * 60 * 1000, now);
 	assert.equal(removed, 3);
-	assert.deepEqual([...bucket.store.keys()].sort(), ["inbound/x", "relay-seen/b"]);
+	assert.deepEqual([...bucket.store.keys()].sort(), ["inbound/x", "jmap-uploads/b"]);
 });
 
 test("one run looks at no more than five pages", async () => {
 	const now = new Date("2026-01-10T00:00:00Z");
 	const old = new Date("2026-01-01T00:00:00Z");
-	const bucket = fakeBucket(Array.from({ length: 12 }, (_, index) => [`relay-seen/${String(index).padStart(2, "0")}`, old]), 2);
-	assert.equal(await sweepStaleObjects(bucket, "relay-seen/", 60 * 60 * 1000, now), 10);
+	const bucket = fakeBucket(Array.from({ length: 12 }, (_, index) => [`jmap-uploads/${String(index).padStart(2, "0")}`, old]), 2);
+	assert.equal(await sweepStaleObjects(bucket, "jmap-uploads/", 60 * 60 * 1000, now), 10);
 	assert.equal(bucket.store.size, 2);
 });

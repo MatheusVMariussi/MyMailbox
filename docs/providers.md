@@ -1,6 +1,6 @@
 # Sending and receiving providers
 
-Mailflare keeps your mail data in your own D1 database and R2 bucket (or SQLite and local files when self-hosted). What carries mail over the wire is a choice you make **per domain**, separately for receiving and for sending:
+Mailflare keeps your mail data in your own D1 database and R2 bucket. What carries mail over the wire is a choice you make **per domain**, separately for receiving and for sending:
 
 | | Cloudflare | Resend |
 |---|---|---|
@@ -55,7 +55,7 @@ You cannot clean up the provider that is currently selected.
 ## Behavior that differs from Cloudflare
 
 - **Routing rules.** Reject and forward rules need to act on the live SMTP session, which only Cloudflare's email handler can do. For mail received through Resend, a reject rule drops the message and forward rules are not applied. Store and categorize rules, mailbox rules, spam handling and webhooks work as usual.
-- **Attachments.** Cloudflare sends large files as download links from your storage bucket to stay under its 5 MiB limit. Resend sends attachments directly, within the administrator's outgoing limit; past 20 MB they too go as download links, which keeps the encoded message under what most receiving servers accept (the limit can be raised to 50 MB on Node/Docker; Workers stay at 25 MB).
+- **Attachments.** Cloudflare sends large files as download links from your storage bucket to stay under its 5 MiB limit. Resend sends attachments directly, within the administrator's outgoing limit; past 20 MB they too go as download links, which keeps the encoded message under what most receiving servers accept.
 - **Size.** Inbound mail from any provider is capped at 25 MiB and the same attachment limits apply; larger messages are dropped.
 
 ## Configuration reference

@@ -1,33 +1,6 @@
-import { getNodeEnv } from "@/lib/runtime";
-
-/**
- * The origin browsers use to reach this app, which a same-origin request must carry.
- *
- * On Workers `request.url` is the public URL. On the self-hosted Node server Next builds it from the
- * bind address (`http://0.0.0.0:3000`), so the expected origin is APP_URL when set, otherwise the
- * Host header, with https only when a trusted reverse proxy (TRUST_PROXY) says so.
- */
+/** The origin browsers use to reach this app, which a same-origin request must carry. On Workers `request.url` is the public URL. */
 export function expectedRequestOrigin(request: Request): string {
-	const env = getNodeEnv();
-	const url = new URL(request.url);
-	if (env?.MAILFLARE_RUNTIME !== "node") return url.origin;
-	const appUrl = env.APP_URL?.trim();
-	if (appUrl) {
-		try {
-			return new URL(appUrl).origin;
-		} catch {
-			// A malformed APP_URL falls back to the request, so the check still compares something real.
-		}
-	}
-	const host = request.headers.get("host")?.trim();
-	const trustProxy = ["1", "true", "yes"].includes((env.TRUST_PROXY ?? "").toLowerCase());
-	const forwardedProto = trustProxy ? request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() : undefined;
-	const protocol = forwardedProto === "https" ? "https:" : url.protocol;
-	try {
-		return host ? new URL(`${protocol}//${host}`).origin : url.origin;
-	} catch {
-		return url.origin;
-	}
+	return new URL(request.url).origin;
 }
 
 /**

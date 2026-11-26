@@ -5,10 +5,10 @@ import type { InboundQueueMessage } from "@/lib/email/inbound";
 import type { IntakeActions, IntakeInput, IntakeResult } from "@/lib/email/intake-types";
 
 /**
- * What the Worker `email` handler does, for runtimes that hand us the whole
- * message as bytes (an SMTP listener, or the Cloudflare relay webhook):
- * resolve domain rules, act on reject and forward through the supplied
- * callbacks, then store the raw MIME and enqueue it for parsing.
+ * What the Worker `email` handler does, for mail a provider hands us as bytes
+ * (Resend, through `intakeProviderMail`): resolve domain rules, act on reject
+ * and forward through the supplied callbacks, then store the raw MIME and
+ * enqueue it for parsing.
  */
 export async function intakeIncomingMail(env: CloudflareEnv, input: IntakeInput, actions: IntakeActions): Promise<IntakeResult> {
 	const alreadyForwarded = await isForwardedMarkerValid(env, input.headers[MAILFLARE_FORWARDED_HEADER.toLowerCase()] ?? input.headers[MAILFLARE_FORWARDED_HEADER]);

@@ -21,8 +21,8 @@ async function setup(t) {
 	const hash = app.hashPassword("correct horse");
 	fixture.sqlite.prepare("INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, can_manage_users, created_at) VALUES ('admin', 'admin@example.com', ?, 'Admin', 'admin', 1, 1, 1)").run(hash);
 	fixture.sqlite.prepare("INSERT INTO users (id, email, password_hash, name, role, created_by_user_id, created_at) VALUES ('member', 'member@example.com', ?, 'Member', 'user', 'admin', 1)").run(hash);
-	globalThis.__mailflareNodeEnv = fixture.env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	globalThis.__testEnv = fixture.env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const token = await app.createSession(fixture.env, "admin");
 	const body = (extra) => ({ name: "Member", role: "user", disabled: false, canManageMailboxes: false, ...extra });
 	const send = (handler, id, extra, headers = {}) => handler(new Request(`http://localhost/api/accounts/${id}`, {

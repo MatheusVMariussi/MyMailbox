@@ -120,7 +120,7 @@ Every blob (raw MIME, attachments, avatars, branding icon, JMAP uploads, backups
 
 ### One runtime: Cloudflare Workers
 
-The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.ts`), which on Workers is the native `cloudflare:workers` env. The self-hosted Node server (Docker image, SMTP listener, relay Worker) has been removed; `getNodeEnv()`/`isNodeRuntime()` in `src/lib/runtime.ts` remain only as a seam that tests use (they publish bindings on `globalThis.__mailflareNodeEnv`) until that is replaced. Tests bundle app modules with esbuild and alias `cloudflare:workers` to `tests/helpers/cloudflare-workers.ts`; `tests/helpers/sqlite-database.ts` (the D1 API over better-sqlite3), `tests/helpers/migrate.ts` (applies `drizzle/migrations` in journal order, as Wrangler does) and `tests/helpers/file-bucket.ts` (the R2 API over a directory) stand in for the bindings.
+The app reaches every platform service through `getEnv()` (`src/lib/cloudflare.ts`), which on Workers is the native `cloudflare:workers` env. There is no other runtime. Tests bundle app modules with esbuild and alias `cloudflare:workers` to `tests/helpers/cloudflare-workers.ts`, whose `env` forwards to `globalThis.__testEnv` (a test sets it to the bindings it needs and deletes it afterwards); `tests/helpers/sqlite-database.ts` (the D1 API over better-sqlite3), `tests/helpers/migrate.ts` (applies `drizzle/migrations` in journal order, as Wrangler does) and `tests/helpers/file-bucket.ts` (the R2 API over a directory) stand in for the bindings.
 
 ### JMAP lives in `src/lib/jmap/`
 

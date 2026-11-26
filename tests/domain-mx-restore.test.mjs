@@ -48,7 +48,7 @@ const flow = await bundle(
 		"@/lib/cloudflare-api": "export async function enableEmailRouting(){globalThis.__mx.push({id:'cfmx',content:'route1.mx.cloudflare.net',priority:1});throw new Error('routing failed')}export async function getZone(){return {name:'example.com'}}export async function disableEmailRouting(){}",
 		"@/lib/cloudflare-dns": "export async function createDnsRecord(env,zone,input){if(globalThis.__failRestore)throw new Error('create rejected');globalThis.__restored.push(input)}export async function listDnsRecords(){return []}export async function listMxRecords(){return globalThis.__mx}export async function deleteDnsRecord(env,zone,id){globalThis.__deleted.push(id);globalThis.__mx=globalThis.__mx.filter((r)=>r.id!==id)}",
 		"@/lib/domains/catch-all-routing": "export async function ensureEmailRoutingCatchAllToWorker(){}",
-		"@/lib/domains/provision": "export const isManualZone=(z)=>z==='manual';export const shouldBindEmailCatchAllToWorker=()=>false;",
+		"@/lib/domains/provision": "export const isManualZone=(z)=>z==='manual';",
 		"@/lib/domains/sending-subdomain": "export async function ensureSendingSubdomain(env,zoneId,hostname,options){const mx=globalThis.__mx.filter((r)=>!r.content.endsWith('.mx.cloudflare.net'));for(const r of mx){options.deletedMx?.push(r);globalThis.__mx=globalThis.__mx.filter((x)=>x.id!==r.id)}throw new Error('sending failed')}",
 		"@/lib/domains/cloudflare-cleanup": "export async function deleteEmailRoutingRulesForDomain(){}",
 		"@/lib/domains/adopt-zone": "export async function adoptCloudflareZone(env,d){return d;}",

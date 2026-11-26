@@ -43,7 +43,7 @@ async function fixture(t) {
 	const database = new SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
 	await applyMigrations(database, join(root, "drizzle/migrations"));
-	const env = { DB: database, MAILFLARE_RUNTIME: "node" };
+	const env = { DB: database };
 	t.mock.method(globalThis, "fetch", async (url) => { throw new Error(`unexpected fetch ${url}`); });
 	database.db.prepare("INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES ('usr_1', 'admin@example.com', 'x', 'Admin', 'admin', 0)").run();
 	return { env, database };

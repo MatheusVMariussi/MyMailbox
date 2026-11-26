@@ -131,9 +131,9 @@ async function fixture(t, rule) {
 			match_value, action, forward_to, keep_copy, reject_reason, enabled, priority, created_at)
 		VALUES ('rule', 'admin', 'one', ?, ?, ?, 'bulk', 'mail_type', 'contains', 'bulk', ?, ?, 0, 'no promos', 1, 10, 1)
 	`).run(rule.scope, rule.scope === "mailbox" ? "box" : null, rule.folderId ?? null, rule.action, rule.forwardTo ?? null);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node" };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	return m.getDb(env);
 }
 

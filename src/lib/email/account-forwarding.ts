@@ -8,7 +8,7 @@ export const MAILFLARE_FORWARDED_HEADER = "X-Mailflare-Forwarded";
 
 /** Server-only secrets the loop-guard marker can be keyed with, in order of preference. */
 function markerSecret(env: CloudflareEnv): string | null {
-	return env.CF_TOKEN || env.CF_API_KEY || env.INBOUND_WEBHOOK_SECRET || null;
+	return env.CF_TOKEN || env.CF_API_KEY || null;
 }
 
 async function markerMac(secret: string): Promise<string> {

@@ -30,7 +30,7 @@ export async function handleJmapRequest(request: Request, env: CloudflareEnv): P
 	if (!path.startsWith("/jmap/")) return null;
 
 	// Basic carries the key as a password: a key not seen recently spends the guess budget. Plain HTTP stays
-	// accepted for existing LAN/Docker clients.
+	// accepted for existing clients.
 	const basic = basicPassword(request);
 	if (basic !== null) {
 		if (!(await allowAppPasswordGuess(env, request, basic))) return new Response(JSON.stringify({ error: "Too many attempts" }), { status: 429, headers: { ...JSON_HEADERS, "Retry-After": "60" } });

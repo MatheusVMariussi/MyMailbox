@@ -2158,7 +2158,7 @@
 	"mtasts.turnOff": "Desativar o MTA-STS",
 	"mtasts.unverifiedMx": "O Mailflare não consegue verificar os certificados destes servidores de e-mail: {hosts}. Cada um deve apresentar um certificado válido para o próprio nome antes que o enforce seja seguro.",
 	"mtasts.hostHelp.title": "Anexar o host da política",
-	"mtasts.hostHelp.body": "Outros servidores buscam a política em {url}. O Mailflare não anexa este host para você. No Cloudflare Workers, adicione {host} como Custom Domain deste Worker (Workers & Pages, seu Worker, Settings, Domains & Routes). Com Docker, direcione {host} para este app pelo seu proxy reverso e dê a ele um certificado.",
+	"mtasts.hostHelp.body": "Outros servidores buscam a política em {url}. O Mailflare não anexa este host para você: adicione {host} como Custom Domain deste Worker (Workers & Pages, seu Worker, Settings, Domains & Routes).",
 	"mtasts.manual": "O DNS deste domínio não é gerenciado pelo Mailflare. Publique você mesmo este registro TXT em {name}: {value}",
 	"mtasts.dialog.enforce.title": "Mudar para o modo enforce",
 	"mtasts.dialog.enforce.body": "No modo enforce, outros servidores de e-mail se recusam a entregar a você quando um servidor de e-mail da política não apresenta um certificado válido para o próprio nome, ou quando o TLS falha. Os e-mails podem atrasar ou ser devolvidos. Verifique os relatórios TLS antes.",

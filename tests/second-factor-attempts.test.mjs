@@ -45,9 +45,9 @@ async function fixture(t) {
 	database.db.prepare(`INSERT INTO users
 		(id, email, password_hash, name, role, is_primary_admin, can_manage_users, can_manage_mailboxes, totp_secret, totp_enabled, require_second_factor, created_at)
 		VALUES ('alice', 'alice@one.test', 'hash', 'Alice', 'user', 0, 0, 0, ?, 1, 1, 1)`).run(secret);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node", APP_URL: "https://mail.test" };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database, APP_URL: "https://mail.test" };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	const counter = totpCounter();
 	const valid = new Set(await Promise.all([counter - 1, counter, counter + 1].map((step) => hotp(secret, step))));
 	const goodCode = await hotp(secret, counter);

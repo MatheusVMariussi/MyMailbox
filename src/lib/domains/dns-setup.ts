@@ -5,10 +5,7 @@ import { enableEmailRouting, getZone } from "@/lib/cloudflare-api";
 import { createDnsRecord, listDnsRecords } from "@/lib/cloudflare-dns";
 import { ensureEmailRoutingCatchAllToWorker } from "@/lib/domains/catch-all-routing";
 import type { DnsAuthRecord } from "@/lib/domains/dns-audit";
-import {
-	isManualZone,
-	shouldBindEmailCatchAllToWorker,
-} from "@/lib/domains/provision";
+import { isManualZone } from "@/lib/domains/provision";
 import { restoreMxRecordsAfterFailure } from "@/lib/domains/mx-records";
 import type { CfDnsRecord } from "@/lib/cloudflare-api.types";
 import { ensureSendingSubdomain } from "@/lib/domains/sending-subdomain";
@@ -54,9 +51,7 @@ async function applyDomainDnsRecord(
 			const zone = await getZone(env, domain.zoneId);
 			const routingName = isZoneApex(domain.hostname, zone.name) ? undefined : domain.hostname;
 			const result = await enableEmailRouting(env, domain.zoneId, routingName);
-			if (shouldBindEmailCatchAllToWorker(env)) {
-				await ensureEmailRoutingCatchAllToWorker(env, domain.zoneId);
-			}
+			await ensureEmailRoutingCatchAllToWorker(env, domain.zoneId);
 			const routingEnabled = result.enabled ?? true;
 			await getDb(env)
 				.update(domains)

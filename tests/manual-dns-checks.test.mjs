@@ -13,7 +13,7 @@ const mocks = {
 	"@/db/schema": "export const appSettings={id:'appSettings.id',resendWebhookSecret:'appSettings.resendWebhookSecret'};",
 	"@/db": "const q={from(){return q;},where(){return q;},limit(){return Promise.resolve(globalThis.__settingsRows??[]);}};export function getDb(){return {select(){return q;},insert(){return {values(){return {onConflictDoUpdate(){return Promise.resolve();}}}}}}}",
 	"@/lib/cloudflare-dns": "export async function createDnsRecord(){}export async function deleteDnsRecord(){}export async function listDnsRecords(){return [];}export async function listMxRecords(){return [];}",
-	"@/lib/domains/provision": "export const isManualZone=(z)=>z==='manual';export const shouldBindEmailCatchAllToWorker=()=>false;",
+	"@/lib/domains/provision": "export const isManualZone=(z)=>z==='manual';",
 	"@/lib/email/outbound-provider": "export async function getResendKeyStatus(){return globalThis.__resendKey??{configured:false,apiKey:null};}export async function getResendClient(){return {apiKey:'re_test',baseUrl:'https://api.resend.com'};}",
 	"@/lib/email/resend-api": `export class ResendRestrictedKeyError extends Error{}
 		export function resendClient(_env, apiKey){return {apiKey,baseUrl:"https://api.resend.com"};}

@@ -48,9 +48,9 @@ async function fixture(t, { migrate = true } = {}) {
 			('b-promo', 'u', 'b', 'inbound', 'x@x.test', 'b@one.test', 'received', 'promotions', 3),
 			('c-promo', 'u', 'c', 'inbound', 'x@x.test', 'c@one.test', 'received', 'promotions', 4);
 	`);
-	const env = { DB: database, MAILFLARE_RUNTIME: "node" };
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
+	const env = { DB: database };
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
 	return m.getDb(env);
 }
 

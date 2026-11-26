@@ -1,6 +1,6 @@
 /**
  * Caches results of external spam lookups (blocklists, RDAP) per isolate and in object storage. The Cache API
- * is not an option: it does nothing on workers.dev hostnames and does not exist in the self-hosted runtime.
+ * is not an option: it does nothing on workers.dev hostnames.
  */
 const memory = new Map<string, { expires: number; value: unknown }>();
 const MAX_MEMORY_ENTRIES = 2000;

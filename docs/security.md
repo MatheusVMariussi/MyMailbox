@@ -18,8 +18,7 @@ or its mailbox is disabled; they also expire on their own.
 * Resend receiving: the verdicts SES (which Resend receives through) wrote are used.
 
 Sender-written `Authentication-Results`, `Received-SPF` and `Received` headers are never
-trusted on the SMTP path. The listener also refuses recipients on domains Mailflare does not
-manage before accepting DATA.
+trusted.
 
 ## Webhooks
 
@@ -30,7 +29,7 @@ trigger `message.inbound`. A webhook copies message content to the URL, so creat
 ## Forwarding loop guard
 
 Mail Mailflare forwards carries `X-Mailflare-Forwarded`, an HMAC keyed with a server secret
-(`CF_TOKEN`, `CF_API_KEY` or `INBOUND_WEBHOOK_SECRET`). A sender cannot switch forwarding
+(`CF_TOKEN` or `CF_API_KEY`). A sender cannot switch forwarding
 off by adding the header. With none of those set the header falls back to `1`.
 
 ## Attachments

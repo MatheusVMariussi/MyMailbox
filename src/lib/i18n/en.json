@@ -2144,7 +2144,7 @@
 	"mtasts.turnOff": "Turn off MTA-STS",
 	"mtasts.unverifiedMx": "Mailflare cannot check the certificates of these mail servers: {hosts}. Each must present a valid certificate for its own name before enforce is safe.",
 	"mtasts.hostHelp.title": "Attach the policy host",
-	"mtasts.hostHelp.body": "Other servers fetch the policy from {url}. Mailflare does not attach this host for you. On Cloudflare Workers, add {host} as a Custom Domain on this Worker (Workers & Pages, your Worker, Settings, Domains & Routes). With Docker, route {host} to this app through your reverse proxy and give it a certificate.",
+	"mtasts.hostHelp.body": "Other servers fetch the policy from {url}. Mailflare does not attach this host for you: add {host} as a Custom Domain on this Worker (Workers & Pages, your Worker, Settings, Domains & Routes).",
 	"mtasts.manual": "This domain's DNS is not managed by Mailflare. Publish this TXT record at {name} yourself: {value}",
 	"mtasts.dialog.enforce.title": "Switch to enforce mode",
 	"mtasts.dialog.enforce.body": "In enforce mode other mail servers refuse to deliver to you when a mail server in the policy does not present a valid certificate for its own name, or when TLS fails. Mail can be delayed or bounce. Check the TLS reports first.",

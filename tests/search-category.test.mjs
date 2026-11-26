@@ -60,9 +60,9 @@ test("category conditions select promotions or everything else", async (t) => {
 			('promo', 'u', 'inbound', 'a@x.test', 'o@one.test', 'received', 'promotions', 1),
 			('plain', 'u', 'inbound', 'b@x.test', 'o@one.test', 'received', NULL, 2);
 	`);
-	globalThis.__mailflareNodeEnv = { DB: database, MAILFLARE_RUNTIME: "node" };
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
-	const db = m.getDb(globalThis.__mailflareNodeEnv);
+	globalThis.__testEnv = { DB: database };
+	t.after(() => { delete globalThis.__testEnv; });
+	const db = m.getDb(globalThis.__testEnv);
 	const ids = async (q) => (await db.select({ id: m.messages.id }).from(m.messages).where(...m.buildSearchConditions(q))).map((row) => row.id).sort();
 	assert.deepEqual(await ids("category:promotions"), ["promo"]);
 	assert.deepEqual(await ids("category:primary"), ["plain"]);
