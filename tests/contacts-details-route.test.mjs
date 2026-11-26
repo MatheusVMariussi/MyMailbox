@@ -41,9 +41,7 @@ async function fixture(t) {
 			('m-shared', 'owner', 'one', 'support', 'Support', 'shared', 0, 0, 1);
 		INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, created_at) VALUES
 			('a1', 'm-shared', 'manager', 'full_access', 1), ('a2', 'm-shared', 'reader', 'read_only', 1);
-		INSERT INTO license_settings (id, instance_id, plan, state, features, updated_at) VALUES ('default', 'contacts-route-test', 'team', 'active', '[]', 1);
 		INSERT INTO contacts (id, user_id, email, display_name, source, blocked, remote_content_allowed, created_at) VALUES ('owner:jane@x.test', 'owner', 'jane@x.test', 'Jane', 'manual', 0, 0, 1);
-		INSERT INTO contact_details (contact_id, details, updated_at) VALUES ('owner:jane@x.test', '{"phones":[{"type":"cell","value":"+1 555 0100"}],"note":"private"}', 1);
 		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, status, created_at) VALUES ('seen1', 'owner', 'm-shared', 'inbound', 'jane@x.test', 'shared@one.test', 'received', 1);
 	`);
 	const env = { DB: database, CF_TOKEN: "test-only" };
@@ -54,7 +52,7 @@ async function fixture(t) {
 	return (actor, mailboxId) => contactsRoute.GET(new Request(`https://mail.test/api/contacts?mailboxId=${mailboxId}&address=jane%40x.test`, { headers: { Authorization: `Bearer ${sessions.get(actor)}` } }));
 }
 
-test("the contact lookup returns the stored contact and never serves leftover contact_details rows", async (t) => {
+test("the contact lookup returns the stored contact to the owner and to delegates of the shared mailbox", async (t) => {
 	const get = await fixture(t);
 	for (const [actor, mailbox] of [["owner", "m-owner"], ["owner", "m-shared"], ["manager", "m-shared"], ["reader", "m-shared"]]) {
 		const response = await get(actor, mailbox);
@@ -62,6 +60,5 @@ test("the contact lookup returns the stored contact and never serves leftover co
 		const body = await response.json();
 		assert.equal(body.contact.displayName, "Jane", `${actor} ${mailbox}`);
 		assert.equal("details" in body.contact, false, `${actor} ${mailbox}`);
-		assert.ok(!JSON.stringify(body).includes("private"), `${actor} ${mailbox}`);
 	}
 });

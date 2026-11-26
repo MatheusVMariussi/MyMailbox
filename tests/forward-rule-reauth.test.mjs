@@ -14,7 +14,6 @@ const { app, newDatabase } = await loadApp("forward-rule-reauth", `
 
 async function setup(t) {
 	const fixture = await newDatabase(t, `
-		INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'inst', 'team', 'active', 1);
 	`);
 	fixture.sqlite.prepare("INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES ('u1', 'u1@example.com', ?, 'U One', 'admin', 1, 1)").run(app.hashPassword("correct horse"));
 	fixture.sqlite.exec(`

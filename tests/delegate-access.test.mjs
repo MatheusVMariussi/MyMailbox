@@ -46,7 +46,6 @@ async function fixture(t, permission) {
 			('m-owner', 'primary', 'one', 'owner', 'Owner', 'personal', 0, 0, 1),
 			('m-sam', 'sam', 'one', 'sam', 'Sam', 'personal', 0, 0, 1),
 			('m-shared', 'primary', 'one', 'support', 'Support', 'shared', 0, 0, 1);
-		INSERT INTO license_settings (id, instance_id, plan, state, features, updated_at) VALUES ('default', 'delegate-test', 'team', 'active', '[]', 1);
 		INSERT INTO contacts (id, user_id, email, display_name, avatar_key, source, created_at)
 			VALUES ('c-owner', 'primary', 'owner@one.test', 'Owner', 'avatars/primary', 'manual', 1);
 	`);

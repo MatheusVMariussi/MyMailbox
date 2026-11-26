@@ -1984,7 +1984,6 @@
 	"deliverability.reason.complaint": "Denúncia de spam",
 	"deliverability.reason.manual": "Adicionado por um administrador",
 	"deliverability.source.resend": "Resend",
-	"deliverability.source.ses": "Amazon SES",
 	"deliverability.source.dsn": "Mensagem de devolução recebida",
 	"deliverability.source.admin": "Administrador",
 	"deliverability.col.address": "Endereço",

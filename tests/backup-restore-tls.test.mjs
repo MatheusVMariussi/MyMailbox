@@ -37,10 +37,10 @@ function d1(sqlite) {
 	return { prepare, async batch(statements) { return Promise.all(statements.map((statement) => statement.run())); } };
 }
 
-function database(stop = migrations.length) {
+function database() {
 	const sqlite = new Database(":memory:");
 	sqlite.pragma("foreign_keys = ON");
-	for (const migration of migrations.slice(0, stop)) for (const statement of migration.statements) sqlite.exec(statement);
+	for (const migration of migrations) for (const statement of migration.statements) sqlite.exec(statement);
 	sqlite.prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES ('u1', 'u1@example.test', 'U', 'x', 1)").run();
 	sqlite.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, created_at) VALUES ('d1', 'u1', 'example.test', 'z', 1)").run();
 	return sqlite;
@@ -61,16 +61,4 @@ test("MTA-STS settings, report kind and tls_daily_stats round-trip, the serial i
 	assert.equal(sqlite.prepare("SELECT success_count FROM tls_daily_stats").get().success_count, 5);
 	assert.equal(sqlite.prepare("SELECT mta_sts_policy_id FROM domain_deliverability").get().mta_sts_policy_id, "20251118000000");
 	assert.equal(sqlite.prepare("SELECT kind FROM deliverability_reports").get().kind, "tlsrpt");
-});
-
-test("a backup from a newer database restores onto one that has not applied the MTA-STS migration yet", async () => {
-	const newer = database();
-	newer.prepare("INSERT INTO domain_deliverability (domain_id, updated_at, mta_sts_mode) VALUES ('d1', 1, 'none')").run();
-	newer.prepare("INSERT INTO deliverability_reports (id, domain_id, kind, report_key, received_at) VALUES ('r1', 'd1', 'dmarc', 'k', 1)").run();
-	const document = JSON.parse(new TextDecoder().decode(await exportDatabaseRecords(d1(newer))));
-	const older = database(migrations.findIndex((migration) => migration.name.startsWith("0101_")));
-	assert.equal(older.prepare("SELECT count(*) AS n FROM pragma_table_info('domain_deliverability') WHERE name = 'mta_sts_mode'").get().n, 0);
-	await restoreDatabaseRecords(d1(older), buffer(new TextEncoder().encode(JSON.stringify(document))));
-	assert.equal(older.prepare("SELECT count(*) AS n FROM domain_deliverability").get().n, 1);
-	assert.equal(older.prepare("SELECT count(*) AS n FROM deliverability_reports").get().n, 1);
 });

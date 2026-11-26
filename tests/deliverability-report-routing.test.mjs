@@ -92,7 +92,6 @@ test("report mail is not sent to an account's forwarding address when a catch-al
 	raw.prepare("DELETE FROM routing_rules").run();
 	raw.prepare("INSERT INTO routing_rules (id, user_id, domain_id, mailbox_id, scope, pattern, match_value, action, created_at) VALUES ('c1', 'u1', 'd1', 'mb1', 'domain', '*', '*', 'store', 1)").run();
 	raw.prepare("UPDATE users SET forwarding_email = 'kevin@gmail.example'").run();
-	raw.prepare("INSERT INTO license_settings (id, instance_id, state, plan, updated_at) VALUES ('default', 'i1', 'active', 'pro', 1)").run();
 	env.INBOUND_QUEUE = { send: async () => {} };
 	env.BUCKET.put = async () => {};
 	const forwards = [];

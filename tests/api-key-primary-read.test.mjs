@@ -14,7 +14,7 @@ after(() => rmSync(outDir, { recursive: true, force: true }));
 
 const mocks = {
 	"drizzle-orm": "export const eq=(c,v)=>({eq:[c,v]});export const and=(...a)=>({and:a});export const or=(...a)=>({or:a});export const lt=(c,v)=>({lt:[c,v]});export const isNull=(c)=>({isNull:c});",
-	"@/db/schema": "export const apiKeys={};export const mcpKeyMailboxes={};export const users={};",
+	"@/db/schema": "export const apiKeys={};export const apiKeyMailboxes={};export const users={};",
 	"@/db": "const rows={from(){return rows},where(){return rows},limit(){return Promise.resolve([globalThis.__user])},then(resolve){resolve([])}};export function getDb(env){globalThis.__dbEnvs.push(env.DB);return {select(){return rows},update(){return {set(){return {where(){return Promise.resolve()}}}}}}}",
 	"@/lib/api/find-api-key": "export async function findApiKeyForSecret(db){return {id:'key1',userId:'u1',kind:'api',scopes:'[]',mailboxScopeEnabled:false}}",
 	"@/lib/api-keys": "export const parseScopes=()=>[]",

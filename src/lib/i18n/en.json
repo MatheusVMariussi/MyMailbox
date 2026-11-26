@@ -1970,7 +1970,6 @@
 	"deliverability.reason.complaint": "Spam complaint",
 	"deliverability.reason.manual": "Added by an administrator",
 	"deliverability.source.resend": "Resend",
-	"deliverability.source.ses": "Amazon SES",
 	"deliverability.source.dsn": "Returned bounce message",
 	"deliverability.source.admin": "Administrator",
 	"deliverability.col.address": "Address",

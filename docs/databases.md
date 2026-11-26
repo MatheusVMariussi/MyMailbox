@@ -10,14 +10,16 @@ Migrations are plain SQL files in `drizzle/migrations/`, recorded in the `d1_mig
 - **Update database** on the admin overview's database card (the in-app runner, `src/lib/migrations/service.ts`, which applies the bundled copy `src/lib/migrations/bundle.json`),
 - `npm run db:migrate:remote` (or `npm run db:migrate:local` for the local development database).
 
-Changing the schema (`src/db/schema/index.ts`) means adding a migration:
+The history starts from a baseline: `0000_baseline.sql` (tables and indexes, generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (the search index, triggers and seed rows). A new database applies both and is complete. Mailflare databases created from the old migration history cannot be upgraded in place; move their data with a fresh install (backups from Mailflare's older format do not restore either).
+
+Changing the schema means adding the next migration file:
 
 ```bash
-npm run db:generate   # drizzle-kit generate -> drizzle/migrations
+npm run db:generate   # drizzle-kit generate -> drizzle/migrations/000N_<name>.sql
 npm run db:bundle     # rebuild src/lib/migrations/bundle.json (commit it)
 ```
 
-Never edit a migration that has already been applied; add a new one. `tests/database-schema.test.mjs` fails when the bundle is stale or when the migrations no longer produce the schema's tables and columns.
+A hand-written migration also needs its entry in `drizzle/migrations/meta/_journal.json`, and every statement must end with `--> statement-breakpoint` (never inside a trigger body). Never edit a migration that has already been applied; add a new one. `tests/database-schema.test.mjs` fails when the bundle or journal is stale or when the migrations no longer produce the schema's tables and columns.
 
 ## Search
 

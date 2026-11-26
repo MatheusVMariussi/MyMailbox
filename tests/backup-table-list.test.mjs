@@ -14,7 +14,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 /**
  * The backup constants and the bundled migrations move apart when a migration
  * adds a table, so the test bundles the constants with the esbuild already used
- * by other tests and replays the bundle exactly like `push-devices-migration.test.mjs`.
+ * by other tests and replays the bundled migrations.
  */
 const outDir = mkdtempSync(join(tmpdir(), "mailflare-backup-table-list-test-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));

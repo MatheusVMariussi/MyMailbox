@@ -64,7 +64,6 @@ async function createFixture(t) {
 	for (const [id, name] of [["owner", "Olivia"], ["reader", "Ravi"], ["stranger", "Sam"]]) {
 		run("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, ?, 'x', ?)", id, `${id}@example.com`, name, now);
 	}
-	run("INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'instance', 'team', 'active', ?) ON CONFLICT (id) DO UPDATE SET plan = 'team', state = 'active'", now);
 	run("INSERT INTO domains (id, user_id, hostname, zone_id, created_at) VALUES ('d1', 'owner', 'example.com', 'zone', ?)", now);
 	run("INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ('support', 'owner', 'd1', 'support', 'shared', ?)", now);
 	run("INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, created_at) VALUES ('ma1', 'support', 'reader', 'read_only', ?)", now);

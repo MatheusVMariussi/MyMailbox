@@ -56,17 +56,14 @@ function d1(sqlite) {
 	};
 }
 
-function database(beforePromotions = false, stopBefore = null) {
+function database() {
 	const sqlite = new Database(":memory:");
 	sqlite.pragma("foreign_keys = ON");
-	// Leave out only the promotion migrations: every other column of a newer backup must exist in the target.
-	const skipped = new Set([...(beforePromotions ? ["0094_promotions.sql", "0095_promotion_sender_backfill.sql"] : []), ...(stopBefore ? [stopBefore] : [])]);
-	for (const migration of migrations.filter((m) => !skipped.has(m.name))) {
+	for (const migration of migrations) {
 		for (const statement of migration.statements) sqlite.exec(statement);
 	}
 	return sqlite;
 }
-
 
 function seed(sqlite) {
 	sqlite.exec("insert into users (id, email, password_hash, name, created_at) values ('u','u@x.test','h','U',1)");
@@ -77,48 +74,60 @@ function seed(sqlite) {
 const toBuffer = (backup) => backup.buffer.slice(backup.byteOffset, backup.byteOffset + backup.byteLength);
 const count = (sqlite, table) => sqlite.prepare(`select count(*) as n from ${table}`).get().n;
 
-test("backup and restore work on a database migrated up to just before promotions", async () => {
-	const sqlite = database(true);
+test("promotion data survives a backup and restore", async () => {
+	const sqlite = database();
+	seed(sqlite);
+	sqlite.exec("update messages set category = 'promotions', sender_address = 'a@b.test'");
+	sqlite.exec("insert into mailbox_promotion_settings (mailbox_id, mode, backfill_status, backfill_stalls, updated_at) values ('m','show','failed',3,1)");
+	await restoreDatabaseRecords(d1(sqlite), toBuffer(await exportDatabaseRecords(d1(sqlite))));
+	assert.equal(count(sqlite, "users"), 1);
+	assert.deepEqual({ ...sqlite.prepare("select category, sender_address from messages").get() }, { category: "promotions", sender_address: "a@b.test" });
+	assert.deepEqual({ ...sqlite.prepare("select mode, backfill_status, backfill_stalls from mailbox_promotion_settings").get() }, { mode: "show", backfill_status: "failed", backfill_stalls: 3 });
+});
+
+test("a database still missing a table backs up and restores without it", async () => {
+	const sqlite = database();
+	sqlite.exec("drop table mailbox_sender_preferences; drop table mailbox_promotion_settings");
 	seed(sqlite);
 	const backup = await exportDatabaseRecords(d1(sqlite));
+	assert.deepEqual(JSON.parse(new TextDecoder().decode(backup)).tables.mailbox_promotion_settings, []);
 	await restoreDatabaseRecords(d1(sqlite), toBuffer(backup));
 	assert.equal(count(sqlite, "users"), 1);
 	assert.equal(count(sqlite, "messages"), 1);
 });
 
-test("a backup written after the promotions migration restores into a database without the promotion migrations without losing mail", async () => {
-	const source = database();
-	seed(source);
-	source.exec("update messages set category = 'promotions', sender_address = 'a@b.test'");
-	const backup = await exportDatabaseRecords(d1(source));
-	const target = database(true);
-	seed(target);
-	await restoreDatabaseRecords(d1(target), toBuffer(backup));
-	assert.equal(count(target, "users"), 1);
-	assert.equal(count(target, "messages"), 1);
-});
-
-test("restoring promotion rows into a database without the promotion migrations fails before anything is deleted", async () => {
+test("restoring rows of a table this database does not have yet fails before anything is deleted", async () => {
 	const source = database();
 	seed(source);
 	source.exec("insert into mailbox_promotion_settings (mailbox_id, mode, updated_at) values ('m','show',1)");
 	const backup = await exportDatabaseRecords(d1(source));
-	const target = database(true);
+	const target = database();
+	target.exec("drop table mailbox_promotion_settings");
 	seed(target);
 	await assert.rejects(restoreDatabaseRecords(d1(target), toBuffer(backup)), /Apply pending database migrations before restoring mailbox_promotion_settings/);
 	assert.equal(count(target, "users"), 1);
 	assert.equal(count(target, "messages"), 1);
 });
 
-test("a backup written after the backfill migration restores into a database that has the promotion tables but not the backfill migration: its new columns are dropped, nothing fails after the delete", async () => {
+test("columns a newer backup carries but this database lacks are dropped, so nothing fails after the teardown", async () => {
 	const source = database();
 	seed(source);
 	source.exec("insert into mailbox_promotion_settings (mailbox_id, mode, backfill_status, backfill_stalls, backfill_error, backfill_day, backfill_day_rows, updated_at) values ('m','show','failed',3,'boom',20000,5,1)");
 	const backup = await exportDatabaseRecords(d1(source));
-	const target = database(false, "0095_promotion_sender_backfill.sql");
+	const target = database();
+	target.exec("alter table mailbox_promotion_settings drop column backfill_stalls");
 	seed(target);
-	assert.ok(!target.prepare("pragma table_info(mailbox_promotion_settings)").all().some((column) => column.name === "backfill_stalls"));
 	await restoreDatabaseRecords(d1(target), toBuffer(backup));
 	assert.deepEqual({ ...target.prepare("select mailbox_id, mode, backfill_status from mailbox_promotion_settings").get() }, { mailbox_id: "m", mode: "show", backfill_status: "failed" });
 	assert.equal(count(target, "messages"), 1);
+});
+
+test("a backup written by an older Mailflare format is refused before anything is deleted", async () => {
+	const sqlite = database();
+	seed(sqlite);
+	const document = JSON.parse(new TextDecoder().decode(await exportDatabaseRecords(d1(sqlite))));
+	document.version = 2;
+	const old = new TextEncoder().encode(JSON.stringify(document));
+	await assert.rejects(restoreDatabaseRecords(d1(sqlite), toBuffer(old)), /older Mailflare release/);
+	assert.equal(count(sqlite, "messages"), 1);
 });

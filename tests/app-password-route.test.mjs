@@ -95,7 +95,7 @@ test("a valid grant creates a mailbox-scoped app password, shown once, and is sp
 	assert.equal(row.mailbox_scope_enabled, 1);
 	assert.equal(row.prefix, body.key.slice(0, 6));
 	assert.notEqual(row.key_sha256, body.key);
-	assert.deepEqual(sqlite.prepare("SELECT mailbox_id FROM mcp_key_mailboxes WHERE key_id = ? ORDER BY mailbox_id").all(row.id).map((r) => r.mailbox_id), ["m1", "m2"]);
+	assert.deepEqual(sqlite.prepare("SELECT mailbox_id FROM api_key_mailboxes WHERE key_id = ? ORDER BY mailbox_id").all(row.id).map((r) => r.mailbox_id), ["m1", "m2"]);
 	assert.deepEqual(globalThis.appPwRoute.audit, ["auth.app_password_created"]);
 	assert.equal((await post(valid(token))).status, 401, "the grant is single use");
 	assert.equal(keys().length, 1);
@@ -149,10 +149,8 @@ test("the list shows own app passwords and older JMAP keys, with last protocol a
 	setup();
 	addKey({ id: "app", scopes: '["jmap"]', createdAt: 30, usedAt: 100, protocol: "jmap", ip: "203.0.113.5" });
 	addKey({ id: "legacy-jmap", kind: "legacy", scopes: '["jmap"]', createdAt: 20 });
-	addKey({ id: "device", kind: "device" });
 	addKey({ id: "general", kind: "legacy", scopes: '["read","send"]' });
 	addKey({ id: "mixed", kind: "legacy", scopes: '["jmap","send"]' });
-	addKey({ id: "mcp", kind: "mcp", scopes: '["mcp:read"]' });
 	addKey({ id: "theirs", userId: "u2" });
 	const response = await GET(new Request("https://mail.test/api/app-passwords"));
 	assert.equal(response.status, 200);
@@ -177,15 +175,14 @@ test("revoking deletes an app password or an older JMAP key, and nothing else", 
 	setup();
 	addKey({ id: "app" });
 	addKey({ id: "legacy-jmap", kind: "legacy" });
-	addKey({ id: "device", kind: "device" });
 	addKey({ id: "general", kind: "legacy", scopes: '["read","send"]' });
 	addKey({ id: "mixed", kind: "legacy", scopes: '["jmap","send"]' });
 	addKey({ id: "theirs", userId: "u2" });
 	assert.equal((await revoke("app")).status, 200);
 	assert.equal((await revoke("legacy-jmap")).status, 200);
-	for (const id of ["device", "general", "mixed", "theirs", "missing"]) assert.equal((await revoke(id)).status, 404, id);
-	assert.deepEqual(keys().map((row) => row.id).sort(), ["device", "general", "mixed", "theirs"]);
-	assert.equal((await revoke("device", {})).status, 403);
+	for (const id of ["general", "mixed", "theirs", "missing"]) assert.equal((await revoke(id)).status, 404, id);
+	assert.deepEqual(keys().map((row) => row.id).sort(), ["general", "mixed", "theirs"]);
+	assert.equal((await revoke("general", {})).status, 403);
 	assert.deepEqual(globalThis.appPwRoute.audit, ["auth.app_password_revoked", "auth.app_password_revoked"]);
 });
 

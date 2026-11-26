@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { messageAttachments, messages } from "@/db/schema";
 import { isOthersDraft } from "@/lib/email/draft-access";
 import { newId } from "@/lib/ids";
@@ -72,7 +72,7 @@ export async function readBlob(ctx: JmapContext, blobId: string): Promise<{ body
 			.select({ r2Key: messageAttachments.r2Key, filename: messageAttachments.filename, type: messageAttachments.contentType, size: messageAttachments.size, mailboxId: messages.mailboxId, status: messages.status, privateDraft: messages.privateDraft, userId: messages.userId })
 			.from(messageAttachments)
 			.innerJoin(messages, eq(messageAttachments.messageId, messages.id))
-			.where(and(eq(messageAttachments.id, decoded.id), isNull(messageAttachments.trashedAt)))
+			.where(eq(messageAttachments.id, decoded.id))
 			.limit(1);
 		if (!row || !row.mailboxId || !accessible.has(row.mailboxId) || isOthersDraft(row, ctx.auth.userId)) return null;
 		const object = await ctx.env.BUCKET.get(row.r2Key);

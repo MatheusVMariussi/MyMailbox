@@ -61,7 +61,6 @@ async function fixture(t) {
 			('private', 'other', 'domain', 'other', 'personal', 0, 0),
 			('disabled', 'owner', 'domain', 'disabled', 'personal', 1, 0);
 		INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, created_at) VALUES ('grant', 'shared', 'owner', 'read_only', 0);
-		INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'test', 'team', 'active', 0);
 	`);
 	const state = {
 		database,

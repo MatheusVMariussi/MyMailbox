@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { apiKeys, mcpKeyMailboxes } from "@/db/schema";
+import { apiKeys, apiKeyMailboxes } from "@/db/schema";
 import { generateAppPassword, parseScopes, scopesToJson } from "@/lib/api-keys";
 import { requireSessionUser } from "@/lib/api/auth";
 import { recordAuthActivity } from "@/lib/auth/activity";
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 		scopes: scopesToJson(protocols),
 		mailboxScopeEnabled: true,
 	});
-	await db.insert(mcpKeyMailboxes).values(mailboxIds.map((mailboxId) => ({ keyId: id, mailboxId })));
+	await db.insert(apiKeyMailboxes).values(mailboxIds.map((mailboxId) => ({ keyId: id, mailboxId })));
 	await recordAuthActivity(env, { action: "auth.app_password_created", userId: auth.user.id, request });
 	return NextResponse.json({ id, name, key: fullKey, protocols, mailboxIds }, { headers: NO_STORE });
 }

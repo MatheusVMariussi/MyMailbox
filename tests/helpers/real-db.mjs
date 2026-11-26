@@ -55,7 +55,7 @@ export async function loadApp(name, exportLines, { mocks = {} } = {}) {
 	return { app, newDatabase };
 }
 
-// owner (own personal mailbox), admin (owns shared mailbox "team"), and the team plan enabled.
+// owner (own personal mailbox) and admin (owns shared mailbox "team").
 // `delegate` has the given permission on the shared mailbox and owns a personal mailbox of their own.
 export function sharedMailboxSeed(delegatePermission) {
 	return `
@@ -68,7 +68,6 @@ export function sharedMailboxSeed(delegatePermission) {
 			('mb-delegate', 'delegate', 'domain-1', 'delegate', 'personal', 1),
 			('mb-admin', 'admin', 'domain-1', 'admin', 'personal', 1),
 			('mb-team', 'admin', 'domain-1', 'team', 'shared', 1);
-		INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'inst', 'team', 'active', 1);
 		INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, created_at) VALUES
 			('acc-1', 'mb-team', 'delegate', '${delegatePermission}', 1),
 			('acc-2', 'mb-team', 'author', 'send_on_behalf', 1);

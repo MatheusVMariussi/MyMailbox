@@ -66,7 +66,7 @@ async function fixture(t, extraEnv = {}) {
 }
 
 async function addKey(database, { id, userId = "u1", kind = "app", scopes = ["jmap"], issued }) {
-	const key = issued ?? (kind === "legacy" || kind === "mcp" || kind === "device" ? await generateApiKey() : await generateAppPassword());
+	const key = issued ?? (kind === "legacy" ? await generateApiKey() : await generateAppPassword());
 	database.db
 		.prepare("INSERT INTO api_keys (id, user_id, name, prefix, key_hash, key_sha256, kind, scopes, created_at) VALUES (?, ?, 'k', ?, ?, ?, ?, ?, 1)")
 		.run(id, userId, key.prefix, key.hash, key.sha256, kind, JSON.stringify(scopes));
@@ -158,12 +158,11 @@ test("deleteUserSessions revokes app passwords and JMAP-only keys, and nothing e
 	await addKey(database, { id: "old-mixed", kind: "legacy", scopes: ["send", "jmap"] });
 	await addKey(database, { id: "api-read", kind: "legacy", scopes: ["read", "send"] });
 	await addKey(database, { id: "api-cal", kind: "legacy", scopes: ["calendar:read"] });
-	await addKey(database, { id: "mcp", kind: "mcp", scopes: ["mcp:read"] });
 	await addKey(database, { id: "other-app", userId: "u2", kind: "app", scopes: ["jmap"] });
 	await addKey(database, { id: "other-jmap", userId: "u2", kind: "legacy", scopes: ["jmap"] });
 
 	await deleteUserSessions(env, "u1");
-	assert.deepEqual(keyIds(database), ["api-cal", "api-read", "mcp", "old-mixed", "other-app", "other-jmap"]);
+	assert.deepEqual(keyIds(database), ["api-cal", "api-read", "old-mixed", "other-app", "other-jmap"]);
 });
 
 test("revoking everything for a user with no keys is a no-op", async (t) => {

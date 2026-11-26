@@ -1,6 +1,6 @@
 import { and, eq, lt, or, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { apiKeys, mcpKeyMailboxes, users } from "@/db/schema";
+import { apiKeys, apiKeyMailboxes, users } from "@/db/schema";
 import { parseScopes } from "@/lib/api-keys";
 import { findApiKeyForSecret } from "@/lib/api/find-api-key";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
@@ -38,11 +38,9 @@ export async function authenticateApiKeyValue(env: CloudflareEnv, key: string, o
 
 	const scopes = parseScopes(candidate.scopes);
 	const allowed = candidate.mailboxScopeEnabled
-		? await db.select({ mailboxId: mcpKeyMailboxes.mailboxId }).from(mcpKeyMailboxes).where(eq(mcpKeyMailboxes.keyId, candidate.id))
+		? await db.select({ mailboxId: apiKeyMailboxes.mailboxId }).from(apiKeyMailboxes).where(eq(apiKeyMailboxes.keyId, candidate.id))
 		: null;
-	// Keys minted for the retired MCP server authenticate as ordinary keys; their scopes decide what they reach.
-	const keyKind = candidate.kind === "mcp" ? "legacy" : candidate.kind;
-	return { keyId: candidate.id, keyKind, userId: user.id, email: user.email, scopes: scopes.some((scope) => ADMIN_SCOPES.has(scope)) ? scopes.filter((scope) => ADMIN_SCOPES.has(scope)) : scopes, mailboxIds: allowed?.map((row) => row.mailboxId) ?? null, user };
+	return { keyId: candidate.id, keyKind: candidate.kind, userId: user.id, email: user.email, scopes: scopes.some((scope) => ADMIN_SCOPES.has(scope)) ? scopes.filter((scope) => ADMIN_SCOPES.has(scope)) : scopes, mailboxIds: allowed?.map((row) => row.mailboxId) ?? null, user };
 }
 
 /**

@@ -18,7 +18,6 @@ export const users = sqliteTable("users", {
 	 */
 	passwordHash: text("password_hash").notNull(),
 	name: text("name").notNull(),
-	bookingUsername: text("booking_username"),
 	timeZone: text("time_zone"),
 	avatarKey: text("avatar_key"),
 	role: text("role", { enum: ["admin", "user"] }).notNull().default("user"),
@@ -32,7 +31,6 @@ export const users = sqliteTable("users", {
 	canManageUsers: bool("can_manage_users").notNull().default(false),
 	// Apps an admin can hide per account. Off removes the nav entry and blocks the app's API.
 	calendarEnabled: bool("calendar_enabled").notNull().default(true),
-	driveEnabled: bool("drive_enabled").notNull().default(true),
 	keyboardShortcutsEnabled: bool("keyboard_shortcuts_enabled").notNull().default(true),
 	spamProtectionEnabled: bool("spam_protection_enabled").notNull().default(true),
 	// Score at which incoming mail moves to Spam: relaxed 85, normal 70, strict 55 (SPAM_STRICTNESS_THRESHOLDS).
@@ -72,7 +70,6 @@ export const users = sqliteTable("users", {
 		.notNull()
 		.$defaultFn(() => new Date()),
 }, (t) => [
-	uniqueIndex("users_booking_username_idx").on(t.bookingUsername),
 	index("users_created_by_idx").on(t.createdByUserId),
 ]);
 
@@ -90,8 +87,8 @@ export const domains = sqliteTable(
 			.default("pending"),
 		routingStatus: text("routing_status"),
 		sendingSubdomainTag: text("sending_subdomain_tag"),
-		sendingProvider: text("sending_provider", { enum: ["none", "cloudflare", "resend", "ses"] }).notNull().default("none"),
-		receivingProvider: text("receiving_provider", { enum: ["none", "cloudflare", "resend", "ses"] }).notNull().default("cloudflare"),
+		sendingProvider: text("sending_provider", { enum: ["none", "cloudflare", "resend"] }).notNull().default("none"),
+		receivingProvider: text("receiving_provider", { enum: ["none", "cloudflare", "resend"] }).notNull().default("cloudflare"),
 		sendingRequested: bool("sending_requested").notNull().default(false),
 		sendingEnabled: bool("sending_enabled").notNull().default(false),
 		routingEnabled: bool("routing_enabled").notNull().default(false),
@@ -233,18 +230,6 @@ export const contacts = sqliteTable(
 	],
 );
 
-/** Address-book fields an import brought in (phones, addresses, organization...), JSON. Kept out of `contacts`,
- *  which inbound mail selects whole, so a deploy before this migration cannot break delivery. */
-export const contactDetails = sqliteTable("contact_details", {
-	contactId: text("contact_id")
-		.primaryKey()
-		.references(() => contacts.id, { onDelete: "cascade" }),
-	details: text("details").notNull().default("{}"),
-	updatedAt: timestamp("updated_at")
-		.notNull()
-		.$defaultFn(() => new Date()),
-});
-
 export const folders = sqliteTable(
 	"folders",
 	{
@@ -274,8 +259,8 @@ export const jmapMailboxRevisions = sqliteTable("jmap_mailbox_revisions", {
 });
 
 /**
- * JMAP change log, written only by the `jmap_changes_*` triggers of migration
- * 0064: one row per created, updated or destroyed Email (and per folder or
+ * JMAP change log, written only by the `jmap_changes_*` triggers
+ * (`0001_triggers_and_seeds.sql`): one row per created, updated or destroyed Email (and per folder or
  * mailbox change), so `Email/changes`, `Mailbox/changes` and `Thread/changes`
  * return real deltas. `seq` is the state; rows older than the retention
  * window are pruned and `jmap_change_floor` records the last pruned seq.
@@ -318,11 +303,8 @@ export const messageActionUndoClaims = sqliteTable(
 
 export const apiKeys = sqliteTable("api_keys", {
 	id: text("id").primaryKey(),
-	/**
-	 * `device` keys come from a mobile sign-in (`/api/auth/device`) and are listed under Devices.
-	 * `app` keys are per-protocol app passwords (`/api/app-passwords`).
-	 */
-	kind: text("kind", { enum: ["legacy", "mcp", "device", "app"] }).notNull().default("legacy"),
+	/** `legacy` keys are ordinary API keys (`/api/api-keys`); `app` keys are JMAP app passwords (`/api/app-passwords`). */
+	kind: text("kind", { enum: ["legacy", "app"] }).notNull().default("legacy"),
 	userId: text("user_id")
 		.notNull()
 		.references(() => users.id, { onDelete: "cascade" }),
@@ -345,10 +327,10 @@ export const apiKeys = sqliteTable("api_keys", {
 		.notNull()
 		.$defaultFn(() => new Date()),
 	lastUsedAt: timestamp("last_used_at"),
-	/** Protocol (`jmap`, `caldav`, `carddav`, `imap`, `submission`) and client IP of the last use, written with `lastUsedAt`. */
+	/** Protocol (`jmap`) and client IP of the last use, written with `lastUsedAt`. */
 	lastUsedProtocol: text("last_used_protocol"),
 	lastUsedIp: text("last_used_ip"),
-}, (t) => [index("api_keys_user_idx").on(t.userId), uniqueIndex("api_keys_key_sha256_idx").on(t.keySha256)]);
+}, (t) => [index("api_keys_user_idx").on(t.userId), uniqueIndex("api_keys_key_sha256_idx").on(t.keySha256), index("idx_api_keys_prefix").on(t.prefix)]);
 
 export const messages = sqliteTable(
 	"messages",
@@ -393,7 +375,7 @@ export const messages = sqliteTable(
 		spamSignals: text("spam_signals"),
 		spamAnalyzedAt: timestamp("spam_analyzed_at"),
 		spamAnalysisError: text("spam_analysis_error"),
-		/** When the message last entered Trash or Spam; maintained by triggers (migration 0053). */
+		/** When the message last entered Trash or Spam; maintained by the `messages_trashed_at_*` triggers. */
 		trashedAt: timestamp("trashed_at"),
 		/** `promotions` from bulk-mail headers or a manual move. `primary` is an explicit "not promotions" marker (Move to Inbox) that the backfill must not reclassify. Null is a normal message or one not classified yet; every reader treats `primary` like null. */
 		category: text("category", { enum: ["promotions", "primary"] }),
@@ -550,8 +532,6 @@ export const messageAttachments = sqliteTable(
 			.default("attachment"),
 		contentId: text("content_id"),
 		r2Key: text("r2_key").notNull().unique(),
-		/** Set when the attachment is moved to the Drive trash; hidden from the email until restored, purged after 30 days. */
-		trashedAt: timestamp("trashed_at"),
 		createdAt: timestamp("created_at")
 			.notNull()
 			.$defaultFn(() => new Date()),
@@ -621,7 +601,7 @@ export const emailSuppressions = sqliteTable(
 		domainId: text("domain_id").notNull().references(() => domains.id, { onDelete: "cascade" }),
 		email: text("email").notNull(),
 		reason: text("reason", { enum: ["hard_bounce", "complaint", "manual"] }).notNull(),
-		source: text("source", { enum: ["resend", "ses", "dsn", "admin"] }).notNull(),
+		source: text("source", { enum: ["resend", "dsn", "admin"] }).notNull(),
 		detail: text("detail"),
 		/** Only confirmed entries are enforced. A single returned message (DSN) can be forged by a co-recipient, so it is stored unconfirmed. */
 		confirmed: bool("confirmed").notNull().default(true),
@@ -1017,149 +997,6 @@ export const calendarOccurrenceResponses = sqliteTable(
 	],
 );
 
-/**
- * CalDAV/CardDAV storage (spec F6-3). One calendar and one address book per user:
- * the id is derived from the user (`cal:<userId>`, `card:<userId>`), which is also
- * the collection id the `dav_changes` triggers write.
- */
-export const davCollections = sqliteTable(
-	"dav_collections",
-	{
-		id: text("id").primaryKey(),
-		userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-		kind: text("kind", { enum: ["calendar", "addressbook"] }).notNull(),
-		displayName: text("display_name"),
-		/** `#RRGGBBAA` as Apple clients send it. */
-		color: text("color"),
-		description: text("description"),
-		sortOrder: integer("sort_order"),
-		/** JSON object of properties a client stored that Mailflare does not model, capped at 16 KiB by the writer. */
-		deadProps: text("dead_props").notNull().default("{}"),
-		/** Address book only: when the user's manual contacts were copied in as cards. */
-		seededAt: timestamp("seeded_at"),
-		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-		updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-	},
-	(t) => [index("dav_collections_user_idx").on(t.userId)],
-);
-
-/** The stored iCalendar text of a calendar event (the DAV resource), keyed by the master event row. */
-export const davCalendarObjects = sqliteTable(
-	"dav_calendar_objects",
-	{
-		id: text("id").primaryKey().references(() => calendarEvents.id, { onDelete: "cascade" }),
-		userId: text("user_id").notNull(),
-		collectionId: text("collection_id").notNull(),
-		name: text("name").notNull(),
-		uid: text("uid").notNull(),
-		/** The iCalendar text last written (client PUT or regeneration); null until first rendered. */
-		body: text("body"),
-		/** SHA-256 of the projected row fields when `body` was written. */
-		rowsHash: text("rows_hash"),
-		size: integer("size").notNull(),
-		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-		updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-	},
-	(t) => [
-		uniqueIndex("dav_calendar_objects_name_idx").on(t.collectionId, t.name),
-		uniqueIndex("dav_calendar_objects_uid_idx").on(t.collectionId, t.uid),
-		index("dav_calendar_objects_user_idx").on(t.userId),
-	],
-);
-
-export const davCards = sqliteTable(
-	"dav_cards",
-	{
-		id: text("id").primaryKey(),
-		userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-		collectionId: text("collection_id").notNull(),
-		name: text("name").notNull(),
-		uid: text("uid").notNull(),
-		/** The vCard text exactly as stored. */
-		body: text("body").notNull(),
-		version: text("version", { enum: ["3.0", "4.0"] }).notNull(),
-		fn: text("fn").notNull().default(""),
-		/** JSON array of normalized addresses, at most 20. */
-		emails: text("emails").notNull().default("[]"),
-		size: integer("size").notNull(),
-		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-		updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-	},
-	(t) => [
-		uniqueIndex("dav_cards_name_idx").on(t.collectionId, t.name),
-		uniqueIndex("dav_cards_uid_idx").on(t.collectionId, t.uid),
-		index("dav_cards_user_idx").on(t.userId),
-	],
-);
-
-/**
- * Change log of the DAV collections, written only by the `dav_changes_*` triggers
- * (never from application code). A resource's ETag is the newest `seq` for its
- * `(collection_id, object_key)`; a collection's sync token embeds the newest `seq`.
- * Derived data, excluded from backups.
- */
-export const davChanges = sqliteTable(
-	"dav_changes",
-	{
-		seq: autoId("seq"),
-		collectionId: text("collection_id").notNull(),
-		objectKey: text("object_key").notNull(),
-		changeType: text("change_type", { enum: ["created", "updated", "destroyed"] }).notNull(),
-		createdAt: integer("created_at").notNull().default(nowSeconds),
-	},
-	(t) => [
-		index("dav_changes_collection_seq_idx").on(t.collectionId, t.seq),
-		index("dav_changes_object_idx").on(t.collectionId, t.objectKey, t.seq),
-	],
-);
-
-/**
- * Per-collection sync epoch and pruning floor. Separate from `dav_collections`
- * (which is backed up) so that after a restore the epoch is regenerated and every
- * token handed out by the old database is refused.
- */
-export const davSyncState = sqliteTable("dav_sync_state", {
-	collectionId: text("collection_id").primaryKey(),
-	epoch: text("epoch").notNull(),
-	/** Highest pruned `dav_changes.seq`. */
-	floor: integer("floor").notNull().default(0),
-});
-
-export const bookingEvents = sqliteTable(
-	"booking_events",
-	{
-		id: text("id").primaryKey(),
-		userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-		name: text("name").notNull(),
-		slug: text("slug").notNull().default(""),
-		description: text("description").notNull().default(""),
-		color: text("color").notNull().default("#2563eb"),
-		hostIds: text("host_ids").notNull().default("[]"),
-		durationMinutes: integer("duration_minutes").notNull(),
-		location: text("location").notNull().default(""),
-		weekdays: text("weekdays").notNull().default("[1,2,3,4,5]"),
-		startTime: text("start_time").notNull().default("09:00"),
-		endTime: text("end_time").notNull().default("17:00"),
-		timeRanges: text("time_ranges").notNull().default('[{"startTime":"09:00","endTime":"17:00"}]'),
-		timeZone: text("time_zone").notNull().default("UTC"),
-		enabled: bool("enabled").notNull().default(true),
-		createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-		updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-	},
-	(t) => [index("booking_events_user_idx").on(t.userId), uniqueIndex("booking_events_user_slug_idx").on(t.userId, t.slug)],
-);
-
-/**
- * A booking event's own guest confirmation. Kept out of `booking_events` because the public booking page selects
- * the whole row, which would fail before the migration; an empty subject or body falls back to the built-in text.
- */
-export const bookingConfirmationTemplates = sqliteTable("booking_confirmation_templates", {
-	eventId: text("event_id").primaryKey().references(() => bookingEvents.id, { onDelete: "cascade" }),
-	subject: text("subject").notNull().default(""),
-	body: text("body").notNull().default(""),
-	updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-});
-
 export const routingRules = sqliteTable(
 	"routing_rules",
 	{
@@ -1264,36 +1101,6 @@ export const sessions = sqliteTable("sessions", {
 		.notNull()
 		.$defaultFn(() => new Date()),
 }, (t) => [index("sessions_user_idx").on(t.userId)]);
-
-/** A native app's push registration (APNs), owned by the device's API key. */
-export const pushDevices = sqliteTable(
-	"push_devices",
-	{
-		id: text("id").primaryKey(),
-		userId: text("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		apiKeyId: text("api_key_id")
-			.notNull()
-			.references(() => apiKeys.id, { onDelete: "cascade" }),
-		platform: text("platform", { enum: ["apns"] }).notNull(),
-		token: text("token").notNull(),
-		environment: text("environment", { enum: ["production", "sandbox"] }).notNull().default("production"),
-		topic: text("topic").notNull(),
-		/** Base64 raw P-256 public key; previews are encrypted to it. */
-		publicKey: text("public_key"),
-		previews: bool("previews").notNull().default(true),
-		/** The app's own id for this account; echoed in pushes so a tap opens the right account. */
-		clientRef: text("client_ref"),
-		createdAt: timestamp("created_at").notNull(),
-		updatedAt: timestamp("updated_at").notNull(),
-	},
-	(table) => [
-		uniqueIndex("push_devices_platform_token_user_idx").on(table.platform, table.token, table.userId),
-		index("push_devices_user_idx").on(table.userId),
-		index("push_devices_api_key_idx").on(table.apiKeyId),
-	],
-);
 
 export const pushSubscriptions = sqliteTable(
 	"push_subscriptions",
@@ -1506,7 +1313,7 @@ export const auditLogs = sqliteTable(
 
 export const backupSettings = sqliteTable("backup_settings", {
 	id: text("id").primaryKey(),
-	enabled: bool("enabled").notNull().default(true),
+	enabled: bool("enabled").notNull().default(false),
 	scheduleType: text("schedule_type", { enum: ["daily", "weekly", "monthly"] })
 		.notNull()
 		.default("daily"),
@@ -1523,63 +1330,21 @@ export const appSettings = sqliteTable("app_settings", {
 	id: text("id").primaryKey(),
 	appName: text("app_name").notNull().default("Mailflare"),
 	outboundAttachmentMaxMb: integer("outbound_attachment_max_mb").notNull().default(25),
-	/** Per-user Drive storage cap in bytes; null means unlimited. */
-	driveStorageLimitBytes: integer("drive_storage_limit_bytes"),
 	resendApiKey: text("resend_api_key"),
-	/** JSON: AWS access key, secret and region (see src/lib/aws/config.ts). */
-	awsConfig: text("aws_config"),
-	/** JSON: the shared SES inbound resources Mailflare created (bucket, topic, rule set, webhook token). */
-	sesReceiving: text("ses_receiving"),
 	resendWebhookId: text("resend_webhook_id"),
 	resendWebhookSecret: text("resend_webhook_secret"),
 	iconKey: text("icon_key"),
-	agentEnabled: bool("agent_enabled").notNull().default(true),
-	agentProvider: text("agent_provider", { enum: ["cloudflare", "compatible"] }),
-	agentPreset: text("agent_preset", { enum: ["openai", "anthropic", "openrouter", "groq", "custom"] }),
-	agentBaseUrl: text("agent_base_url"),
-	agentApiKey: text("agent_api_key"),
-	agentModel: text("agent_model"),
-	agentModelRates: text("agent_model_rates"),
 	/** Spam analysis lookups; the SPAMHAUS_DQS_KEY and ABUSECH_AUTH_KEY env vars apply when these are null. */
 	spamhausDqsKey: text("spamhaus_dqs_key"),
 	abusechAuthKey: text("abusech_auth_key"),
 	spamDomainAgeCheck: bool("spam_domain_age_check").notNull().default(true),
 	/** JSON: brands the administrator added for display-name impersonation checks (see src/lib/spam/settings.ts). */
 	spamBrands: text("spam_brands"),
-	/** Run the update workflow and apply pending migrations automatically (cron). Off by default. */
-	autoUpdate: bool("auto_update").notNull().default(false),
-	/** Release version the cron last dispatched, so it does not dispatch the same one every five minutes. */
-	/** "release": update on a new package.json version; "commit": update on any new upstream commit. */
-	autoUpdateChannel: text("auto_update_channel", { enum: ["release", "commit"] }).notNull().default("release"),
-	autoUpdateDispatchedVersion: text("auto_update_dispatched_version"),
-	/** CalDAV/CardDAV endpoints (/dav/*) answer only when an administrator turns this on. */
-	davEnabled: bool("dav_enabled").notNull().default(false),
 	/** "off" ignores bounce and complaint events, "record" stores them, "enforce" also refuses to send to those recipients. */
 	suppressionMode: text("suppression_mode", { enum: ["off", "record", "enforce"] }).notNull().default("off"),
 	/** Resend webhook for email.bounced and email.complained; separate from the receiving webhook above. */
 	resendEventsWebhookId: text("resend_events_webhook_id"),
 	resendEventsWebhookSecret: text("resend_events_webhook_secret"),
-	/** JSON: the SNS topic, URL token and SES identities that feed bounces and complaints (see src/lib/deliverability/ses-feed.ts). */
-	sesFeedback: text("ses_feedback"),
-	updatedAt: timestamp("updated_at")
-		.notNull()
-		.$defaultFn(() => new Date()),
-});
-
-export const licenseSettings = sqliteTable("license_settings", {
-	id: text("id").primaryKey(),
-	instanceId: text("instance_id").notNull().unique(),
-	instanceUrl: text("instance_url"),
-	licenseKeyHash: text("license_key_hash"),
-	plan: text("plan", { enum: ["community", "pro", "team"] }).notNull().default("community"),
-	state: text("state", { enum: ["inactive", "active", "invalid", "expired", "deactivated"] })
-		.notNull()
-		.default("inactive"),
-	features: text("features").notNull().default("[]"),
-	// Account seats from Paymug's seatLimit; null is unlimited. Rows predating seats keep one.
-	seatLimit: integer("seat_limit").default(1),
-	activatedAt: timestamp("activated_at"),
-	validatedAt: timestamp("validated_at"),
 	updatedAt: timestamp("updated_at")
 		.notNull()
 		.$defaultFn(() => new Date()),
@@ -1611,175 +1376,14 @@ export const backups = sqliteTable(
 	],
 );
 
-export const mailboxAgentSettings = sqliteTable("mailbox_agent_settings", {
-	mailboxId: text("mailbox_id").primaryKey().references(() => mailboxes.id, { onDelete: "cascade" }),
-	enabled: bool("enabled").notNull().default(false),
-	modelId: text("model_id"),
-	autoDraftEnabled: bool("auto_draft_enabled").notNull().default(false),
-	reviewerUserId: text("reviewer_user_id").references(() => users.id, { onDelete: "set null" }),
-	instructions: text("instructions").notNull().default(""),
-	dailyLimit: integer("daily_limit").notNull().default(25),
-	updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [index("mailbox_agent_settings_reviewer_idx").on(t.reviewerUserId)]);
-
-export const aiUsage = sqliteTable("ai_usage", {
-	id: text("id").primaryKey(),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-	provider: text("provider").notNull(),
-	model: text("model").notNull(),
-	source: text("source").notNull(),
-	inputTokens: integer("input_tokens"),
-	outputTokens: integer("output_tokens"),
-	costUsdMicros: integer("cost_usd_micros"),
-}, (t) => [index("ai_usage_created_idx").on(t.createdAt)]);
-
-export const agentConversations = sqliteTable("agent_conversations", {
-	id: text("id").primaryKey(),
-	userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
-	title: text("title").notNull().default("New conversation"),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-	updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [
-	index("agent_conversations_owner_idx").on(t.userId, t.mailboxId, t.updatedAt),
-	index("agent_conversations_mailbox_idx").on(t.mailboxId),
-]);
-
-export const agentChatMessages = sqliteTable("agent_chat_messages", {
-	id: text("id").primaryKey(),
-	conversationId: text("conversation_id").notNull().references(() => agentConversations.id, { onDelete: "cascade" }),
-	role: text("role", { enum: ["user", "assistant", "tool"] }).notNull(),
-	content: text("content").notNull(),
-	toolName: text("tool_name"),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [index("agent_chat_messages_conversation_idx").on(t.conversationId, t.createdAt)]);
-
-export const agentJobs = sqliteTable("agent_jobs", {
-	id: text("id").primaryKey(),
-	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
-	sourceMessageId: text("source_message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
-	reviewerUserId: text("reviewer_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-	status: text("status", { enum: ["pending", "running", "completed", "skipped", "failed"] }).notNull().default("pending"),
-	attempts: integer("attempts").notNull().default(0),
-	nextAttemptAt: timestamp("next_attempt_at").notNull().$defaultFn(() => new Date()),
-	leaseUntil: timestamp("lease_until"),
-	draftId: text("draft_id").references(() => messages.id, { onDelete: "set null" }),
-	reason: text("reason"),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [
-	uniqueIndex("agent_jobs_source_idx").on(t.mailboxId, t.sourceMessageId),
-	index("agent_jobs_due_idx").on(t.status, t.nextAttemptAt),
-	index("agent_jobs_source_message_idx").on(t.sourceMessageId),
-	index("agent_jobs_draft_idx").on(t.draftId),
-	index("agent_jobs_reviewer_idx").on(t.reviewerUserId),
-]);
-
-export const agentDraftMetadata = sqliteTable("agent_draft_metadata", {
-	draftId: text("draft_id").primaryKey().references(() => messages.id, { onDelete: "cascade" }),
-	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
-	origin: text("origin", { enum: ["chat", "auto", "mcp"] }).notNull(),
-	sourceMessageId: text("source_message_id").references(() => messages.id, { onDelete: "set null" }),
-	revision: integer("revision").notNull().default(1),
-	humanEditedAt: timestamp("human_edited_at"),
-	scheduledAt: timestamp("scheduled_at"),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [
-	index("agent_draft_meta_source_msg_idx").on(t.sourceMessageId),
-	index("agent_draft_metadata_mailbox_idx").on(t.mailboxId),
-]);
-
-export const agentSendApprovals = sqliteTable("agent_send_approvals", {
-	id: text("id").primaryKey(),
-	draftId: text("draft_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
-	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
-	userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-	requestKeyId: text("request_key_id").references(() => apiKeys.id, { onDelete: "set null" }),
-	revision: integer("revision").notNull(),
-	payloadHash: text("payload_hash").notNull(),
-	status: text("status", { enum: ["pending", "claimed", "sent", "unknown", "expired", "cancelled"] }).notNull().default("pending"),
-	claimedAt: timestamp("claimed_at"),
-	messageId: text("message_id"),
-	expiresAt: timestamp("expires_at").notNull(),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [
-	index("agent_send_approvals_user_idx").on(t.userId, t.status),
-	uniqueIndex("agent_send_approvals_delivery_idx").on(t.draftId).where(sql`status IN ('claimed', 'sent', 'unknown')`),
-	index("agent_send_approvals_request_key_idx").on(t.requestKeyId),
-	index("agent_send_approvals_mailbox_idx").on(t.mailboxId),
-	index("agent_send_approvals_draft_idx").on(t.draftId),
-]);
-
-export const mcpKeyMailboxes = sqliteTable("mcp_key_mailboxes", {
+/** Per-key mailbox allowlist for API keys and app passwords whose `mailbox_scope_enabled` is set. */
+export const apiKeyMailboxes = sqliteTable("api_key_mailboxes", {
 	keyId: text("key_id").notNull().references(() => apiKeys.id, { onDelete: "cascade" }),
 	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
 }, (t) => [
-	uniqueIndex("mcp_key_mailbox_idx").on(t.keyId, t.mailboxId),
-	index("mcp_key_mailboxes_mailbox_idx").on(t.mailboxId),
+	uniqueIndex("api_key_mailbox_idx").on(t.keyId, t.mailboxId),
+	index("api_key_mailboxes_mailbox_idx").on(t.mailboxId),
 ]);
-
-export const driveItems = sqliteTable("drive_items", {
-	id: text("id").primaryKey(),
-	ownerId: text("owner_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-	parentId: text("parent_id"),
-	kind: text("kind", { enum: ["file", "folder"] }).notNull(),
-	name: text("name").notNull(),
-	r2Key: text("r2_key"),
-	size: integer("size").notNull().default(0),
-	contentType: text("content_type").notNull().default("application/octet-stream"),
-	// Set while a multipart upload is in flight; such rows stay hidden until the upload completes.
-	uploadId: text("upload_id"),
-	uploadPartSize: integer("upload_part_size"),
-	uploadFingerprint: text("upload_fingerprint"),
-	linkToken: text("link_token"),
-	trashedAt: timestamp("trashed_at"),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-	updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [
-	index("drive_items_owner_parent_idx").on(t.ownerId, t.parentId),
-	uniqueIndex("drive_items_link_token_idx").on(t.linkToken),
-]);
-
-export const driveUploadParts = sqliteTable("drive_upload_parts", {
-	itemId: text("item_id").notNull().references(() => driveItems.id, { onDelete: "cascade" }),
-	partNumber: integer("part_number").notNull(),
-	etag: text("etag").notNull(),
-}, (t) => [uniqueIndex("drive_upload_parts_idx").on(t.itemId, t.partNumber)]);
-
-export const driveShares = sqliteTable("drive_shares", {
-	id: text("id").primaryKey(),
-	itemId: text("item_id").notNull().references(() => driveItems.id, { onDelete: "cascade" }),
-	userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-	role: text("role", { enum: ["view", "edit"] }).notNull().default("view"),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-}, (t) => [
-	uniqueIndex("drive_shares_item_user_idx").on(t.itemId, t.userId),
-	index("drive_shares_user_idx").on(t.userId),
-]);
-
-export const importJobs = sqliteTable("import_jobs", {
-	id: text("id").primaryKey(),
-	userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-	mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
-	kind: text("kind", { enum: ["file", "imap"] }).notNull(),
-	label: text("label").notNull(),
-	status: text("status", { enum: ["queued", "running", "completed", "failed", "cancelled"] }).notNull().default("queued"),
-	// Messages known to be part of the job; for IMAP it grows as each source folder is counted.
-	total: integer("total").notNull().default(0),
-	processed: integer("processed").notNull().default(0),
-	imported: integer("imported").notNull().default(0),
-	skipped: integer("skipped").notNull().default(0),
-	// What to import (JSON, never credentials) and where the next queue message resumes (JSON).
-	spec: text("spec").notNull(),
-	cursor: text("cursor").notNull().default("{}"),
-	// Up to a handful of per-message error strings (JSON array); errorCount is the true total.
-	errors: text("errors").notNull().default("[]"),
-	errorCount: integer("error_count").notNull().default(0),
-	error: text("error"),
-	createdAt: timestamp("created_at").notNull().$defaultFn(() => new Date()),
-	startedAt: timestamp("started_at"),
-	updatedAt: timestamp("updated_at").notNull().$defaultFn(() => new Date()),
-	finishedAt: timestamp("finished_at"),
-}, (t) => [index("import_jobs_user_idx").on(t.userId, t.createdAt), index("import_jobs_status_idx").on(t.status, t.updatedAt)]);
 
 export const schema = {
 	users,
@@ -1789,7 +1393,6 @@ export const schema = {
 	autoReplyDeliveries,
 	mailboxAccess,
 	contacts,
-	contactDetails,
 	folders,
 	apiKeys,
 	messages,
@@ -1804,27 +1407,14 @@ export const schema = {
 	calendarEventOverrides,
 	calendarInviteTombstones,
 	calendarOccurrenceResponses,
-	bookingEvents,
 	routingRules,
 	webhooks,
 	webhookDeliveries,
 	sessions,
 	pushSubscriptions,
-	driveItems,
-	driveUploadParts,
-	driveShares,
 	auditLogs,
 	backupSettings,
 	backups,
 	appSettings,
-	licenseSettings,
-	mailboxAgentSettings,
-	aiUsage,
-	agentConversations,
-	agentChatMessages,
-	agentJobs,
-	agentDraftMetadata,
-	agentSendApprovals,
-	mcpKeyMailboxes,
-	importJobs,
+	apiKeyMailboxes,
 };

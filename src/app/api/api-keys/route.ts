@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { apiKeys, mcpKeyMailboxes } from "@/db/schema";
+import { apiKeys, apiKeyMailboxes } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { generateApiKey, generateAppPassword, parseScopes, scopesToJson } from "@/lib/api-keys";
 import { API_KEY_SCOPES } from "@/lib/api/scopes";
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 		.from(apiKeys)
 		.where(eq(apiKeys.userId, user.id));
 	const keyIds = rows.map((row) => row.id);
-	const allowed = keyIds.length ? await db.select().from(mcpKeyMailboxes).where(inArray(mcpKeyMailboxes.keyId, keyIds)) : [];
+	const allowed = keyIds.length ? await db.select().from(apiKeyMailboxes).where(inArray(apiKeyMailboxes.keyId, keyIds)) : [];
 	return NextResponse.json({ apiKeys: rows.filter((row) => !isListedAsAppPassword(row) && !parseScopes(row.scopes).some((scope) => (ADMIN_API_KEY_SCOPES as readonly string[]).includes(scope))).map((row) => ({ ...row, mailboxIds: allowed.filter((item) => item.keyId === row.id).map((item) => item.mailboxId) })) });
 }
 
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 		scopes: scopesToJson([...new Set(parsed.data.scopes)]),
 		mailboxScopeEnabled: true,
 	});
-	if (mailboxIds.length) await db.insert(mcpKeyMailboxes).values(mailboxIds.map((mailboxId) => ({ keyId: id, mailboxId })));
+	if (mailboxIds.length) await db.insert(apiKeyMailboxes).values(mailboxIds.map((mailboxId) => ({ keyId: id, mailboxId })));
 
 	return NextResponse.json({ id, name: parsed.data.name, prefix, key: fullKey, mailboxIds });
 }

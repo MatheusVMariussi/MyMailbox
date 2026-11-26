@@ -53,7 +53,6 @@ export async function seed(t, m, { delegatePermission = "read_only", migrations 
 		INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES ('u', 'o@one.test', 'h', 'O', 'admin', 1, 1), ('r', 'r@one.test', 'h', 'R', 'user', 0, 1);
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('d', 'u', 'one.test', 'z', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ('a', 'u', 'd', 'a', 'personal', 1), ('s', 'u', 'd', 's', 'shared', 1);
-		INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'i', 'team', 'active', 1);
 		INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, created_at) VALUES ('x', 's', 'r', '${delegatePermission}', 1);
 	`);
 	globalThis.__testEnv = { DB: database };

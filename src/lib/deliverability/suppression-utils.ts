@@ -2,7 +2,7 @@ import { getEmailAddress, normalizeEmailAddress, splitEmailAddressList } from "@
 
 export type SuppressionMode = "off" | "record" | "enforce";
 export type SuppressionReason = "hard_bounce" | "complaint" | "manual";
-export type SuppressionSource = "resend" | "ses" | "dsn" | "admin";
+export type SuppressionSource = "resend" | "dsn" | "admin";
 /**
  * What a provider event can add: manual entries come from the admin UI only. `unconfirmed` entries are
  * stored but not enforced (see `recordSuppression`); an entry without the flag is enforced.

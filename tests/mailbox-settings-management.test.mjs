@@ -71,8 +71,6 @@ async function fixture(t) {
 			('m-shared', 'primary', 'one', 'support', 'Support', 'shared', 0, 0, 1),
 			('m-other-shared', 'other-admin', 'two', 'team', 'Team', 'shared', 0, 0, 1);
 		UPDATE users SET avatar_key='avatars/sam' WHERE id='sam';
-		INSERT INTO license_settings (id, instance_id, plan, state, features, updated_at)
-			VALUES ('default', 'settings-test', 'team', 'active', '[]', 1);
 	`);
 	const objects = new Map([["avatars/sam", new Uint8Array([1, 2, 3])]]);
 	const env = {
@@ -190,7 +188,7 @@ test("owners and shared mailbox grants keep their existing settings permissions"
 	assert.equal((await f.patch("sam", "m-shared", { displayName: "Shared Updated" })).status, 200);
 });
 
-test("administrative mailbox settings need no license", async t => {
+test("administrators can configure other accounts' mailboxes", async t => {
 	const f = await fixture(t);
 	assert.equal((await f.read("primary", "m-sam")).status, 200);
 	assert.equal((await f.patch("primary", "m-sam", { displayName: "Managed" })).status, 200);

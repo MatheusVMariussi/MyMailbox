@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messageAttachments, messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: AttachmentsZipRouteParam
 			size: messageAttachments.size,
 		})
 		.from(messageAttachments)
-		.where(and(eq(messageAttachments.messageId, messageId), isNull(messageAttachments.trashedAt)));
+		.where(eq(messageAttachments.messageId, messageId));
 	if (!rows.length) return new Response("Message has no attachments", { status: 404 });
 
 	// Same gate the per-attachment download applies: flagged files need an explicit

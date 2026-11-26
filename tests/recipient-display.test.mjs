@@ -176,14 +176,10 @@ test("the setting accepts only a boolean", () => {
 	assert.throws(() => validators.updateRecipientAddressSettingsSchema.parse({ enabled: "yes" }));
 });
 
-test("migration adds the user column off by default and the journal lists it", () => {
+test("the migrations add the user column off by default", () => {
 	const db = new Database(":memory:");
-	db.exec("CREATE TABLE users (id text primary key)");
-	db.exec(readFileSync(join(root, "drizzle/migrations/0050_add_show_full_recipient_addresses.sql"), "utf8"));
-	db.exec("INSERT INTO users (id) VALUES ('u')");
+	const { migrations } = JSON.parse(readFileSync(join(root, "src/lib/migrations/bundle.json"), "utf8"));
+	for (const migration of migrations) for (const statement of migration.statements) db.exec(statement);
+	db.exec("INSERT INTO users (id, email, password_hash, name, created_at) VALUES ('u', 'u@example.test', 'x', 'U', 1)");
 	assert.equal(db.prepare("SELECT show_full_recipient_addresses AS value FROM users").get().value, 0);
-
-	const journal = JSON.parse(readFileSync(join(root, "drizzle/migrations/meta/_journal.json"), "utf8"));
-	const entry = journal.entries.find((item) => item.tag === "0050_add_show_full_recipient_addresses");
-	assert.equal(entry?.idx, 42);
 });

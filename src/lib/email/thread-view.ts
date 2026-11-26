@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, ne, notInArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, notInArray, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messageAttachments, messages } from "@/db/schema";
 import { getContactCardMap } from "@/lib/contacts/service";
@@ -104,6 +104,6 @@ async function listThreadAttachments(db: ReturnType<typeof getDb>, ids: string[]
 			contentId: messageAttachments.contentId,
 		})
 		.from(messageAttachments)
-		.where(and(inArray(messageAttachments.messageId, chunk), isNull(messageAttachments.trashedAt)))));
+		.where(inArray(messageAttachments.messageId, chunk))));
 	return results.flat();
 }

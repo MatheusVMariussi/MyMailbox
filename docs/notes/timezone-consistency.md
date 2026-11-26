@@ -10,7 +10,7 @@ Authenticated browser requests send `X-Time-Zone`. Message queries also include 
 
 ## Calendar
 
-Migrations `0047_add_calendar_time_zone.sql` and `0048_add_user_time_zone.sql` add nullable columns to `calendar_events` and `users`. Apply pending migrations before running the updated app. The migration bundle includes both migrations.
+`calendar_events.time_zone` and `users.time_zone` are nullable columns of the schema baseline.
 
 New events store their timezone. Recurrences use that timezone's calendar dates and clock time, while their displayed times follow the viewer's account preference. Editing an existing series preserves its saved timezone. The editor shows the recurrence timezone beside its repeat controls.
 

@@ -139,8 +139,8 @@ test("legacy bcrypt keys still authenticate and are upgraded in place", async (t
 test("replacing the stored hash drops a cached verification", async (t) => {
 	const { database, env } = await createFixture(t);
 	const issued = await generateApiKey();
-	insertKey(database, { id: "cached", prefix: issued.prefix, hash: issued.hash, sha256: issued.sha256, kind: "device", scopes: '["jmap"]' });
-	assert.equal((await authenticateApiKeyValue(env, issued.fullKey))?.keyKind, "device");
+	insertKey(database, { id: "cached", prefix: issued.prefix, hash: issued.hash, sha256: issued.sha256, kind: "app", scopes: '["jmap"]' });
+	assert.equal((await authenticateApiKeyValue(env, issued.fullKey))?.keyKind, "app");
 	database.db.prepare("UPDATE api_keys SET key_sha256 = ? WHERE id = 'cached'").run("f".repeat(64));
 	assert.equal(await authenticateApiKeyValue(env, issued.fullKey), null);
 	database.db.prepare("UPDATE api_keys SET key_sha256 = ? WHERE id = 'cached'").run(issued.sha256);
@@ -155,14 +155,4 @@ test("disabled users and account passwords are rejected", async (t) => {
 	assert.equal(await authenticateApiKeyValue(env, issued.fullKey), null);
 	assert.equal(await authenticateApiKeyValue(env, "correct horse battery"), null);
 	assert.equal(await authenticateApiKeyValue(env, ""), null);
-});
-
-test("keys minted for the retired MCP server authenticate as ordinary keys", async (t) => {
-	const { database, env } = await createFixture(t);
-	const issued = await generateApiKey();
-	insertKey(database, { id: "mcp", prefix: issued.prefix, hash: "not-a-bcrypt-hash", sha256: issued.sha256, kind: "mcp", scopes: '["mcp:read"]' });
-	const auth = await authenticateApiKeyValue(env, issued.fullKey);
-	assert.equal(auth?.keyId, "mcp");
-	assert.equal(auth?.keyKind, "legacy");
-	assert.deepEqual(auth?.scopes, ["mcp:read"]);
 });

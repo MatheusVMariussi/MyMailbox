@@ -16,7 +16,6 @@ const { app, newDatabase } = await loadApp("forwarding-reauth", `
 
 async function setup(t) {
 	const fixture = await newDatabase(t, `
-		INSERT INTO license_settings (id, instance_id, plan, state, updated_at) VALUES ('default', 'inst', 'team', 'active', 1);
 	`);
 	const hash = app.hashPassword("correct horse");
 	fixture.sqlite.prepare("INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, can_manage_users, created_at) VALUES ('admin', 'admin@example.com', ?, 'Admin', 'admin', 1, 1, 1)").run(hash);

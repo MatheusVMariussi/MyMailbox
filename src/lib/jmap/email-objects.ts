@@ -1,4 +1,4 @@
-import { and, inArray, isNull } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { messageAttachments, messages } from "@/db/schema";
 import { parseEmailAddressParts, splitEmailAddressList } from "@/lib/email/address";
 import { htmlToReadableText } from "@/lib/email/reply-content-utils";
@@ -147,7 +147,7 @@ export async function loadAttachmentsByMessage(ctx: JmapContext, messageIds: str
 	// Dedupe so a repeated id cannot append its attachments twice.
 	const unique = [...new Set(messageIds)];
 	for (let offset = 0; offset < unique.length; offset += 100) {
-		const rows = await ctx.db.select().from(messageAttachments).where(and(inArray(messageAttachments.messageId, unique.slice(offset, offset + 100)), isNull(messageAttachments.trashedAt)));
+		const rows = await ctx.db.select().from(messageAttachments).where(inArray(messageAttachments.messageId, unique.slice(offset, offset + 100)));
 		for (const row of rows) {
 			const list = result.get(row.messageId) ?? [];
 			list.push(row);

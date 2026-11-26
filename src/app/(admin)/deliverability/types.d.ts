@@ -12,7 +12,7 @@ export type SuppressionRow = {
 	id: string;
 	email: string;
 	reason: "hard_bounce" | "complaint" | "manual";
-	source: "resend" | "ses" | "dsn" | "admin";
+	source: "resend" | "dsn" | "admin";
 	detail: string | null;
 	confirmed: boolean;
 	eventCount: number;
