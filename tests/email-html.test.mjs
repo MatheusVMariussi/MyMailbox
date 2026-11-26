@@ -138,14 +138,32 @@ test("editor preview blocks resources, preserves them for send and is stable on 
 	assert.doesNotMatch(template.content.querySelector("p").getAttribute("style"), /remote\.example/);
 	const outgoing = prepareEmailHtml(preview, { forOutgoing: true }).html;
 	for (const path of ["image", "large", "bg"]) assert.ok(outgoing.includes(`https://remote.example/${path}`));
-	assert.doesNotMatch(outgoing, /data-mailflare-(?:src|style)/);
+	assert.match(preview, /data-mymailbox-src=/);
+	assert.doesNotMatch(outgoing, /data-(?:mymailbox|mailflare)-(?:src|style)/);
 	assert.equal(sanitizeEditorHtml(outgoing), preview);
 });
 
+test("editor placeholders written by upstream Mailflare are still restored on send", () => {
+	const preview = sanitizeEditorHtml('<p style="color:red;background:url(https://remote.example/bg)">x<img src="https://remote.example/image" srcset="https://remote.example/large 2x"></p>');
+	const legacy = preview.replaceAll("data-mymailbox-", "data-mailflare-");
+	assert.notEqual(legacy, preview);
+	const outgoing = prepareEmailHtml(legacy, { forOutgoing: true }).html;
+	for (const path of ["image", "large", "bg"]) assert.ok(outgoing.includes(`https://remote.example/${path}`));
+	assert.doesNotMatch(outgoing, /data-(?:mymailbox|mailflare)-(?:src|style|srcset)/);
+	assert.equal(sanitizeEditorHtml(legacy), preview);
+});
+
 test("editor preview never includes stylesheets or loses signature markers", () => {
-	const result = sanitizeEditorHtml('<style>body{display:none}</style><div data-mailflare-signature="1">signature</div>');
+	const result = sanitizeEditorHtml('<style>body{display:none}</style><div data-mymailbox-signature="1">signature</div>');
 	assert.doesNotMatch(result, /<style/);
-	assert.match(result, /data-mailflare-signature="1"/);
+	assert.match(result, /data-mymailbox-signature="1"/);
+});
+
+test("quote and signature markers of both names survive outgoing sanitizing", () => {
+	const html = '<div data-mymailbox-signature="1">a</div><div class="mailflare-quote" data-mailflare-quote="1"><div data-mailflare-signature="1">b</div></div>';
+	const outgoing = prepareEmailHtml(html, { forOutgoing: true }).html;
+	for (const marker of ["data-mymailbox-signature", "data-mailflare-quote", "data-mailflare-signature"]) assert.match(outgoing, new RegExp(`${marker}="1"`));
+	assert.doesNotMatch(prepareEmailHtml(html, { reader: true }).html, /data-(?:mymailbox|mailflare)-/);
 });
 
 test("ordinary outgoing fragments do not acquire wrappers on each edit", () => {
@@ -187,7 +205,9 @@ test("styled signatures are deterministic and editor copies are inert but export
 	assert.equal(prepareEmailHtml(source, { forOutgoing: true }).html, outgoing);
 	const preview = sanitizeEditorHtml(outgoing);
 	assert.doesNotMatch(preview, /<style/);
-	assert.match(preview, /data-mailflare-sheet/);
+	assert.match(preview, /data-mymailbox-sheet/);
 	assert.match(prepareEmailHtml(preview, { forOutgoing: true }).html, /\.signature\{color:red;background:url\(https:\/\/remote.example\/bg\)/);
 	assert.equal(sanitizeEditorHtml(prepareEmailHtml(preview, { forOutgoing: true }).html), preview);
+	const legacy = preview.replaceAll("data-mymailbox-sheet", "data-mailflare-sheet");
+	assert.match(prepareEmailHtml(legacy, { forOutgoing: true }).html, /\.signature\{color:red;background:url\(https:\/\/remote.example\/bg\)/);
 });

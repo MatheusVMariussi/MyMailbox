@@ -71,6 +71,11 @@ test("Apple Mail Privacy Protection fetches are automated and carry no device", 
 test("proxied clients reveal neither device nor location", () => {
 	const gmail = tracking.classifyOpen({ userAgent: "Mozilla/5.0 (Windows NT 5.1; rv:11.0) Gecko Firefox/11.0 (via ggpht.com GoogleImageProxy)", asn: 15169, country: "US", city: "Mountain View", sentAt, openedAt: later });
 	assert.deepEqual(gmail, { client: "Gmail", device: null, country: null, city: null, automated: false });
+	const ours = tracking.classifyOpen({ userAgent: "MyMailbox-Remote-Images/1.0", country: "BR", city: "Curitiba", sentAt, openedAt: later });
+	assert.deepEqual(ours, { client: "MyMailbox", device: null, country: null, city: null, automated: false });
+	// An upstream Mailflare install fetches with the same proxy under its older name.
+	const upstream = tracking.classifyOpen({ userAgent: "Mailflare-Remote-Images/1.0", country: "BR", city: "Curitiba", sentAt, openedAt: later });
+	assert.deepEqual(upstream, { client: "Mailflare", device: null, country: null, city: null, automated: false });
 });
 
 test("direct fetches name client, device and location", () => {

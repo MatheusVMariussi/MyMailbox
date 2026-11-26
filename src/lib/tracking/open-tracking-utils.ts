@@ -88,6 +88,8 @@ function detectDevice(userAgent: string): string | null {
 function detectClient(userAgent: string): { client: string | null; proxied: boolean } {
 	if (/GoogleImageProxy|ggpht\.com/i.test(userAgent)) return { client: "Gmail", proxied: true };
 	if (/YahooMailProxy/i.test(userAgent)) return { client: "Yahoo Mail", proxied: true };
+	// The remote-image proxy of a MyMailbox install, or of an upstream Mailflare install (same proxy, older name).
+	if (/MyMailbox-Remote-Images/i.test(userAgent)) return { client: "MyMailbox", proxied: true };
 	if (/Mailflare-Remote-Images/i.test(userAgent)) return { client: "Mailflare", proxied: true };
 	if (/Outlook-iOS|Outlook-Android|Microsoft Outlook|MSOffice|ms-office|Microsoft Office/i.test(userAgent)) return { client: "Outlook", proxied: false };
 	if (/Thunderbird/i.test(userAgent)) return { client: "Thunderbird", proxied: false };

@@ -6,9 +6,11 @@
 
 import { sanitizeEmailHtml } from "@/app/(dashboard)/inbox/[messageId]/email-html-sanitizer";
 
-export const QUOTE_ATTRIBUTE = "data-mailflare-quote";
-const QUOTE_OPEN = `<div class="mailflare-quote" ${QUOTE_ATTRIBUTE}="1">`;
-const SIGNATURE_ATTRIBUTE = "data-mailflare-signature";
+export const QUOTE_ATTRIBUTE = "data-mymailbox-quote";
+const QUOTE_OPEN = `<div class="mymailbox-quote" ${QUOTE_ATTRIBUTE}="1">`;
+/** The wrapper Mailflare (the upstream project) writes; mail from its installs still folds its quote. */
+const LEGACY_QUOTE_OPEN = `<div class="mailflare-quote" data-mailflare-quote="1">`;
+const SIGNATURE_ATTRIBUTE = "data-mymailbox-signature";
 
 export function escapeHtml(value: string): string {
 	return value
@@ -30,13 +32,16 @@ export function wrapQuotedHtml(inner: string): string {
 	return `${QUOTE_OPEN}${inner}</div>`;
 }
 
-/** Split a stored HTML body into the editable part and the folded quote, if any. */
+/** Split a stored HTML body into the editable part and the folded quote, if any. The outermost (first) wrapper wins. */
 export function splitQuotedHtml(html: string | null | undefined): { body: string; quoted: string | null } {
 	const value = html ?? "";
-	const index = value.indexOf(QUOTE_OPEN);
-	if (index < 0) return { body: value, quoted: null };
-	const inner = value.slice(index + QUOTE_OPEN.length).replace(/<\/div>\s*$/, "");
-	return { body: value.slice(0, index), quoted: inner };
+	const found = [QUOTE_OPEN, LEGACY_QUOTE_OPEN]
+		.map((open) => ({ open, index: value.indexOf(open) }))
+		.filter((match) => match.index >= 0)
+		.sort((a, b) => a.index - b.index)[0];
+	if (!found) return { body: value, quoted: null };
+	const inner = value.slice(found.index + found.open.length).replace(/<\/div>\s*$/, "");
+	return { body: value.slice(0, found.index), quoted: inner };
 }
 
 export function joinQuotedHtml(body: string, quoted: string | null): string {

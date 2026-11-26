@@ -14,7 +14,13 @@ type MailDocument = { template: HTMLTemplateElement; rootTag: string; bodyTag: s
 const nameOf = (name: string) => css.ident.decode(name).toLowerCase();
 const BLOCKED_IMAGE = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
 const RESOURCE_ATTRIBUTES = ["src", "background", "poster"];
-const EDITOR_ATTRIBUTES = ["data-mailflare-src", "data-mailflare-background", "data-mailflare-poster", "data-mailflare-srcset", "data-mailflare-style", "data-mailflare-sheet"];
+/** Editor placeholders keep a source value without loading it; they are written with this prefix. */
+const EDITOR_PREFIX = "data-mymailbox-";
+/** Mailflare (the upstream project) wrote the same placeholders as data-mailflare-*; they are still restored. */
+const LEGACY_EDITOR_PREFIX = "data-mailflare-";
+const EDITOR_ATTRIBUTES = ["src", "background", "poster", "srcset", "style", "sheet"].map((name) => `${EDITOR_PREFIX}${name}`);
+/** Composer markers that outgoing mail keeps, so readers can fold the quote; Mailflare's names survive inside quoted mail. */
+const COMPOSER_MARKERS = ["data-mymailbox-quote", "data-mymailbox-signature", "data-mailflare-quote", "data-mailflare-signature"];
 
 function outgoingScope(source: string): string {
 	// Stable presentation names keep repeated signature generation comparable. These are
@@ -242,10 +248,10 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 	};
 	const root = template.content.querySelector<HTMLDivElement>(rootTag)!;
 	const body = template.content.querySelector<HTMLDivElement>(bodyTag)!;
-	for (const placeholder of template.content.querySelectorAll("[data-mailflare-sheet]")) {
+	for (const placeholder of template.content.querySelectorAll(`[${EDITOR_PREFIX}sheet], [${LEGACY_EDITOR_PREFIX}sheet]`)) {
 		try {
 			const style = document.createElement("style");
-			style.textContent = decodeURIComponent(placeholder.getAttribute("data-mailflare-sheet")!);
+			style.textContent = decodeURIComponent((placeholder.getAttribute(`${EDITOR_PREFIX}sheet`) ?? placeholder.getAttribute(`${LEGACY_EDITOR_PREFIX}sheet`))!);
 			placeholder.replaceWith(style);
 		} catch { placeholder.remove(); }
 	}
@@ -263,7 +269,7 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 				// Keep a non-executable copy for sending; never install mail CSS into the editor document.
 				const placeholder = document.createElement("span");
 				placeholder.hidden = true;
-				placeholder.setAttribute("data-mailflare-sheet", encodeURIComponent(transformCss(element.textContent ?? "", false, value => value, undefined, false, true)));
+				placeholder.setAttribute(`${EDITOR_PREFIX}sheet`, encodeURIComponent(transformCss(element.textContent ?? "", false, value => value, undefined, false, true)));
 				if (element.parentElement === root) {
 					editorHeadStyles.appendChild(placeholder);
 					element.remove();
@@ -275,14 +281,15 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 		}
 		// Editor placeholders preserve source addresses without loading them. Validate again on send.
 		for (const attr of [...RESOURCE_ATTRIBUTES, "srcset", "style"]) {
-			const stored = element.getAttribute(`data-mailflare-${attr}`);
+			const stored = element.getAttribute(`${EDITOR_PREFIX}${attr}`) ?? element.getAttribute(`${LEGACY_EDITOR_PREFIX}${attr}`);
 			if (stored !== null) element.setAttribute(attr, attr === "style" ? restoreEditorStyle(element.getAttribute("style") ?? "", stored) : stored);
-			element.removeAttribute(`data-mailflare-${attr}`);
+			element.removeAttribute(`${EDITOR_PREFIX}${attr}`);
+			element.removeAttribute(`${LEGACY_EDITOR_PREFIX}${attr}`);
 		}
 		if (element.hasAttribute("style")) {
 			const original = element.getAttribute("style")!;
 			const safe = transformCss(original, true, resource, options.reader ? doc : undefined, false, allowIndirect, markIndirect);
-			if (options.editor && original !== safe) element.setAttribute("data-mailflare-style", encodeURIComponent(transformCss(original, true, value => {
+			if (options.editor && original !== safe) element.setAttribute(`${EDITOR_PREFIX}style`, encodeURIComponent(transformCss(original, true, value => {
 				try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) ? url.href : resource(value); }
 				catch { return resource(value); }
 			}, undefined, false, true)));
@@ -294,14 +301,14 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 			const value = resource(original);
 			if (value) element.setAttribute(attr, value);
 			else {
-				if (options.editor) element.setAttribute(`data-mailflare-${attr}`, original);
+				if (options.editor) element.setAttribute(`${EDITOR_PREFIX}${attr}`, original);
 				element.removeAttribute(attr);
 			}
 		}
 		if (element.hasAttribute("srcset")) {
 			const original = element.getAttribute("srcset")!;
 			const value = mapSrcset(original, resource);
-			if (options.editor) element.setAttribute("data-mailflare-srcset", original);
+			if (options.editor) element.setAttribute(`${EDITOR_PREFIX}srcset`, original);
 			if (value) element.setAttribute("srcset", value); else element.removeAttribute("srcset");
 		}
 		if (element.tagName === "A" || element.tagName === "AREA") {
@@ -330,7 +337,7 @@ export function prepareEmailHtml(source: string, options: Options = {}) {
 	const cleaned = purifier.sanitize(template.content, {
 		USE_PROFILES: { html: true },
 		ADD_TAGS: ["style", rootTag, bodyTag],
-		ADD_ATTR: ["target", "loading", "referrerpolicy", ...(options.forOutgoing || options.editor ? ["data-mailflare-quote", "data-mailflare-signature"] : []), ...(options.editor ? EDITOR_ATTRIBUTES : [])],
+		ADD_ATTR: ["target", "loading", "referrerpolicy", ...(options.forOutgoing || options.editor ? COMPOSER_MARKERS : []), ...(options.editor ? EDITOR_ATTRIBUTES : [])],
 		FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "button", "select", "textarea", "link", "base", "meta", "audio", "video", "source", "template"],
 		FORBID_ATTR: ["is", "slot", "popover", "popovertarget", "popovertargetaction", "command", "commandfor", "interestfor"],
 		ALLOW_DATA_ATTR: false,

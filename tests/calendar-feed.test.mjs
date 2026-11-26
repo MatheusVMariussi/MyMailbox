@@ -18,6 +18,8 @@ test("one-off event is UTC with escaped text", () => {
 	const ics = buildCalendarFeed([base], { name: "MyMailbox", now: new Date("2026-11-01T00:00:00Z") });
 	assert.match(ics, /DTSTART:20261102T170000Z\r\n/);
 	assert.match(ics, /SUMMARY:Standup\\, daily\r\n/);
+	assert.match(ics, /\r\nPRODID:-\/\/MyMailbox\/\/Calendar\/\/EN\r\n/);
+	assert.match(ics, new RegExp(`\\r\\nUID:${base.id}@mymailbox\\r\\n`));
 	assert.ok(ics.endsWith("END:VCALENDAR\r\n"));
 });
 

@@ -1,5 +1,5 @@
 import { dateFromZonedFields, normalizeTimeZone, zonedDateFields } from "../time/utils";
-import { escapeIcsText, formatIcsUtc, isIcsAddress, joinIcsLines, MAX_ICS_ADDRESS } from "./ics";
+import { escapeIcsText, formatIcsUtc, ICS_PRODID, isIcsAddress, joinIcsLines, MAX_ICS_ADDRESS } from "./ics";
 import { normalizeReminderMinutes } from "./reminder-utils";
 
 export type ParsedInvite = {
@@ -606,7 +606,7 @@ export function buildReplyIcs(invite: ParsedInvite, attendee: string, response: 
 	const dateValue = (name: string, value: Date) => invite.allDay
 		? `${name};VALUE=DATE:${zonedDateFields(value, normalizeTimeZone(invite.recipientZone)).toISOString().slice(0, 10).replace(/-/g, "")}`
 		: `${name}:${formatIcsUtc(value)}`;
-	const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Mailflare//Calendar//EN", "METHOD:REPLY", "BEGIN:VEVENT", `UID:${stripControls(invite.uid)}`, `DTSTAMP:${formatIcsUtc(new Date())}`,
+	const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", ICS_PRODID, "METHOD:REPLY", "BEGIN:VEVENT", `UID:${stripControls(invite.uid)}`, `DTSTAMP:${formatIcsUtc(new Date())}`,
 		dateValue("DTSTART", invite.startsAt),
 		...(invite.recurrenceId ? [dateValue("RECURRENCE-ID", invite.recurrenceId)] : []),
 		`SEQUENCE:${invite.sequence}`,
@@ -636,7 +636,7 @@ export function buildCounterIcs(invite: ParsedInvite, attendee: string, proposal
 	const dateValue = (name: string, value: Date) => invite.allDay
 		? `${name};VALUE=DATE:${zonedDateFields(value, normalizeTimeZone(invite.recipientZone)).toISOString().slice(0, 10).replace(/-/g, "")}`
 		: `${name}:${formatIcsUtc(value)}`;
-	const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Mailflare//Calendar//EN", "METHOD:COUNTER", "BEGIN:VEVENT", `UID:${stripControls(invite.uid)}`, `DTSTAMP:${formatIcsUtc(new Date())}`,
+	const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", ICS_PRODID, "METHOD:COUNTER", "BEGIN:VEVENT", `UID:${stripControls(invite.uid)}`, `DTSTAMP:${formatIcsUtc(new Date())}`,
 		dateValue("DTSTART", proposal.startsAt),
 		dateValue("DTEND", proposal.endsAt),
 		...(invite.recurrenceId ? [dateValue("RECURRENCE-ID", invite.recurrenceId)] : []),

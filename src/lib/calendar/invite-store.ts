@@ -4,7 +4,7 @@ import { calendarEventOverrides, calendarEvents, calendarInviteTombstones, calen
 import { newId } from "@/lib/ids";
 import type { AttachmentContent } from "@/lib/email/attachment-types";
 import { inviteAttendeeAddresses, inviteRepeat, parseInvite, type ParsedInvite } from "./invite";
-import { isIcsAddress } from "./ics";
+import { isIcsAddress, ownEventIdFromUid } from "./ics";
 import { getEmailAddress } from "@/lib/email/address";
 import { findInviteAttachment, MAX_INVITE_BYTES } from "./invite-attachment";
 import { addExcludedOccurrence, chooseRecipientZone, inboundNeedsRecipientZone, inviteSenderMatches, mergeExcludedOccurrences, normalizeInviteSender, planInboundInvite } from "./invite-rules";
@@ -136,8 +136,8 @@ export async function registerInboundInvite(env: CloudflareEnv, input: { userId:
 			await applyInviteReply(env, input.userId, input.senderAddress, invite);
 			return;
 		}
-		// Mailflare writes UID <event id>@mailflare; an invitation you sent yourself is already your own event.
-		const ownId = invite.uid.endsWith("@mailflare") ? invite.uid.slice(0, -"@mailflare".length) : null;
+		// This app writes UID <event id>@mymailbox (Mailflare wrote @mailflare); an invitation you sent yourself is already your own event.
+		const ownId = ownEventIdFromUid(invite.uid);
 		if (ownId) {
 			const [own] = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(and(eq(calendarEvents.id, ownId), eq(calendarEvents.userId, input.userId))).limit(1);
 			if (own) return;
@@ -222,9 +222,9 @@ const REPLY_STATUS: Record<string, string> = { ACCEPTED: "accepted", TENTATIVE: 
  * occurrence (RECURRENCE-ID) is stored per occurrence; anything about the event as a whole updates the guest map.
  */
 async function applyInviteReply(env: CloudflareEnv, userId: string, senderAddress: string, invite: ParsedInvite): Promise<void> {
-	if (!invite.uid.endsWith("@mailflare")) return;
+	const eventId = ownEventIdFromUid(invite.uid);
+	if (!eventId) return;
 	const db = getDb(env);
-	const eventId = invite.uid.slice(0, -"@mailflare".length);
 	const [event] = await db.select().from(calendarEvents).where(and(eq(calendarEvents.id, eventId), eq(calendarEvents.userId, userId))).limit(1);
 	if (!event) return;
 	let guests: string[] = [];

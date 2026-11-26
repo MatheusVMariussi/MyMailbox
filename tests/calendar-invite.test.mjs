@@ -7,10 +7,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dir = mkdtempSync(join(tmpdir(), "mailflare-calendar-invite-"));
+const dir = mkdtempSync(join(tmpdir(), "mymailbox-calendar-invite-"));
 after(() => rmSync(dir, { recursive: true, force: true }));
 await build({
-	entryPoints: { d: join(root, "src/lib/calendar/invite-delivery.ts"), i: join(root, "src/lib/calendar/invite.ts"), r: join(root, "src/lib/calendar/invite-rules.ts"), u: join(root, "src/lib/calendar/utils.ts"), t: join(root, "src/lib/calendar/tool-occurrences.ts"), s: join(root, "src/lib/calendar/split-announcement.ts") },
+	entryPoints: { d: join(root, "src/lib/calendar/invite-delivery.ts"), i: join(root, "src/lib/calendar/invite.ts"), r: join(root, "src/lib/calendar/invite-rules.ts"), u: join(root, "src/lib/calendar/utils.ts"), t: join(root, "src/lib/calendar/tool-occurrences.ts"), s: join(root, "src/lib/calendar/split-announcement.ts"), c: join(root, "src/lib/calendar/ics.ts") },
 	outdir: dir, outExtension: { ".js": ".mjs" }, bundle: true, platform: "node", format: "esm", logLevel: "silent",
 	alias: { "@": join(root, "src") },
 });
@@ -20,15 +20,16 @@ const { planInboundInvite, planInviteAnswer, inviteSenderMatches, addExcludedOcc
 const { createCalendarInvitation } = await import(pathToFileURL(join(dir, "u.mjs")).href);
 const { sendToAttendees } = await import(pathToFileURL(join(dir, "d.mjs")).href);
 const { buildSplitAnnouncement } = await import(pathToFileURL(join(dir, "s.mjs")).href);
+const { eventUid, ownEventIdFromUid } = await import(pathToFileURL(join(dir, "c.mjs")).href);
 
 const ics = (...lines) => lines.join("\r\n");
 const event = (...lines) => ics("BEGIN:VCALENDAR", "VERSION:2.0", "METHOD:REQUEST", "BEGIN:VEVENT", "UID:x", ...lines, "END:VEVENT", "END:VCALENDAR");
 
-const mailflare = ics("BEGIN:VCALENDAR", "VERSION:2.0", "METHOD:REQUEST", "BEGIN:VEVENT", "UID:evt_abc@mailflare", "DTSTART:20261104T170000Z", "DTEND:20261104T180000Z", "SUMMARY:Planning meeting\\, Q4", "DESCRIPTION:Line one\\nLine two", "LOCATION:", "END:VEVENT", "END:VCALENDAR");
+const ownInvite = ics("BEGIN:VCALENDAR", "VERSION:2.0", "METHOD:REQUEST", "BEGIN:VEVENT", "UID:evt_abc@mymailbox", "DTSTART:20261104T170000Z", "DTEND:20261104T180000Z", "SUMMARY:Planning meeting\\, Q4", "DESCRIPTION:Line one\\nLine two", "LOCATION:", "END:VEVENT", "END:VCALENDAR");
 
-test("parses a Mailflare invite", () => {
-	const invite = parseInvite(mailflare);
-	assert.equal(invite.uid, "evt_abc@mailflare");
+test("parses a MyMailbox invite", () => {
+	const invite = parseInvite(ownInvite);
+	assert.equal(invite.uid, "evt_abc@mymailbox");
 	assert.equal(invite.method, "REQUEST");
 	assert.equal(invite.title, "Planning meeting, Q4");
 	assert.equal(invite.description, "Line one\nLine two");
@@ -36,6 +37,24 @@ test("parses a Mailflare invite", () => {
 	assert.equal(invite.organizer, null);
 	assert.equal(invite.sequence, 0);
 	assert.equal(invite.recurrenceId, null);
+});
+
+test("own event UIDs are written with @mymailbox and read back with either suffix", () => {
+	assert.equal(eventUid("evt_abc"), "evt_abc@mymailbox");
+	assert.equal(ownEventIdFromUid("evt_abc@mymailbox"), "evt_abc");
+	// Mailflare, the upstream project, wrote @mailflare: answers to its invitations still find the event.
+	assert.equal(ownEventIdFromUid("evt_abc@mailflare"), "evt_abc");
+	assert.equal(ownEventIdFromUid("evt_abc@google.com"), null);
+	assert.equal(ownEventIdFromUid("evt_abc@mymailbox.example"), null);
+	assert.equal(ownEventIdFromUid("@mymailbox"), null);
+});
+
+test("a reply to an invitation Mailflare wrote keeps its UID and resolves to the event", () => {
+	const legacy = parseInvite(ownInvite.replace("UID:evt_abc@mymailbox", "UID:evt_abc@mailflare"));
+	const reply = parseInvite(buildReplyIcs(legacy, "guest@example.com", "accepted"));
+	assert.equal(reply.uid, "evt_abc@mailflare");
+	assert.equal(ownEventIdFromUid(reply.uid), "evt_abc");
+	assert.match(buildReplyIcs(legacy, "guest@example.com", "accepted"), /\r\nPRODID:-\/\/MyMailbox\/\/Calendar\/\/EN\r\n/);
 });
 
 test("converts a TZID start to UTC across daylight saving", () => {
@@ -241,7 +260,7 @@ test("UNTIL includes an occurrence that starts exactly then", () => {
 });
 
 test("reply carries the attendee status, sequence and occurrence, folded with a trailing CRLF", () => {
-	const reply = buildReplyIcs(parseInvite(mailflare), "guest@example.com", "tentative");
+	const reply = buildReplyIcs(parseInvite(ownInvite), "guest@example.com", "tentative");
 	assert.match(reply, /METHOD:REPLY/);
 	assert.match(reply, /ATTENDEE;PARTSTAT=TENTATIVE:mailto:guest@example.com/);
 	assert.match(reply, /\r\nSEQUENCE:0\r\n/);
@@ -255,11 +274,11 @@ test("reply carries the attendee status, sequence and occurrence, folded with a 
 	assert.equal(parseInvite(occurrenceReply).title, "Long title ".repeat(12).trim());
 });
 
-test("a reply built by Mailflare parses back to the answering guest and status", () => {
-	const reply = buildReplyIcs(parseInvite(mailflare), "guest@example.com", "accepted");
+test("a reply built by MyMailbox parses back to the answering guest and status", () => {
+	const reply = buildReplyIcs(parseInvite(ownInvite), "guest@example.com", "accepted");
 	const parsed = parseInvite(reply);
 	assert.equal(parsed.method, "REPLY");
-	assert.equal(parsed.uid, "evt_abc@mailflare");
+	assert.equal(parsed.uid, "evt_abc@mymailbox");
 	assert.deepEqual(parsed.attendees, [{ email: "guest@example.com", status: "ACCEPTED" }]);
 });
 
@@ -656,7 +675,7 @@ test("split announcement truncates the original UID and invites the fork UID", (
 	const truncation = new TextDecoder().decode(truncationFile);
 	const fork = new TextDecoder().decode(forkFile);
 	// File (1) keeps the original DTSTART with UNTIL at the split, the EXDATE and the pre-split override.
-	assert.match(truncation, /UID:evt_orig@mailflare/);
+	assert.match(truncation, /UID:evt_orig@mymailbox/);
 	assert.match(truncation, /DTSTART:20261110T170000Z/);
 	assert.match(truncation, /RRULE:FREQ=WEEKLY;UNTIL=20261124T170000Z/);
 	assert.match(truncation, /\r\nSEQUENCE:3\r\n/);
@@ -664,7 +683,7 @@ test("split announcement truncates the original UID and invites the fork UID", (
 	assert.match(truncation, /RECURRENCE-ID:20261112T170000Z/);
 	assert.doesNotMatch(truncation, /evt_fork/);
 	// File (2) is a new series under the fork UID starting at the split.
-	assert.match(fork, /UID:evt_fork@mailflare/);
+	assert.match(fork, /UID:evt_fork@mymailbox/);
 	assert.match(fork, /DTSTART:20261124T170000Z/);
 	assert.match(fork, /\r\nSEQUENCE:0\r\n/);
 	assert.match(fork, /RRULE:FREQ=WEEKLY\r\n/);
@@ -672,7 +691,7 @@ test("split announcement truncates the original UID and invites the fork UID", (
 });
 
 test("a counter proposal carries the proposed times and round-trips", () => {
-	const invite = parseInvite(mailflare);
+	const invite = parseInvite(ownInvite);
 	const proposal = buildCounterIcs(invite, "guest@example.com", { startsAt: new Date("2026-11-05T10:00:00.000Z"), endsAt: new Date("2026-11-05T11:00:00.000Z") }, { message: "How about this?" });
 	assert.match(proposal, /METHOD:COUNTER/);
 	assert.match(proposal, /DTSTART:20261105T100000Z/);
@@ -682,7 +701,7 @@ test("a counter proposal carries the proposed times and round-trips", () => {
 	for (const line of proposal.split("\r\n")) assert.ok(new TextEncoder().encode(line).length <= 75, line);
 	const back = parseInvite(proposal);
 	assert.equal(back.method, "COUNTER");
-	assert.equal(back.uid, "evt_abc@mailflare");
+	assert.equal(back.uid, "evt_abc@mymailbox");
 	assert.equal(back.startsAt.toISOString(), "2026-11-05T10:00:00.000Z");
 	assert.equal(back.endsAt.toISOString(), "2026-11-05T11:00:00.000Z");
 	assert.equal(back.description, "How about this?");
@@ -716,8 +735,8 @@ test("counter proposals need a valid range on a REQUEST invitation", () => {
 	assert.equal(parseCounterProposal("2026-11-05T10:00:00.000Z", undefined), null);
 	assert.equal(parseCounterProposal(null, null), null);
 	// The route only counters REQUEST invitations; anything else is rejected there.
-	assert.equal(parseInvite(mailflare).method, "REQUEST");
-	const reply = parseInvite(buildReplyIcs(parseInvite(mailflare), "guest@example.com", "accepted"));
+	assert.equal(parseInvite(ownInvite).method, "REQUEST");
+	const reply = parseInvite(buildReplyIcs(parseInvite(ownInvite), "guest@example.com", "accepted"));
 	assert.notEqual(reply.method, "REQUEST");
 });
 

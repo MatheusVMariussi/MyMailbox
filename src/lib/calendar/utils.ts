@@ -1,4 +1,4 @@
-import { escapeIcsText, formatIcsUtc, isIcsAddress, joinIcsLines } from "./ics";
+import { escapeIcsText, eventUid, formatIcsUtc, ICS_PRODID, isIcsAddress, joinIcsLines } from "./ics";
 
 type CalendarInvitationInput = {
 	title: string;
@@ -66,7 +66,7 @@ export function createCalendarInvitation(input: CalendarInvitationInput): ArrayB
 	const excluded = [...new Set((input.excludedOccurrences ?? []).filter((ms) => Number.isSafeInteger(ms) && ms >= 0))].sort((a, b) => a - b);
 	const organizerLine = organizer ? [`ORGANIZER:mailto:${organizer}`] : [];
 	const attendeeLines = organizer ? (input.attendees ?? []).filter((address) => isIcsAddress(address)).map((address) => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${address}`) : [];
-	const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Mailflare//Calendar//EN", "CALSCALE:GREGORIAN", `METHOD:${input.method ?? "REQUEST"}`, "BEGIN:VEVENT", `UID:${input.uid}@mailflare`, `DTSTAMP:${stamp}`, `SEQUENCE:${sequence}`, `DTSTART:${formatIcsUtc(input.startsAt)}`, `DTEND:${formatIcsUtc(input.endsAt)}`, `SUMMARY:${escapeIcsText(input.title)}`, `DESCRIPTION:${escapeIcsText(input.description)}`, `LOCATION:${escapeIcsText(input.location)}`,
+	const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", ICS_PRODID, "CALSCALE:GREGORIAN", `METHOD:${input.method ?? "REQUEST"}`, "BEGIN:VEVENT", `UID:${eventUid(input.uid)}`, `DTSTAMP:${stamp}`, `SEQUENCE:${sequence}`, `DTSTART:${formatIcsUtc(input.startsAt)}`, `DTEND:${formatIcsUtc(input.endsAt)}`, `SUMMARY:${escapeIcsText(input.title)}`, `DESCRIPTION:${escapeIcsText(input.description)}`, `LOCATION:${escapeIcsText(input.location)}`,
 		...(organizerLine),
 		...attendeeLines,
 		...(rule ? [rule] : []),
@@ -75,7 +75,7 @@ export function createCalendarInvitation(input: CalendarInvitationInput): ArrayB
 		...(input.reminderMinutes != null ? ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeIcsText(input.title)}`, `TRIGGER:-PT${input.reminderMinutes}M`, "END:VALARM"] : []),
 		"END:VEVENT"];
 	for (const override of input.overrides ?? []) {
-		lines.push("BEGIN:VEVENT", `UID:${input.uid}@mailflare`, `DTSTAMP:${stamp}`, `SEQUENCE:${sequence}`, `RECURRENCE-ID:${formatIcsUtc(override.recurrenceId)}`, `DTSTART:${formatIcsUtc(override.startsAt)}`, `DTEND:${formatIcsUtc(override.endsAt)}`, `SUMMARY:${escapeIcsText(input.title)}`, `DESCRIPTION:${escapeIcsText(input.description)}`, `LOCATION:${escapeIcsText(input.location)}`, ...organizerLine, ...attendeeLines, "END:VEVENT");
+		lines.push("BEGIN:VEVENT", `UID:${eventUid(input.uid)}`, `DTSTAMP:${stamp}`, `SEQUENCE:${sequence}`, `RECURRENCE-ID:${formatIcsUtc(override.recurrenceId)}`, `DTSTART:${formatIcsUtc(override.startsAt)}`, `DTEND:${formatIcsUtc(override.endsAt)}`, `SUMMARY:${escapeIcsText(input.title)}`, `DESCRIPTION:${escapeIcsText(input.description)}`, `LOCATION:${escapeIcsText(input.location)}`, ...organizerLine, ...attendeeLines, "END:VEVENT");
 	}
 	lines.push("END:VCALENDAR");
 	return new TextEncoder().encode(joinIcsLines(lines)).buffer as ArrayBuffer;

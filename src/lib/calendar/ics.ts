@@ -3,6 +3,28 @@
 /** Longest mailbox allowed by RFC 5321 (254 in practice); anything longer is never tested or written. */
 export const MAX_ICS_ADDRESS = 320;
 
+/** The PRODID line of every calendar file this app writes. */
+export const ICS_PRODID = "PRODID:-//MyMailbox//Calendar//EN";
+
+/** This app writes the UID of its own events as `<event id>@mymailbox`. */
+export const EVENT_UID_SUFFIX = "@mymailbox";
+
+/**
+ * UID suffixes read back as this app's own events: the current one, then `@mailflare`, which Mailflare (the
+ * upstream project) wrote, so replies and copies of invitations it sent still find their event.
+ */
+const OWN_EVENT_UID_SUFFIXES = [EVENT_UID_SUFFIX, "@mailflare"];
+
+export function eventUid(eventId: string): string {
+	return `${eventId}${EVENT_UID_SUFFIX}`;
+}
+
+/** The event id inside a UID this app (or Mailflare) wrote, or null for anyone else's UID. */
+export function ownEventIdFromUid(uid: string): string | null {
+	const suffix = OWN_EVENT_UID_SUFFIXES.find((candidate) => uid.length > candidate.length && uid.endsWith(candidate));
+	return suffix ? uid.slice(0, -suffix.length) : null;
+}
+
 /**
  * A calendar address must be one plain mailbox; anything with whitespace or separators is left out of the file.
  * The local part excludes @ so a long run of @ cannot backtrack quadratically, and the length is capped before the test.
