@@ -32,7 +32,9 @@ export function pickComposerSender(
 		if (exact ?? draftOptions[0]) return exact ?? draftOptions[0];
 	}
 	if (preference.projectId && preference.mappings?.length) {
-		const projectOption = options.find((option) => resolveProjectForAddress(preference.mappings!, option.address) === preference.projectId);
+		// The project's options, the selected mailbox's first when it has one.
+		const projectOptions = options.filter((option) => resolveProjectForAddress(preference.mappings!, option.address) === preference.projectId);
+		const projectOption = projectOptions.find((option) => option.mailboxId === preference.preferredMailboxId) ?? projectOptions[0];
 		if (projectOption) return projectOption;
 	}
 	if (preference.preferredMailboxId) {

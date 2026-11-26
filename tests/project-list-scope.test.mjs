@@ -59,6 +59,10 @@ const mappings = [
 test("new mail starts from the active project's first sender option", () => {
 	assert.deepEqual(m.pickComposerSender(options, { projectId: "p-beta", mappings, preferredMailboxId: "mb-b" }), options[1]);
 	assert.deepEqual(m.pickComposerSender(options, { projectId: "p-sales", mappings }), options[2]);
+	// Among the project's options, the selected mailbox's comes first.
+	const both = [...options, { mailboxId: "mb-c", address: "hello@beta.test" }];
+	assert.deepEqual(m.pickComposerSender(both, { projectId: "p-beta", mappings, preferredMailboxId: "mb-c" }), both[3]);
+	assert.deepEqual(m.pickComposerSender(both, { projectId: "p-beta", mappings, preferredMailboxId: "mb-x" }), both[1]);
 	assert.deepEqual(m.pickComposerSender(options, { projectId: "p-none", mappings, preferredMailboxId: "mb-b" }), options[2]);
 	assert.deepEqual(m.pickComposerSender(options, { preferredMailboxId: null }), options[0]);
 	assert.equal(m.pickComposerSender([], {}), null);
