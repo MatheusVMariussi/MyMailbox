@@ -36,8 +36,6 @@ test("the safe-area utility pads all four sides from env(safe-area-inset-*)", ()
 // Each must use the `safe-area` utility or its own env(safe-area-inset-*) padding on the root element.
 test("layout-less pages, auth shell, skeletons and the mobile drawer clear the safe areas", () => {
 	const files = [
-		["src/app/book/[userId]/page.tsx", /safe-area-inset-top/, /safe-area-inset-bottom/],
-		["src/app/book/[userId]/[eventId]/page.tsx", /safe-area-inset-top/, /safe-area-inset-bottom/],
 		["src/components/auth/auth-shell.tsx", /pt-\[env\(safe-area-inset-top\)\]/, /pl-\[env\(safe-area-inset-left\)\]/],
 		["src/components/route-skeleton.tsx", /safe-area flex h-dvh/, /safe-area flex h-dvh/],
 		["src/components/sidebar-aside.tsx", /pb-\[env\(safe-area-inset-bottom\)\]/, /md:pb-0/],

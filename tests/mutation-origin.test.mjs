@@ -94,7 +94,6 @@ const EXEMPT = {
 	"inbound/ses/route.ts": "SNS endpoint guarded by a secret URL token",
 	"provider-events/resend/route.ts": "Svix-signed provider webhook (bounce and complaint events)",
 	"provider-events/ses/route.ts": "SNS endpoint guarded by a secret URL token and the SNS signature",
-	"public/booking/[eventId]/route.ts": "public booking form, designed to be posted from external pages",
 	"auth/login/route.ts": "pre-session credential endpoint (Turnstile and password), no cookie authority to ride",
 	"auth/register/route.ts": "pre-session sign-up (Turnstile / setup token)",
 	"auth/password-reset/request/route.ts": "pre-session, Turnstile protected",

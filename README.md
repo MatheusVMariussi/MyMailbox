@@ -3,7 +3,7 @@
 
 # Mailflare
 
-A self-hosted alternative to Google Workspace. Setup **custom domain Emails**, **Calendar** and **Booking**.
+A self-hosted alternative to Google Workspace. Setup **custom domain Emails** and **Calendar**.
 
 Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.co?ref=github) with high-deliverable emails** from $4​
 
@@ -16,7 +16,6 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 - **Email**: Custom domain mailboxes, personal or shared, with access you control. Send and receive with Cloudflare Email, Resend or Amazon SES.
 - **Routing rules**: Store, forward, reject or sort incoming mail, including a one-rule filter for newsletters and promotions.
 - **Calendar**: Repeating events with time zones. Attendees get email invitations.
-- **Booking**: Share a public link so anyone can book a free time on your calendar.
 
 ### Technical
 

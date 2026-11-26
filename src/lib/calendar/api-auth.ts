@@ -4,7 +4,7 @@ import { authenticateApiRequest, hasScope } from "@/lib/api/key-auth";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
 import type { CalendarAuthorization } from "./api-auth-types";
 
-/** Calendar is a per-user app an admin can switch off; off applies to API keys and booking too. */
+/** Calendar is a per-user app an admin can switch off; off applies to API keys too. */
 export function calendarAccessError(user: { calendarEnabled: boolean } | null | undefined) {
 	return user && !user.calendarEnabled
 		? NextResponse.json({ error: "Calendar is disabled for this account" }, { status: 403 })

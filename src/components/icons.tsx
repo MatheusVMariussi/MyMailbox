@@ -81,7 +81,6 @@ import {
 	CollapseIcon as HugeMinimize02Icon,
 	MinusIcon as HugeMinusIcon,
 	More01Icon as HugeMore01Icon,
-	MoreHorizontalIcon as HugeMoreHorizontalIcon,
 	MoreVerticalIcon as HugeMoreVerticalIcon,
 	MusicIcon as HugeMusicIcon,
 	PaletteIcon as HugePaletteIcon,
@@ -253,7 +252,6 @@ export const Menu: LucideIcon = HamburgerMenuIcon;
 export const Minimize2 = createIcon(HugeMinimize02Icon, "Minimize2");
 export const Minus = createIcon(HugeMinusIcon, "Minus");
 export const More01 = createIcon(HugeMore01Icon, "More01");
-export const MoreHorizontal = createIcon(HugeMoreHorizontalIcon, "MoreHorizontal");
 export const MoreVertical = createIcon(HugeMoreVerticalIcon, "MoreVertical");
 export const Music = createIcon(HugeMusicIcon, "Music");
 export const Palette = createIcon(HugePaletteIcon, "Palette");

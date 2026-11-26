@@ -4,8 +4,8 @@ import { SidebarHeader } from "@/components/sidebar-header";
 import { useSidebar } from "@/components/sidebar-state";
 
 /**
- * Logo cell of the calendar header. Expanded, it ends 12px short of the left menu width plus the header gap, so the tabs start at the calendar's left edge (page padding + menu + gap). Collapsed, it shrinks to the toggle so the
- * Booking / Calendar tabs sit next to it and line up with the first day column (page padding plus the 64px hour gutter).
+ * Logo cell of the calendar header. Expanded, it ends 12px short of the left menu width plus the header gap, so the header controls start at the calendar's left edge (page padding + menu + gap). Collapsed, it shrinks to the toggle so the
+ * header controls sit next to it and line up with the first day column (page padding plus the 64px hour gutter).
  */
 export function CalendarLogoBlock() {
 	const { minimal } = useSidebar();

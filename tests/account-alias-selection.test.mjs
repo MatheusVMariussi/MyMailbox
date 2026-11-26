@@ -111,7 +111,6 @@ for (const kind of ["dashboard", "api"]) {
 		const f = await fixture(t);
 		assert.equal((await f.post(kind, { useAllDomains: false })).status, 201);
 		const mailbox = f.mailbox();
-		assert.ok(f.database.db.prepare("SELECT booking_username FROM users WHERE id = ?").get(mailbox.userId).booking_username);
 		assert.equal(mailbox.useAllDomains, false);
 		assert.deepEqual(await getMailboxDomainAddresses(f.db, mailbox), ["sam@one.test"]);
 		assert.equal((await resolveInboundAddress(f.db, "sam@one.test")).mailbox.mailboxId, mailbox.id);
