@@ -45,20 +45,20 @@ async function fixture(t, source) {
 const message = { subject: "Hi", text: "Hello there", html: null, messageId: null, fromAddr: "Pal <pal@x.test>", toAddr: "u1@one.test", ccAddr: null, bccAddr: null, replyTo: null, inReplyTo: null, references: [], date: null, attachments: [] };
 const signalIds = async (f) => (await analyzeSpam(f.db, { mailboxId: "m1", userId: "u1", envelopeFrom: "pal@x.test", message })).signals.map((signal) => signal.id);
 
-test("an imported contact counts as a saved contact for the spam score, like a manual one", async (t) => {
-	for (const source of ["manual", "import"]) assert.ok((await signalIds(await fixture(t, source))).includes("manual_contact"), source);
+test("a manual contact counts as a saved contact for the spam score; one learned from mail does not", async (t) => {
+	assert.ok((await signalIds(await fixture(t, "manual"))).includes("manual_contact"));
 	assert.ok(!(await signalIds(await fixture(t, "inbound"))).includes("manual_contact"));
 });
 
-test("an imported name wins over the message header name, like a manual one", () => {
-	assert.equal(getPartyDisplayName('"Header" <pal@x.test>', { displayName: "Pal", source: "import" }), "Pal");
+test("a manual name wins over the message header name", () => {
+	assert.equal(getPartyDisplayName('"Header" <pal@x.test>', { displayName: "Pal", source: "manual" }), "Pal");
 	assert.equal(getPartyDisplayName('"Header" <pal@x.test>', { displayName: "Pal", source: "inbound" }), "Header");
 });
 
-test("mail from or to an imported contact neither renames it nor changes its source", async (t) => {
-	const f = await fixture(t, "import");
+test("mail from or to a manual contact neither renames it nor changes its source", async (t) => {
+	const f = await fixture(t, "manual");
 	await upsertContactFromAddress(f.env, { userId: "u1", address: "New Name <pal@x.test>", source: "inbound", lookupAvatar: false });
 	await upsertContactFromAddress(f.env, { userId: "u1", address: "Other <pal@x.test>", source: "outbound", lookupAvatar: false });
 	await upsertContactsFromAddresses(f.env, "u1", ["Third <pal@x.test>"], "outbound");
-	assert.deepEqual({ ...f.sql.prepare("SELECT display_name, source FROM contacts WHERE id='u1:pal@x.test'").get() }, { display_name: "Pal", source: "import" });
+	assert.deepEqual({ ...f.sql.prepare("SELECT display_name, source FROM contacts WHERE id='u1:pal@x.test'").get() }, { display_name: "Pal", source: "manual" });
 });

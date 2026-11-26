@@ -133,7 +133,7 @@ export function ContactDetailsTrigger({
 						<div className="grid gap-3 rounded-lg bg-neutral-50 p-3 text-sm sm:grid-cols-2">
 							<div>
 								<p className="text-xs font-medium uppercase text-neutral-500">{t("contact.source")}</p>
-								<p className="mt-1 capitalize text-neutral-700">{contact?.source === "import" ? t("contact.sourceImport") : contact?.source ?? t("contact.sourceEmail")}</p>
+								<p className="mt-1 capitalize text-neutral-700">{contact?.source ?? t("contact.sourceEmail")}</p>
 							</div>
 							<div>
 								<p className="text-xs font-medium uppercase text-neutral-500">{t("contact.lastSeen")}</p>

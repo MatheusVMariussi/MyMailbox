@@ -2,7 +2,7 @@ export type ContactDetailsRecord = {
 	email: string;
 	displayName: string | null;
 	hasAvatar: boolean;
-	source: "manual" | "inbound" | "outbound" | "import" | null;
+	source: "manual" | "inbound" | "outbound" | null;
 	blocked: boolean;
 	lastSeenAt: string | null;
 };

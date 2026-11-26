@@ -213,7 +213,7 @@ export const contacts = sqliteTable(
 		email: text("email").notNull(),
 		displayName: text("display_name"),
 		avatarKey: text("avatar_key"),
-		source: text("source", { enum: ["manual", "inbound", "outbound", "import"] })
+		source: text("source", { enum: ["manual", "inbound", "outbound"] })
 			.notNull()
 			.default("inbound"),
 		blocked: bool("blocked").notNull().default(false),
