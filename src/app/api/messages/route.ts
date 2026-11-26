@@ -10,7 +10,8 @@ import { getPartyDisplayName } from "@/lib/contacts/utils";
 import { getFirstEmailAddressEntry, normalizeEmailAddress } from "@/lib/email/address";
 import { getMailboxAccessLevel, hasMailboxPermission, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
-import { buildSearchConditions } from "@/lib/search/conditions";
+import { SearchQueryError, searchScopeExclusion } from "@/lib/search/conditions";
+import { buildSearchFilter } from "@/lib/search/service";
 import { getRequestTimeZone } from "@/lib/time/utils";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
 import { selectInBatches } from "@/lib/db-params";
@@ -34,20 +35,24 @@ export async function GET(request: Request) {
 	}
 
 	const url = new URL(request.url);
-	const direction = url.searchParams.get("direction");
-	const mailboxId = url.searchParams.get("mailboxId");
-	// One label, or a comma-separated group of same-named labels across mailboxes (the unified sidebar).
-	const labelIds = parseLabelFilter(url.searchParams.get("labelId"));
-	const labelId = labelIds ? labelIds.join(",") : null;
-	const projectId = parseProjectParam(url.searchParams.get("projectId"));
-	const status = url.searchParams.get("status");
 	const query = url.searchParams.get("q")?.trim();
 	const title = url.searchParams.get("title")?.trim();
+	// A search (`scope=search` with a query) spans every folder, as in Gmail: the folder parameters are ignored, and
+	// the mailbox and project scope, the read toggle and the query still apply.
+	const searching = url.searchParams.get("scope") === "search" && !!(query || title);
+	const folderParam = (name: string) => (searching ? null : url.searchParams.get(name));
+	const direction = folderParam("direction");
+	const mailboxId = url.searchParams.get("mailboxId");
+	// One label, or a comma-separated group of same-named labels across mailboxes (the unified sidebar).
+	const labelIds = parseLabelFilter(folderParam("labelId"));
+	const labelId = labelIds ? labelIds.join(",") : null;
+	const projectId = parseProjectParam(url.searchParams.get("projectId"));
+	const status = folderParam("status");
 	const read = url.searchParams.get("read");
-	const starred = url.searchParams.get("starred");
-	const category = url.searchParams.get("category");
-	const snoozed = url.searchParams.get("snoozed");
-	const scheduled = url.searchParams.get("scheduled");
+	const starred = folderParam("starred");
+	const category = folderParam("category");
+	const snoozed = folderParam("snoozed");
+	const scheduled = folderParam("scheduled");
 	const limit = parseLimit(url.searchParams.get("limit"), 50, 100);
 	const offset = parseOffset(url.searchParams.get("offset"));
 	// Conversation view: one row per thread, represented by its newest message
@@ -122,9 +127,22 @@ export async function GET(request: Request) {
 		conditions.push(eq(messages.read, false));
 	}
 	if (query || title) {
-		// Operators (from:, has:attachment, before:) and free text go through the
-		// full-text index; `title` is the legacy subject filter and is folded in.
-		conditions.push(...buildSearchConditions(title ? `${query ?? ""} subject:"${title}"` : query ?? "", getRequestTimeZone(request, user.timeZone)));
+		// Operators and free text compile against the full-text index and columns; `title` is the legacy subject
+		// filter, joined as a phrase. `label:` resolves against the mailboxes listed here.
+		try {
+			const search = await buildSearchFilter(
+				db,
+				{ query, subject: title, timeZone: getRequestTimeZone(request, user.timeZone) },
+				{ mailboxIds: mailboxId ? [mailboxId] : accessibleMailboxIds, userId: user.id },
+			);
+			if (search.condition) conditions.push(search.condition);
+			// A search leaves Spam and Trash out unless the query names them (`in:spam`, `in:trash`, `in:anywhere`).
+			const exclusion = searching ? searchScopeExclusion(search.folders) : null;
+			if (exclusion) conditions.push(exclusion);
+		} catch (error) {
+			if (error instanceof SearchQueryError) return NextResponse.json({ error: error.message }, { status: 400 });
+			throw error;
+		}
 	}
 	const where = and(...conditions);
 	// Messages that were never threaded (older rows, drafts) stand alone.

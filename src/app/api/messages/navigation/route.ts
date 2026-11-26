@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
@@ -14,6 +14,9 @@ import { parseLabelFilter } from "@/lib/labels/label-utils";
 import { parseProjectParam } from "@/lib/projects/project-utils";
 import { projectFilterCondition } from "@/lib/projects/service";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
+import { SearchQueryError, searchScopeExclusion } from "@/lib/search/conditions";
+import { buildSearchFilter } from "@/lib/search/service";
+import { getRequestTimeZone } from "@/lib/time/utils";
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
 
@@ -35,6 +38,9 @@ export async function GET(request: Request) {
 	if (labelIds === false) return NextResponse.json({ error: "Too many labels" }, { status: 400 });
 	const labelId = labelIds ? labelIds.join(",") : null;
 	const projectId = parseProjectParam(params.get("projectId"));
+	const query = params.get("q")?.trim();
+	// Prev/next of a search walk the search, which spans every folder (the list's `scope=search`).
+	const searching = params.get("scope") === "search" && !!query;
 	const grouped = params.get("group") === "thread";
 	const around = params.get("around");
 	const windowSize = Math.min(Math.max(Number(params.get("limit") ?? 250) || 250, 25), 1000);
@@ -58,8 +64,22 @@ export async function GET(request: Request) {
 
 	conditions.push(draftsVisibleTo(user.id));
 	if (projectId) conditions.push(projectFilterCondition(projectId));
+	if (query) {
+		try {
+			const search = await buildSearchFilter(db, { query, timeZone: getRequestTimeZone(request, user.timeZone) }, { mailboxIds: scope, userId: user.id });
+			if (search.condition) conditions.push(search.condition);
+			const exclusion = searching ? searchScopeExclusion(search.folders) : null;
+			if (exclusion) conditions.push(exclusion);
+		} catch (error) {
+			if (error instanceof SearchQueryError) return NextResponse.json({ error: error.message }, { status: 400 });
+			throw error;
+		}
+	}
 
-	if (labelIds) {
+	if (searching) {
+		// Composer templates are stored as messages but never listed.
+		conditions.push(ne(messages.status, "template"));
+	} else if (labelIds) {
 		// A label view, whatever `folder` the reader came with: the same predicate as the list.
 		conditions.push(hasLabelCondition(labelIds), labelViewStatusCondition);
 	} else if (folder === "inbox") {

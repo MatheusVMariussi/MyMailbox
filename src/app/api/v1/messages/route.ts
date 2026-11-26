@@ -6,7 +6,8 @@ import { authenticateApiKey, requireScope } from "@/lib/api/auth";
 import { getDb } from "@/db";
 import { messages, users } from "@/db/schema";
 import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
-import { buildSearchConditions } from "@/lib/search/conditions";
+import { SearchQueryError } from "@/lib/search/conditions";
+import { buildSearchFilter } from "@/lib/search/service";
 import { draftsVisibleTo } from "@/lib/email/draft-access";
 import { getRequestTimeZone } from "@/lib/time/utils";
 import { parseLimit } from "@/lib/api/query-params";
@@ -34,6 +35,8 @@ export async function GET(request: Request) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 	const conditions: SQL[] = [];
+	// The mailboxes this request reads, which `label:` resolves against.
+	let searchedMailboxIds: string[];
 	if (mailboxId) {
 		if (auth.mailboxIds && !auth.mailboxIds.includes(mailboxId)) {
 			return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
@@ -43,8 +46,10 @@ export async function GET(request: Request) {
 			return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 		}
 		conditions.push(eq(messages.mailboxId, mailboxId));
+		searchedMailboxIds = [mailboxId];
 	} else {
 		const accessibleMailboxIds = (await listAccessibleMailboxIds(db, user)).filter((id) => !auth.mailboxIds || auth.mailboxIds.includes(id));
+		searchedMailboxIds = accessibleMailboxIds;
 		if (accessibleMailboxIds.length > 0) {
 			conditions.push(inArray(messages.mailboxId, accessibleMailboxIds));
 		} else if (auth.mailboxIds) {
@@ -59,7 +64,16 @@ export async function GET(request: Request) {
 		conditions.push(eq(messages.direction, direction));
 	}
 	if (projectId) conditions.push(projectFilterCondition(projectId));
-	if (query) conditions.push(...buildSearchConditions(query, getRequestTimeZone(request, user.timeZone)));
+	if (query) {
+		// The session list's grammar; unlike a web search, Spam and Trash are not left out.
+		try {
+			const search = await buildSearchFilter(db, { query, timeZone: getRequestTimeZone(request, user.timeZone) }, { mailboxIds: searchedMailboxIds, userId: auth.userId });
+			if (search.condition) conditions.push(search.condition);
+		} catch (error) {
+			if (error instanceof SearchQueryError) return NextResponse.json({ error: error.message }, { status: 400 });
+			throw error;
+		}
+	}
 
 	const rows = await db
 		.select()
