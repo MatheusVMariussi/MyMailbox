@@ -12,6 +12,7 @@ import type { ContactSuggestion } from "./recipient-suggestions-types";
 import { RecipientSuggestions } from "./recipient-suggestions";
 import { fetchContactSuggestions, filterContactSuggestions, formatContactSuggestion } from "./recipient-suggestions-utils";
 import { getRecipientLabel, isValidRecipient, parseRecipientEntries } from "./recipient-utils";
+import { COMPOSE_FIELD_LABEL, COMPOSE_FIELD_ROW } from "./compose-ui-utils";
 
 const SUGGESTIONS_DEBOUNCE_MS = 180;
 
@@ -125,10 +126,10 @@ export function RecipientInput({
 
 	return (
 		<div
-			className="flex min-h-9 items-center gap-2 border-b border-neutral-100 px-4 py-1"
+			className={COMPOSE_FIELD_ROW}
 			onClick={() => inputRef.current?.focus()}
 		>
-			<Label htmlFor={id} className="w-8 shrink-0 text-sm text-neutral-500">
+			<Label htmlFor={id} className={COMPOSE_FIELD_LABEL}>
 				{label}
 			</Label>
 			<div className="relative flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -141,7 +142,7 @@ export function RecipientInput({
 							className={cn(
 								"inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs",
 								valid
-									? "border-neutral-200 bg-neutral-50 text-neutral-800"
+									? "border-line bg-surface-2 text-ink"
 									: "border-red-200 bg-red-50 text-red-700",
 							)}
 						>
@@ -150,7 +151,7 @@ export function RecipientInput({
 								<button
 									type="button"
 									aria-label={t("recipient.remove", { address: getEmailAddress(entry) })}
-									className="rounded-full p-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
+									className="rounded-full p-0.5 text-ink-muted transition-colors hover:bg-surface-3 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 									onClick={(event) => {
 										event.stopPropagation();
 										onChange(value.filter((item) => item !== entry));
@@ -189,7 +190,7 @@ export function RecipientInput({
 					aria-controls={`${id}-suggestions`}
 					aria-activedescendant={activeSuggestion ? `${id}-suggestion-${activeIndex}` : undefined}
 					aria-autocomplete="list"
-					className="h-7 min-w-32 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed"
+					className="h-7 min-w-32 flex-1 border-0 bg-transparent p-0 text-sm text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed"
 				/>
 				{mailboxId && visibleSuggestions.length > 0 && (
 					<RecipientSuggestions
@@ -205,7 +206,7 @@ export function RecipientInput({
 			{trailing && (
 				// Toggles live inside the clickable row; keep their clicks from refocusing this field.
 				<div
-					className="flex shrink-0 items-center gap-1 text-xs text-neutral-500"
+					className="flex shrink-0 items-center gap-0.5 text-xs text-ink-muted"
 					onClick={(event) => event.stopPropagation()}
 				>
 					{trailing}

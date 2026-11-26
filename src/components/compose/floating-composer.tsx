@@ -133,7 +133,7 @@ export function FloatingComposer({ showButton = false }: { showButton?: boolean 
 					type="button"
 					onClick={() => openComposer()}
 					aria-label={t("navigation.compose")}
-					className="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 flex h-12 items-center gap-3 rounded-2xl bg-blue-100 px-5 text-base font-medium text-blue-950 shadow-sm transition-colors hover:bg-blue-200 active:bg-blue-200 md:hidden"
+					className="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 flex h-12 items-center gap-2.5 rounded-full bg-blue-600 px-5 text-base font-semibold text-white shadow-[0_10px_28px_-10px_rgb(0_0_0/0.55)] transition-[background-color,box-shadow,scale] duration-150 ease-out-soft hover:bg-blue-700 active:scale-[0.97] active:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground focus-visible:shadow-[0_0_24px_-4px_rgba(79,140,255,0.6)] motion-reduce:transition-none md:hidden"
 				>
 					<MailPlus size={19} />
 					{t("navigation.compose")}

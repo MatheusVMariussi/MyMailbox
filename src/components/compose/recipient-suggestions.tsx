@@ -20,7 +20,7 @@ export function RecipientSuggestions({
 		<ul
 			id={`${id}-suggestions`}
 			role="listbox"
-			className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
+			className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-line bg-surface-1 py-1 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.45)]"
 		>
 			{suggestions.map((suggestion, index) => (
 				<li
@@ -35,7 +35,7 @@ export function RecipientSuggestions({
 					onMouseEnter={() => onHover(index)}
 					className={cn(
 						"flex cursor-pointer items-center gap-2.5 px-3 py-2 text-left",
-						index === activeIndex ? "bg-blue-50" : "hover:bg-neutral-50",
+						index === activeIndex ? "bg-accent-soft" : "hover:bg-surface-2",
 					)}
 				>
 					<ContactAvatar
@@ -46,11 +46,11 @@ export function RecipientSuggestions({
 						className="h-7 w-7 text-xs"
 					/>
 					<span className="min-w-0 flex-1">
-						<span className="block truncate text-sm text-neutral-900">
+						<span className="block truncate text-sm text-ink">
 							{suggestion.displayName ?? suggestion.email}
 						</span>
 						{suggestion.displayName && (
-							<span className="block truncate text-xs text-neutral-500">{suggestion.email}</span>
+							<span className="block truncate text-xs text-ink-muted">{suggestion.email}</span>
 						)}
 					</span>
 				</li>

@@ -20,6 +20,8 @@ import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
 import type { RichTextEditorProps, ToolbarCommand } from "./rich-text-editor-types";
 
+const TOOLBAR_BUTTON = "rounded-md p-1.5 text-ink-muted transition-colors duration-150 ease-out-soft hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50";
+
 const COMMANDS: ToolbarCommand[] = [
 	{ command: "bold", labelKey: "editor.bold", icon: Bold },
 	{ command: "italic", labelKey: "editor.italic", icon: Italic },
@@ -159,8 +161,8 @@ export function RichTextEditor({
 					onMouseDown={(event) => event.preventDefault()}
 					onClick={() => run(item.command, item.value)}
 					className={cn(
-						"rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900",
-						active[item.command] && "bg-neutral-200 text-neutral-900",
+						TOOLBAR_BUTTON,
+						active[item.command] && "bg-surface-3 text-ink",
 					)}
 				>
 					<item.icon className="h-4 w-4" />
@@ -174,7 +176,7 @@ export function RichTextEditor({
 				disabled={disabled}
 				onMouseDown={(event) => event.preventDefault()}
 				onClick={openLink}
-				className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+				className={TOOLBAR_BUTTON}
 			>
 				<Link2 className="h-4 w-4" />
 			</button>
@@ -186,7 +188,7 @@ export function RichTextEditor({
 				disabled={disabled}
 				onMouseDown={(event) => event.preventDefault()}
 				onClick={() => run("removeFormat")}
-				className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+				className={TOOLBAR_BUTTON}
 			>
 				<RemoveFormatting className="h-4 w-4" />
 			</button>
@@ -196,7 +198,7 @@ export function RichTextEditor({
 
 	return (
 		<div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-			<div className={cn("sticky top-0 z-10 flex shrink-0 items-center gap-0.5 overflow-x-auto bg-white px-2 py-1 md:hidden", !toolbarVisible && "hidden")}>{formatButtons}</div>
+			<div className={cn("sticky top-0 z-10 flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-line bg-surface-1 px-2 py-1 md:hidden", !toolbarVisible && "hidden")}>{formatButtons}</div>
 			<div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
 				<div
 					ref={editorRef}
@@ -212,8 +214,8 @@ export function RichTextEditor({
 					onPaste={onPaste}
 					onKeyDown={onKeyDown}
 					className={cn(
-						"email-body max-w-none px-4 py-3 text-sm text-neutral-900 outline-none",
-						"min-h-32 grow shrink-0 empty:before:pointer-events-none empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]",
+						"email-body max-w-none px-4 py-3 text-sm leading-relaxed text-ink outline-none",
+						"min-h-32 grow shrink-0 empty:before:pointer-events-none empty:before:text-ink-muted empty:before:content-[attr(data-placeholder)]",
 						disabled && "cursor-not-allowed opacity-60",
 						editableClassName,
 					)}
@@ -225,7 +227,7 @@ export function RichTextEditor({
 							onClick={() => setShowQuoted((open) => !open)}
 							aria-expanded={showQuoted}
 							aria-label={showQuoted ? t("editor.hideQuoted") : t("editor.showQuoted")}
-							className="rounded-full border border-neutral-200 bg-neutral-100 px-2 text-xs leading-5 text-neutral-500 hover:bg-neutral-200"
+							className="rounded-full border border-line bg-surface-2 px-2 text-xs leading-5 text-ink-muted hover:bg-surface-3 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 							title={showQuoted ? t("editor.hideQuoted") : t("editor.showQuoted")}
 						>
 							•••
@@ -243,7 +245,7 @@ export function RichTextEditor({
 				style={{ gridTemplateRows: toolbarVisible ? "1fr" : "0fr" }}
 			>
 				<div className="min-h-0 overflow-hidden">
-					<div className={cn("relative flex items-center gap-0.5 max-md:gap-2 border-t border-neutral-100 px-4 py-3 max-md:border-t-0", toolbarClassName)}>
+					<div className={cn("relative flex items-center gap-0.5 max-md:gap-2 border-t border-line px-4 py-2.5 max-md:border-t-0", toolbarClassName)}>
 						{toolbarStart}
 						<div className="contents max-md:hidden">{formatButtons}</div>
 						{toolbarEnd}
@@ -251,7 +253,7 @@ export function RichTextEditor({
 				</div>
 				{linkOpen && toolbarVisible && (
 					<div
-						className="absolute bottom-full left-2 z-10 mb-1 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg"
+						className="absolute bottom-full left-2 z-10 mb-1 flex items-center gap-2 rounded-lg border border-line bg-surface-1 p-2 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.45)]"
 					>
 						<input
 							autoFocus
@@ -266,7 +268,7 @@ export function RichTextEditor({
 							}}
 							placeholder="https://example.com"
 							aria-label={t("editor.insertLink")}
-							className="h-8 w-64 rounded-md border border-neutral-200 px-2 text-sm outline-none focus:border-blue-400"
+							className="h-8 w-64 rounded-md border border-line bg-surface-2 px-2 font-mono text-[13px] text-ink outline-none placeholder:text-ink-muted focus:border-accent"
 						/>
 						<button type="button" onClick={applyLink} className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
 							{t("editor.apply")}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import { BellRing, ChevronUp, Eye, EyeOff, FileText, Forward, Maximize2, Minimize2, Minus, Paperclip, Reply, Trash2, X } from "@/components/icons";
+import { BellRing, Eye, EyeOff, Paperclip, Trash2 } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,10 @@ import { useTrackOpens } from "./use-track-opens";
 import { FollowUpMenu } from "@/components/follow-ups/follow-up-menu";
 import { followUpOptionKey } from "@/components/follow-ups/follow-up-client-utils";
 import { formatScheduledSendTime } from "@/components/messages/scheduled-send-utils";
-import { buildSendFormData, fetchDraft, formatAttachmentSize } from "./utils";
+import { buildSendFormData, fetchDraft } from "./utils";
+import { ComposeAttachmentList } from "./compose-attachment-list";
+import { ComposeHeader } from "./compose-header";
+import { COMPOSE_FIELD_LABEL, COMPOSE_FIELD_ROW, COMPOSE_ICON_BUTTON, COMPOSE_PRIMARY_GLOW } from "./compose-ui-utils";
 import { RecipientInput } from "./recipient-input";
 import { RichTextEditor } from "./rich-text-editor";
 import { ScheduleSendMenu } from "./schedule-send-menu";
@@ -45,6 +48,8 @@ import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } fro
 import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
 
 type Toast = { type: "success" | "error"; message: string } | null;
+
+const CC_TOGGLE = "rounded-md px-1.5 py-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 export function ComposeForm({
 	mode = "page",
@@ -696,67 +701,31 @@ export function ComposeForm({
 		setChosenMailboxId(option.mailbox.id);
 	}
 
-	const attachmentContent = (attachments.length > 0 || storedAttachments.length > 0) && (
-		<div>
-		<div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto overflow-y-hidden px-3 py-2">
-			{storedAttachments.map((attachment) => (
-				<div
-					key={attachment.id}
-					className="flex max-w-full shrink-0 items-center gap-2 rounded-lg bg-neutral-100 px-2 py-1 text-xs"
-					title={t("compose.carriedOver")}
-				>
-					<FileText className="h-4 w-4 shrink-0 text-neutral-500" />
-					<span className="max-w-48 truncate">{attachment.filename}</span>
-					<span className="text-xs text-neutral-500">{formatAttachmentSize(attachment.size)}</span>
-					<button
-						type="button"
-						onClick={() => void removeStoredAttachment(attachment.id)}
-						className="rounded-full p-1 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
-					>
-						<X className="h-3.5 w-3.5" />
-						<span className="sr-only">{t("compose.removeAttachment")}</span>
-					</button>
-				</div>
-			))}
-			{attachments.map((attachment) => (
-				<div
-					key={attachment.id}
-					className="flex max-w-full shrink-0 items-center gap-2 rounded-lg bg-neutral-100 px-2 py-1 text-xs"
-				>
-					<FileText className="h-4 w-4 shrink-0 text-neutral-500" />
-					<span className="max-w-48 truncate font-medium">{attachment.file.name}</span>
-					<span className="text-xs text-neutral-500">
-						{formatAttachmentSize(attachment.file.size)}
-					</span>
-					<button
-						type="button"
-						onClick={() =>
-							setAttachments((current) =>
-								current.filter((item) => item.id !== attachment.id),
-							)
-						}
-						className="rounded-full p-1 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700"
-					>
-						<X className="h-3.5 w-3.5" />
-						<span className="sr-only">{t("compose.removeAttachment")}</span>
-					</button>
-				</div>
-			))}
-		</div>
-		<p className="px-3 pb-2 text-xs text-amber-700">{[...attachments.map((item) => item.file.size), ...storedAttachments.map((item) => item.size)].some((size) => size > attachmentPolicy.cloudThresholdBytes) ? t("compose.cloudWarning.will") : t("compose.cloudWarning.may")}</p>
-		</div>
+	const attachmentContent = (
+		<ComposeAttachmentList
+			attachments={attachments}
+			storedAttachments={storedAttachments}
+			cloudThresholdBytes={attachmentPolicy.cloudThresholdBytes}
+			onRemove={(attachmentId) => setAttachments((current) => current.filter((item) => item.id !== attachmentId))}
+			onRemoveStored={(attachmentId) => void removeStoredAttachment(attachmentId)}
+		/>
 	);
 
 	// Below md the popup is a bottom sheet: full width, anchored to the visual viewport (so the keyboard never covers the toolbar) and padded by the bottom safe area.
 	const sheetClass = "compose-sheet max-md:inset-x-0 max-md:bottom-[var(--sheet-bottom,0px)] max-md:left-0 max-md:right-0 max-md:top-auto max-md:z-50 max-md:h-[var(--sheet-height,100dvh)] max-md:w-full max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:pt-[env(safe-area-inset-top)] max-md:pb-[var(--sheet-pad,max(env(safe-area-inset-bottom),1rem))]";
+	// A floating window lifts off the page with a soft offset shadow; it enters with a short fade and scale on
+	// desktop (opacity and scale only, so switching to the modal never animates its position).
+	const windowSurface = "border border-line bg-surface-1 text-ink";
+	const floatingShadow = "shadow-[0_-6px_32px_-12px_rgb(13_15_18/0.28)] dark:shadow-[0_-8px_40px_-10px_rgb(0_0_0/0.75)]";
+	const enterMotion = "transition-[opacity,scale] duration-[240ms] ease-out-soft md:starting:scale-[0.97] md:starting:opacity-0 motion-reduce:transition-none";
 	const frameClass =
 		mode === "popup"
 			? minimized
-				? cn("fixed bottom-0 right-8 z-40 flex h-9 w-[min(260px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl", sheetClass)
+				? cn("fixed bottom-0 right-8 z-40 flex h-10 w-[min(300px,calc(100vw-32px))] origin-bottom-right flex-col overflow-hidden rounded-t-xl", windowSurface, floatingShadow, enterMotion, sheetClass)
 				: modalMode
-				? cn("fixed left-1/2 top-1/2 z-50 flex h-[86vh] w-[min(860px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white shadow-2xl", sheetClass)
-				: cn("fixed bottom-0 right-8 z-40 flex h-[min(520px,calc(100vh-88px))] w-[min(560px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl", sheetClass)
-			: "relative flex h-full min-h-[720px] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm";
+				? cn("fixed left-1/2 top-1/2 z-50 flex h-[86vh] w-[min(860px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 origin-center flex-col overflow-hidden rounded-2xl shadow-[0_24px_64px_-24px_rgb(0_0_0/0.6)]", windowSurface, enterMotion, sheetClass)
+				: cn("fixed bottom-0 right-8 z-40 flex h-[min(540px,calc(100vh-88px))] w-[min(580px,calc(100vw-32px))] origin-bottom-right flex-col overflow-hidden rounded-t-xl", windowSurface, floatingShadow, enterMotion, sheetClass)
+			: cn("relative flex h-full min-h-[720px] w-full max-w-4xl flex-col overflow-hidden rounded-xl", windowSurface);
 
 	return (
 		<>
@@ -775,41 +744,33 @@ export function ComposeForm({
 			)}
 			<form onSubmit={onSubmit} className={cn(frameClass, closing && "compose-sheet-closing")} data-compose-surface={mode === "popup" ? "" : undefined} style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined} ref={formRef} role={modalMode && !minimized ? "dialog" : mode === "popup" ? "region" : undefined} aria-modal={modalMode && !minimized || undefined} aria-label={mode === "popup" ? t("compose.dialogLabel") : undefined} onKeyDown={(event) => { if (modalMode && !minimized && event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); setModalMode(false); } }} onDragEnterCapture={minimized ? undefined : onFileDragEnter} onDragOverCapture={minimized ? undefined : onFileDragOver} onDragLeaveCapture={minimized ? undefined : onFileDragLeave} onDropCapture={minimized ? undefined : onFileDrop}>
 				{draggingFiles && !minimized && (
-					<div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-blue-400 bg-blue-50/90 text-sm font-medium text-blue-700" aria-hidden="true">
+					<div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] border-2 border-dashed border-accent bg-accent-soft/90 text-sm font-medium text-accent" aria-hidden="true">
 						{t("compose.dropFiles")}
 					</div>
 				)}
-				<div {...sheetDrag} className="flex h-9 shrink-0 items-center justify-between max-md:h-12 max-md:touch-none bg-neutral-800 text-white dark:bg-neutral-100 px-4 text-sm font-medium">
-					<span className="flex min-w-0 items-center gap-2 truncate  dark:text-neutral-900">
-						{threading?.inReplyTo && <Reply className="h-3.5 w-3.5 text-neutral-300" />}
-						{!threading?.inReplyTo && /^fwd?:/i.test(subject) && <Forward className="h-3.5 w-3.5 text-neutral-300" />}
-						{loadingDraft
-							? t("compose.title.loading")
-							: threading?.inReplyTo
-								? t("compose.title.reply")
-								: /^fwd?:/i.test(subject)
-									? t("compose.title.forward")
-									: draftId && !saveFailed
-										? t("compose.title.saved")
-										: t("compose.title.new")}
-					</span>
-					{mode === "popup" && (
-						<div className="flex shrink-0 items-center gap-3 text-neutral-300">
-							<button type="button" onClick={() => { setMinimized((current) => !current); setDraggingFiles(false); }} aria-label={minimized ? t("compose.restore") : t("compose.minimize")} title={minimized ? t("compose.restore") : t("compose.minimize")} className="max-md:hidden rounded p-1 hover:bg-neutral-700 dark:hover:bg-neutral-200 hover:text-white">
-								{minimized ? <ChevronUp className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
-							</button>
-							<button type="button" onClick={() => { if (minimized) setMinimized(false); setModalMode((current) => !current); }} aria-label={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} title={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} className="max-md:hidden rounded p-1 dark:hover:bg-neutral-200 hover:bg-neutral-700 hover:text-white">
-								{modalMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-							</button>
-							<button type="button" onClick={dismiss} aria-label={t("compose.close")} className="rounded p-1 max-md:-m-2 max-md:p-3 hover:bg-neutral-700 dark:hover:bg-neutral-200 hover:text-white">
-								<X className="h-4 w-4" />
-							</button>
-						</div>
-					)}
-				</div>
+				<ComposeHeader
+					title={loadingDraft
+						? t("compose.title.loading")
+						: threading?.inReplyTo
+							? t("compose.title.reply")
+							: /^fwd?:/i.test(subject)
+								? t("compose.title.forward")
+								: draftId && !saveFailed
+									? t("compose.title.saved")
+									: t("compose.title.new")}
+					kind={threading?.inReplyTo ? "reply" : /^fwd?:/i.test(subject) ? "forward" : null}
+					subject={subject}
+					popup={mode === "popup"}
+					minimized={minimized}
+					modalMode={modalMode}
+					onToggleMinimized={() => { setMinimized((current) => !current); setDraggingFiles(false); }}
+					onToggleModal={() => { if (minimized) setMinimized(false); setModalMode((current) => !current); }}
+					onClose={dismiss}
+					sheetDrag={sheetDrag}
+				/>
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")}>
-				<div className="border-b border-neutral-100 px-4 py-1 flex flex-row items-center">
-					<Label htmlFor={`${mode}-from`} className="text-sm text-neutral-500">{t("compose.from")}</Label>
+				<div className={COMPOSE_FIELD_ROW}>
+					<Label htmlFor={`${mode}-from`} className={COMPOSE_FIELD_LABEL}>{t("compose.from")}</Label>
 					<Select
 						id={`${mode}-from`}
 						value={selectedMailbox && selectedFrom ? `${selectedMailbox.id}|${selectedFrom}` : ""}
@@ -817,8 +778,8 @@ export function ComposeForm({
 						// placeholder="Select a mailbox first"
 						required
 						disabled={loadingDraft || senderOptions.length === 0}
-						className="h-8 px-0 py-1 text-sm shadow-none focus-visible:ring-0"
-						containerClassName="border-0 flex-1"
+						className="h-8 px-0 py-1 text-sm text-ink shadow-none focus-visible:ring-0"
+						containerClassName="-mx-2 flex-1 border-0 rounded-md transition-colors hover:bg-surface-2"
 					>
 						{senderOptions.length === 0 && <option value="">{t("compose.selectMailboxFirst")}</option>}
 						{senderOptions.map(({ mailbox, address }) => (
@@ -839,12 +800,12 @@ export function ComposeForm({
 					trailing={
 						<>
 							{!showCc && (
-								<button type="button" className="rounded px-1 hover:text-neutral-800" onClick={() => setShowCc(true)}>
+								<button type="button" className={CC_TOGGLE} onClick={() => setShowCc(true)}>
 									{t("compose.cc")}
 								</button>
 							)}
 							{!showBcc && (
-								<button type="button" className="rounded px-1 hover:text-neutral-800" onClick={() => setShowBcc(true)}>
+								<button type="button" className={CC_TOGGLE} onClick={() => setShowBcc(true)}>
 									{t("compose.bcc")}
 								</button>
 							)}
@@ -875,7 +836,7 @@ export function ComposeForm({
 						autoFocus={!loadingDraft && bcc.length === 0}
 					/>
 				)}
-				<div className="border-b border-neutral-100 px-4 py-1">
+				<div className={COMPOSE_FIELD_ROW}>
 					<Label htmlFor={`${mode}-subject`} className="sr-only">{t("compose.subject")}</Label>
 					<Input
 						id={`${mode}-subject`}
@@ -884,7 +845,7 @@ export function ComposeForm({
 						placeholder={t("compose.subject")}
 						required
 						disabled={loadingDraft}
-						className="h-8 border-0 px-0 py-1 shadow-none focus-visible:ring-0"
+						className="h-8 border-0 px-0 py-1 text-[15px] font-medium text-ink shadow-none placeholder:font-normal placeholder:text-ink-muted focus-visible:ring-0"
 					/>
 				</div>
 				<Label htmlFor={`${mode}-text`} className="sr-only">{t("compose.body")}</Label>
@@ -898,15 +859,15 @@ export function ComposeForm({
 					footerContent={attachmentContent}
 					toolbarStart={
 						<div className="flex items-center max-md:contents">
-							<Button type="button" variant="secondary" size="sm" onClick={dismiss} className="md:hidden max-md:h-10 max-md:px-3.5 max-md:text-[15px]">
+							<Button type="button" variant="secondary" size="sm" onClick={dismiss} className="bg-surface-2 text-ink hover:bg-surface-3 md:hidden max-md:h-10 max-md:px-3.5 max-md:text-[15px]">
 								{t("common.cancel")}
 							</Button>
-							<div className="flex items-center max-md:order-last max-md:ml-auto">
+							<div className={cn("flex items-center rounded-lg max-md:order-last max-md:ml-auto", COMPOSE_PRIMARY_GLOW)}>
 								<Button
 									type="submit"
 									size="sm"
 									disabled={loading || loadingDraft || !fromAddr}
-									className="rounded-r-none px-4 max-md:h-10 max-md:px-5 max-md:text-[15px]"
+									className="rounded-r-none px-4 font-semibold focus-visible:ring-accent focus-visible:ring-offset-surface-1 max-md:h-10 max-md:px-5 max-md:text-[15px]"
 								>
 									{loading ? t("compose.preparing") : scheduledAt ? t("compose.schedule") : t("compose.send")}
 								</Button>
@@ -926,8 +887,7 @@ export function ComposeForm({
 					}
 					toolbarEnd={
 						<>
-							{/* <span className="mx-1 h-5 w-px bg-neutral-200" /> */}
-							<Input
+								<Input
 								ref={attachmentInput}
 								type="file"
 								multiple
@@ -940,7 +900,7 @@ export function ComposeForm({
 									aria-label={t("compose.attachFiles")}
 									onClick={() => attachmentInput.current?.click()}
 									disabled={loading || loadingDraft}
-									className="rounded-md p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 disabled:pointer-events-none disabled:opacity-50 max-md:px-2"
+									className={COMPOSE_ICON_BUTTON}
 								>
 									<Paperclip className="h-4 w-4" />
 								</button>
@@ -952,10 +912,7 @@ export function ComposeForm({
 									aria-pressed={trackOpens}
 									onClick={() => setTrackOpens(!trackOpens)}
 									disabled={loading || loadingDraft}
-									className={cn(
-										"rounded-md p-1.5 hover:bg-neutral-100 disabled:pointer-events-none disabled:opacity-50 max-md:px-2",
-										trackOpens ? "text-blue-600 hover:text-blue-700" : "text-neutral-500 hover:text-neutral-900",
-									)}
+									className={cn(COMPOSE_ICON_BUTTON, trackOpens && "text-accent hover:text-accent")}
 								>
 									{trackOpens ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
 								</button>
@@ -969,10 +926,7 @@ export function ComposeForm({
 										<button
 											type="button"
 											aria-label={t("followUp.remindMe")}
-											className={cn(
-												"rounded-md p-1.5 hover:bg-neutral-100 disabled:pointer-events-none disabled:opacity-50 max-md:px-2",
-												followUpDays ? "text-amber-600 hover:text-amber-700" : "text-neutral-500 hover:text-neutral-900",
-											)}
+											className={cn(COMPOSE_ICON_BUTTON, followUpDays && "text-warm hover:text-warm")}
 										>
 											<BellRing className="h-4 w-4" />
 										</button>
@@ -986,7 +940,7 @@ export function ComposeForm({
 									aria-label={t("compose.deleteDraft")}
 									onClick={() => void deleteDraftAndClose()}
 									disabled={loading || loadingDraft || deletingDraft}
-									className="rounded-md p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-50 max-md:px-2"
+									className={cn(COMPOSE_ICON_BUTTON, "hover:bg-red-50 hover:text-red-600")}
 								>
 									<Trash2 className="h-4 w-4" />
 								</button>
