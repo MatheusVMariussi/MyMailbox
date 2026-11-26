@@ -235,6 +235,7 @@ export async function processInboundMessage(
 			senderAddress,
 			deliveredTo,
 			projectId: project?.id ?? null,
+			sizeBytes: buffer.byteLength,
 			spamScore: spamAnalysis?.score ?? null,
 			spamVerdict: spamAnalysis?.verdict ?? null,
 			spamSignals: spamAnalysis ? JSON.stringify(spamAnalysis.signals) : null,

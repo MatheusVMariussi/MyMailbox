@@ -291,6 +291,22 @@
         "DROP INDEX `messages_category_count_idx`;",
         "CREATE INDEX `messages_category_count_idx` ON `messages` (`mailbox_id`,`category`,`direction`,`status`,`read`,`snoozed_until`,`project_id`);"
       ]
+    },
+    {
+      "name": "0004_search.sql",
+      "statements": [
+        "DROP TRIGGER `messages_fts_ai`;",
+        "DROP TRIGGER `messages_fts_ad`;",
+        "DROP TRIGGER `messages_fts_au`;",
+        "DROP TABLE `messages_fts`;",
+        "CREATE VIRTUAL TABLE `messages_fts` USING fts5(\n\t`subject`,\n\t`from_addr`,\n\t`to_addr`,\n\t`cc_addr`,\n\t`bcc_addr`,\n\t`text_body`,\n\t`html_body`,\n\tcontent='messages',\n\tcontent_rowid='rowid',\n\ttokenize='unicode61 remove_diacritics 2'\n);",
+        "CREATE TRIGGER `messages_fts_ai` AFTER INSERT ON `messages` BEGIN\n\tINSERT INTO `messages_fts`(`rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)\n\tVALUES (new.`rowid`, new.`subject`, new.`from_addr`, new.`to_addr`, new.`cc_addr`, new.`bcc_addr`, new.`text_body`, new.`html_body`);\nEND;",
+        "CREATE TRIGGER `messages_fts_ad` AFTER DELETE ON `messages` BEGIN\n\tINSERT INTO `messages_fts`(`messages_fts`, `rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)\n\tVALUES ('delete', old.`rowid`, old.`subject`, old.`from_addr`, old.`to_addr`, old.`cc_addr`, old.`bcc_addr`, old.`text_body`, old.`html_body`);\nEND;",
+        "CREATE TRIGGER `messages_fts_au` AFTER UPDATE OF `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body` ON `messages` BEGIN\n\tINSERT INTO `messages_fts`(`messages_fts`, `rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)\n\tVALUES ('delete', old.`rowid`, old.`subject`, old.`from_addr`, old.`to_addr`, old.`cc_addr`, old.`bcc_addr`, old.`text_body`, old.`html_body`);\n\tINSERT INTO `messages_fts`(`rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)\n\tVALUES (new.`rowid`, new.`subject`, new.`from_addr`, new.`to_addr`, new.`cc_addr`, new.`bcc_addr`, new.`text_body`, new.`html_body`);\nEND;",
+        "INSERT INTO `messages_fts`(`messages_fts`) VALUES ('rebuild');",
+        "ALTER TABLE `messages` ADD `size_bytes` integer DEFAULT 0 NOT NULL;",
+        "CREATE INDEX `messages_size_idx` ON `messages` (`mailbox_id`,`size_bytes`);"
+      ]
     }
   ]
 }

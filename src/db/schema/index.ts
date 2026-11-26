@@ -440,6 +440,11 @@ export const messages = sqliteTable(
 		 * purpose: ON DELETE SET NULL would rewrite every stamped row and fire the per-row message triggers.
 		 */
 		projectId: text("project_id"),
+		/**
+		 * Size in bytes, for `larger:`/`smaller:`: the raw MIME of received and imported mail, text + HTML +
+		 * attachments of sent mail. 0 is unknown (mail stored before 0004_search, drafts).
+		 */
+		sizeBytes: integer("size_bytes").notNull().default(0),
 		createdAt: timestamp("created_at")
 			.notNull()
 			.$defaultFn(() => new Date()),
@@ -464,6 +469,8 @@ export const messages = sqliteTable(
 		index("messages_category_count_idx").on(t.mailboxId, t.category, t.direction, t.status, t.read, t.snoozedUntil, t.projectId),
 		// Serves the bounded sender re-file (one sender, newest first) and the Subscriptions sender grouping.
 		index("messages_sender_idx").on(t.mailboxId, t.senderAddress, t.createdAt),
+		// Serves `larger:`/`smaller:` within a mailbox (and covers the late-added column).
+		index("messages_size_idx").on(t.mailboxId, t.sizeBytes),
 		index("messages_inbox_page_idx").on(
 			t.mailboxId,
 			t.status,

@@ -29,6 +29,13 @@
       "when": 1795723302609,
       "tag": "0003_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795723303609,
+      "tag": "0004_search",
+      "breakpoints": true
     }
   ]
 }

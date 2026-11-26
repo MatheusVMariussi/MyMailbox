@@ -44,6 +44,8 @@ type DraftRow = {
 	threadId?: string | null;
 	providerMessageId?: string | null;
 	rawR2Key?: string | null;
+	/** Bytes of the imported MIME; created drafts leave it 0 (unknown). */
+	sizeBytes?: number;
 	createdAt?: Date;
 };
 
@@ -74,6 +76,7 @@ async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 		providerMessageId: row.providerMessageId ?? null,
 		rawR2Key: row.rawR2Key ?? null,
 		projectId: project?.id ?? null,
+		sizeBytes: row.sizeBytes ?? 0,
 		...(row.createdAt ? { createdAt: row.createdAt } : {}),
 	});
 	return id;
@@ -485,6 +488,7 @@ async function importEmail(ctx: JmapContext, value: Record<string, unknown>, wri
 		starred: flags.starred,
 		// Angle brackets are kept, as inbound rows store them.
 		providerMessageId: parsed.messageId,
+		sizeBytes: upload.content.byteLength,
 		threadId: await resolveThreadId(ctx.db, {
 			mailboxId: sender.mailboxId,
 			messageId: parsed.messageId,

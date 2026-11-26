@@ -21,6 +21,7 @@ import { getComposePreferences } from "@/lib/compose/preferences";
 import { getMailboxDomainAddresses } from "@/lib/mailboxes/domain-addresses";
 import { assertNoSuppressedRecipients, dropSuppressedRecipients } from "@/lib/deliverability/suppression";
 import { resolveProjectSafely } from "@/lib/projects/service";
+import { outboundMessageSize } from "./message-size-utils";
 
 export type SendEmailInput = {
 	userId: string;
@@ -149,6 +150,7 @@ export async function sendEmail(
 		inReplyTo,
 		references: references.length ? references.join(" ") : null,
 		projectId: project?.id ?? null,
+		sizeBytes: outboundMessageSize({ text: input.text, html: input.html, attachments }),
 	});
 	try {
 		const stored = await storeMessageAttachments(env, messageId, attachments, { validate: false });

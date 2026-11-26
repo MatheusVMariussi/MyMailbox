@@ -10,6 +10,7 @@ import {
 import { hasPasswordHash, hashPassword } from "@/lib/auth/password";
 import { upsertContactFromAddress } from "@/lib/contacts/service";
 import { buildSnippet } from "@/lib/email/parse";
+import { outboundMessageSize } from "@/lib/email/message-size-utils";
 import { newId } from "@/lib/ids";
 import { buildSeedRawMessage } from "@/lib/seed-raw";
 import type {
@@ -473,8 +474,9 @@ export async function insertDemoMessages(
 		const createdAt = new Date(now - seedMessage.minutesAgo * 60 * 1000);
 		const mailbox = mailboxMap[seedMessage.mailbox];
 		const rawR2Key = seedMessage.raw ? `seed/${id}.eml` : null;
-		if (rawR2Key) {
-			await env.BUCKET.put(rawR2Key, buildSeedRawMessage(seedMessage, createdAt), {
+		const raw = rawR2Key ? buildSeedRawMessage(seedMessage, createdAt) : null;
+		if (rawR2Key && raw !== null) {
+			await env.BUCKET.put(rawR2Key, raw, {
 				httpMetadata: { contentType: "message/rfc822" },
 			});
 		}
@@ -501,6 +503,8 @@ export async function insertDemoMessages(
 			threadId: seedMessage.threadId ?? seedMessage.providerMessageId ?? null,
 			inReplyTo: seedMessage.inReplyTo ?? null,
 			references: seedMessage.references ?? null,
+			// As stored mail would: the raw MIME when there is one, otherwise the composed body.
+			sizeBytes: raw !== null ? new TextEncoder().encode(raw).byteLength : outboundMessageSize({ text: seedMessage.textBody }),
 			createdAt,
 		});
 
