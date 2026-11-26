@@ -19,7 +19,7 @@ export function normalizeDays(value: unknown): DmarcDays {
 	return days === 7 || days === 90 ? days : 30;
 }
 
-// DMARC passes when either identifier aligned. Plain boolean expressions keep this portable across the three dialects.
+// DMARC passes when either identifier aligned.
 const passed = sql`(${stats.dkimAligned} or ${stats.spfAligned})`;
 const total = (condition: ReturnType<typeof sql>) => sql<number>`coalesce(sum(case when ${condition} then ${stats.messageCount} else 0 end), 0)`;
 const isDay = (date: Date) => date.toISOString().slice(0, 10);

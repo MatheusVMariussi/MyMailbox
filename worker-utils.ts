@@ -1,4 +1,3 @@
-import { getDatabaseConfig } from "./src/db/with-database";
 import { withD1Session } from "./src/lib/d1-session-context";
 import { isMissingColumnError, isMissingTableError } from "./src/lib/database-errors";
 import type { InboundQueueMessage } from "./src/lib/email/inbound";
@@ -58,14 +57,11 @@ export interface D1ReadSession {
 /**
  * Serves this request's reads from D1 read replicas: swaps `env.DB` for a `withSession` handle
  * anchored at the client's bookmark (or `first-unconstrained` on the first visit) and returns
- * the session so the response can carry its newest bookmark back to the client. Only for the
- * D1 binding — `withDatabase` replaces `env.DB` for `DATABASE_URL`/Hyperdrive databases, which
- * have no such sessions — and proxied rather than spread because Worker bindings are not
- * enumerable.
+ * the session so the response can carry its newest bookmark back to the client. Proxied rather
+ * than spread because Worker bindings are not enumerable.
  */
 export function withD1ReadSession(env: CloudflareEnv, request: Request): D1ReadSession | null {
 	if (!shouldUseD1Session(request)) return null;
-	if (getDatabaseConfig(env).driver !== "d1") return null;
 	const database = env.DB;
 	if (!database || typeof database.withSession !== "function") return null;
 	// A mutation without a bookmark starts on the primary; reads may start anywhere.

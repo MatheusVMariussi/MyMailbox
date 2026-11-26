@@ -1,6 +1,6 @@
 import type { ParsedEmail } from "@/lib/email/parse";
 
-/** Column budgets that hold on D1 (2 MB rows), MySQL varchar keys and PostgreSQL btree entries. */
+/** Column budgets that hold on D1 (2 MB rows). */
 export const INBOUND_LIMITS = {
 	textBodyBytes: 450_000,
 	htmlBodyBytes: 900_000,

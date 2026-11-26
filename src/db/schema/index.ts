@@ -2,8 +2,7 @@ import { sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { kit } from "./kits";
 
-// Written once against the dialect kit (see kits.ts): SQLite by default, PostgreSQL or MySQL when
-// DATABASE_URL selects one. Everything below is typed as SQLite, which is the shape the app queries.
+// Written against the SQLite column kit (see kits.ts).
 const { table: sqliteTable, text, integer, bool, timestamp, autoId, index, uniqueIndex, desc, nowSeconds } = kit;
 
 export const users = sqliteTable("users", {
@@ -398,7 +397,7 @@ export const messages = sqliteTable(
 		trashedAt: timestamp("trashed_at"),
 		/** `promotions` from bulk-mail headers or a manual move. `primary` is an explicit "not promotions" marker (Move to Inbox) that the backfill must not reclassify. Null is a normal message or one not classified yet; every reader treats `primary` like null. */
 		category: text("category", { enum: ["promotions", "primary"] }),
-		/** Lower-cased bare From address, grouped on by Subscriptions. Null when longer than 191 characters (MySQL index limit), never truncated. */
+		/** Lower-cased bare From address, grouped on by Subscriptions. Null when longer than 191 characters, never truncated. */
 		senderAddress: text("sender_address"),
 		createdAt: timestamp("created_at")
 			.notNull()
@@ -729,7 +728,7 @@ export const dmarcDailyStats = sqliteTable(
 /**
  * Daily TLS-RPT (RFC 8460) totals from verified reporters only. One row per (day, reporter, policy, result): the
  * summary success count sits on the row with an empty `resultType`, each failure type on its own row, so an upsert
- * only ever adds integers and needs no JSON merge on any dialect.
+ * only ever adds integers and needs no JSON merge.
  */
 export const tlsDailyStats = sqliteTable(
 	"tls_daily_stats",
@@ -1377,9 +1376,9 @@ export const loginChallenges = sqliteTable("login_challenges", {
 
 /**
  * A WebAuthn credential. The credential id is public, so it is stored in full
- * for backup and display; lookups go through its SHA-256 hash, which stays
- * within MySQL's indexed-text limit. Key material is stored as base64url text
- * so backups remain portable across all three dialects.
+ * for backup and display; lookups go through its SHA-256 hash, which keeps
+ * the index small. Key material is stored as base64url text so backups stay
+ * plain JSON.
  */
 export const passkeyCredentials = sqliteTable(
 	"passkey_credentials",

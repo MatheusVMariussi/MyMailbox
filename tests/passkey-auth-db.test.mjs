@@ -141,24 +141,6 @@ test("step-up grants carry the acting account's security version", () => {
 	assert.equal(column.dflt_value, "0");
 });
 
-test("PostgreSQL and MySQL ship the consolidated passkey triggers and bound-grant columns", () => {
-	for (const directory of ["drizzle/migrations-pg", "drizzle/migrations-mysql"]) {
-		const sql = readFileSync(new URL(`../${directory}/0004_passkeys_and_step_up_grants.sql`, import.meta.url), "utf8");
-		for (const needle of ["passkey_count", "last-auth-method", "second-factor-unavailable", "security_version", "actor_security_version", "target_user_id"]) {
-			assert.ok(sql.includes(needle), `${directory} lacks ${needle}`);
-		}
-		assert.match(sql, /passkey_count[`"]? = [`"]?passkey_count[`"]? - 1/, `${directory} lacks the passkey count decrement`);
-		assert.match(sql, /require_second_factor[`"]? = (?:false|0)/, `${directory} lacks the second-factor reset`);
-		assert.ok(sql.includes("!passkey-only"), `${directory} lacks the passwordless guard`);
-		assert.ok(!sql.includes("DROP TRIGGER"), `${directory} must not replace the trigger in a separate migration`);
-		assert.equal(
-			[...sql.matchAll(/CREATE TRIGGER [`"]?passkey_credentials_count_delete/gi)].length,
-			1,
-			`${directory} creates the last-passkey delete trigger once`,
-		);
-	}
-});
-
 test("a normal password-only fallback allows the last passkey to go", () => {
 	const db = database();
 	addUser(db, { id: "u1", passwordHash: "$2b$12$hash" });

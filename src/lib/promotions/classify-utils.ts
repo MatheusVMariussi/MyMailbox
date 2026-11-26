@@ -1,7 +1,7 @@
 import { normalizeEmailAddress } from "@/lib/email/address";
 import type { BulkMailVerdict } from "@/lib/email/bulk-mail";
 
-/** `mailboxes`-scoped sender key. MySQL indexes the column as varchar(191), so a longer address is `null`, never truncated. */
+/** `mailboxes`-scoped sender key. A longer address is `null`, never truncated. */
 const MAX_SENDER_ADDRESS = 191;
 
 /** Lower-cased bare address of a From header value, or null when empty or too long to index. */

@@ -138,8 +138,8 @@ export const emailQuery: JmapMethodHandler = async (ctx, args) => {
 	const { ids: accessibleIds, condition } = await scope(ctx);
 	const filter = filterToSql(args.filter as Filter | null | undefined, new Set(accessibleIds), ctx.auth.userId);
 	const where = filter ? and(condition, filter) : condition;
-	// The id breaks ties, so OFFSET pages are stable on databases (PostgreSQL)
-	// that return equal rows in any order.
+	// The id breaks ties, so OFFSET pages are stable even when many rows share
+	// the sort value (the database may return equal rows in any order).
 	const order = [...sortToSql(args.sort as Comparator[] | null | undefined), asc(messages.id)];
 	const collapse = !!args.collapseThreads;
 	const limit = Math.min(Math.max(Number(args.limit ?? LIMITS.maxQueryLimit), 0), LIMITS.maxQueryLimit);

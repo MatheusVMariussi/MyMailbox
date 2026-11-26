@@ -30,17 +30,6 @@ const { D1_SESSION_COOKIE, shouldUseD1Session, d1SessionBookmark, withD1ReadSess
 	pathToFileURL(join(outDir, "utils.mjs")).href
 );
 
-// getDatabaseConfig falls back to process.env; make sure a developer's DATABASE_URL cannot leak in.
-const savedEnv = { DATABASE_URL: process.env.DATABASE_URL, DATABASE_DRIVER: process.env.DATABASE_DRIVER };
-delete process.env.DATABASE_URL;
-delete process.env.DATABASE_DRIVER;
-after(() => {
-	if (savedEnv.DATABASE_URL === undefined) delete process.env.DATABASE_URL;
-	else process.env.DATABASE_URL = savedEnv.DATABASE_URL;
-	if (savedEnv.DATABASE_DRIVER === undefined) delete process.env.DATABASE_DRIVER;
-	else process.env.DATABASE_DRIVER = savedEnv.DATABASE_DRIVER;
-});
-
 /** A minimal D1 binding stand-in recording withSession() calls. */
 function fakeD1(bookmark = "bm-1") {
 	const session = {
@@ -95,16 +84,6 @@ test("withD1ReadSession resumes from the client's bookmark cookie", () => {
 	const result = withD1ReadSession({ DB: db }, requestWithCookies(`${D1_SESSION_COOKIE}=bm-prev`));
 	assert.deepEqual(db.withSessionArgs, ["bm-prev"]);
 	assert.equal(result.env.DB, session);
-});
-
-test("withD1ReadSession skips non-D1 database configs", () => {
-	const { db } = fakeD1();
-	const result = withD1ReadSession(
-		{ DB: db, DATABASE_URL: "postgres://user:pass@localhost/db" },
-		new Request("https://mail.example.com/"),
-	);
-	assert.equal(result, null);
-	assert.deepEqual(db.withSessionArgs, []);
 });
 
 test("withD1ReadSession skips bindings without withSession", () => {

@@ -32,29 +32,12 @@ function splitSql(sql) {
 	return statements;
 }
 
-function readMigrations(directory, split) {
+function readMigrations(directory) {
 	return readdirSync(directory)
 		.filter((name) => name.endsWith(".sql"))
 		.sort()
-		.map((name) => ({ name, statements: split(readFileSync(new URL(name, directory), "utf8")) }));
+		.map((name) => ({ name, statements: splitSql(readFileSync(new URL(name, directory), "utf8")) }));
 }
 
-// PostgreSQL function bodies and MySQL trigger bodies contain semicolons, so those migrations are split only
-// on the explicit breakpoint markers drizzle-kit writes (and the hand-written files copy).
-function splitOnBreakpoints(sql) {
-	return sql
-		.split(/-->\s*statement-breakpoint/g)
-		.map((statement) => statement.replace(/^\s*--[^\n]*$/gm, "").trim())
-		.filter(Boolean);
-}
-
-const bundles = [
-	{ file: "bundle.json", directory: "drizzle/migrations/", split: splitSql },
-	{ file: "bundle-postgres.json", directory: "drizzle/migrations-pg/", split: splitOnBreakpoints },
-	{ file: "bundle-mysql.json", directory: "drizzle/migrations-mysql/", split: splitOnBreakpoints },
-];
-
-for (const { file, directory, split } of bundles) {
-	const migrations = readMigrations(new URL(directory, root), split);
-	writeFileSync(new URL(`src/lib/migrations/${file}`, root), `${JSON.stringify({ migrations }, null, 2)}\n`);
-}
+const migrations = readMigrations(new URL("drizzle/migrations/", root));
+writeFileSync(new URL("src/lib/migrations/bundle.json", root), `${JSON.stringify({ migrations }, null, 2)}\n`);

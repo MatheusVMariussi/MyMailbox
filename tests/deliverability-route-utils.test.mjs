@@ -12,7 +12,7 @@ await build({ entryPoints: { utils: join(root, "src/lib/deliverability/route-uti
 const { migrationRequired } = await import(pathToFileURL(join(outDir, "utils.mjs")).href);
 
 test("a missing table or column answers 409 MIGRATION_REQUIRED; any other error is rethrown", async () => {
-	for (const message of ["no such table: domain_deliverability", "table deliverability_reports has no column named kind", 'column "mta_sts_mode" does not exist']) {
+	for (const message of ["no such table: domain_deliverability", "table deliverability_reports has no column named kind", "no such column: mta_sts_mode"]) {
 		const response = migrationRequired(new Error("Failed query", { cause: new Error(message) }));
 		assert.equal(response.status, 409);
 		assert.equal((await response.json()).code, "MIGRATION_REQUIRED");

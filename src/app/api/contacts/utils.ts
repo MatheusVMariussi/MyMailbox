@@ -42,7 +42,7 @@ export async function listContacts(db: Db, input: { userId: string; query: strin
 		.select()
 		.from(contacts)
 		.where(and(...conditions))
-		// Name-less contacts sort by address; lower() keeps ordering consistent across dialects.
+		// Name-less contacts sort by address; lower() keeps the ordering case-insensitive.
 		.orderBy(
 			asc(sql`lower(coalesce(${contacts.displayName}, ${contacts.email}))`),
 			asc(contacts.email),

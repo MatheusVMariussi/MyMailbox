@@ -140,7 +140,6 @@ async function purge(db: ReturnType<typeof getDb>, budget: number, select: (limi
 		if (ids.length === 0) break;
 		const statements: unknown[] = [];
 		for (let start = 0; start < ids.length; start += RETENTION.deleteChunk) statements.push(remove(ids.slice(start, start + RETENTION.deleteChunk) as never[]));
-		// The statements must come from the same instance that batches them (see src/db/compat.ts).
 		await db.batch(statements as never);
 		used += 1;
 	}

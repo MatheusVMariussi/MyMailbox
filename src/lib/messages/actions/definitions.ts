@@ -46,7 +46,7 @@ export function toIsoOrNull(value: Date | string | null | undefined): string | n
 	if (!value) return null;
 	const date = value instanceof Date ? value : new Date(value);
 	if (Number.isNaN(date.getTime())) return null;
-	// Timestamps are stored as whole seconds in every dialect.
+	// Timestamps are stored as whole seconds.
 	return new Date(Math.floor(date.getTime() / 1000) * 1000).toISOString();
 }
 

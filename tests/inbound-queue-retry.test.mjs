@@ -32,14 +32,11 @@ function fakeMessage(attempts) {
 // Drizzle wraps the driver message: "Failed query: …" with the driver error on `cause`.
 const wrapped = (message) => Object.assign(new Error("Failed query: insert into \"messages\" ..."), { cause: new Error(message) });
 
-for (const [dialect, message] of [
+for (const [kind, message] of [
 	["D1/SQLite", "table messages has no column named new_col: SQLITE_ERROR"],
 	["D1/SQLite select", "no such column: messages.new_col: SQLITE_ERROR"],
-	["PostgreSQL", 'column "new_col" of relation "messages" does not exist'],
-	["PostgreSQL select (unquoted, table-qualified)", "column messages.new_col does not exist"],
-	["MySQL", "Unknown column 'new_col' in 'field list'"],
 ]) {
-	test(`schema mismatch (${dialect}) retries later and is never acked`, () => {
+	test(`schema mismatch (${kind}) retries later and is never acked`, () => {
 		const msg = fakeMessage(1);
 		settleFailedInboundMessage(msg, wrapped(message));
 		assert.deepEqual(msg.calls, [["retry", { delaySeconds: INBOUND_SCHEMA_RETRY_DELAY_SECONDS }]]);

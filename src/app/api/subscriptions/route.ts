@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { parseLimit, parseOffset } from "@/lib/api/query-params";
 import { getEnv } from "@/lib/cloudflare";
-import { isMissingTableError } from "@/lib/database-errors";
+import { isMissingColumnError, isMissingTableError } from "@/lib/database-errors";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { loadPromotionModes } from "@/lib/promotions/settings";
 import { listSubscriptions } from "@/lib/promotions/subscriptions";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 		}));
 	} catch (error) {
 		// The category and sender columns arrive with the migration; before it there is nothing to list.
-		if (isMissingTableError(error) || /no such column|does not exist|unknown column/i.test(String((error as Error)?.cause ?? error))) return NextResponse.json(EMPTY);
+		if (isMissingTableError(error) || isMissingColumnError(error)) return NextResponse.json(EMPTY);
 		throw error;
 	}
 }

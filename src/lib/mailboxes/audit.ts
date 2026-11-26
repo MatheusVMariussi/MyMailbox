@@ -10,7 +10,7 @@ export async function createAuditLog(env: CloudflareEnv, input: AuditLogInput): 
 export async function createAuditLogs(env: CloudflareEnv, inputs: AuditLogInput[]): Promise<void> {
 	if (inputs.length === 0) return;
 	const db = getDb(env);
-	// Keep each insert well under the dialects' bound-parameter limits.
+	// Keep each insert well under D1's bound-parameter limit.
 	for (let index = 0; index < inputs.length; index += 10) {
 		await db.insert(auditLogs).values(inputs.slice(index, index + 10).map((input) => ({
 			id: newId("aud"),

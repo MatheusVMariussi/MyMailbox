@@ -19,7 +19,7 @@ Self-host it on Cloudflare. **Or try [Mailflare Cloud](https://cloud.mailflare.c
 
 ### Technical
 
-- **Databases**: Cloudflare D1 (default), PostgreSQL, MySQL, Turso / libSQL, or a local SQLite file. Set `DATABASE_URL` to switch. Works with Supabase, Neon, PlanetScale, TiDB and more. See [Databases](docs/databases.md).
+- **Database**: Cloudflare D1. See [Database](docs/databases.md).
 - **File storage**: Cloudflare R2.
 - **Hosting**: Cloudflare Workers.
 - **Admin**: Users, API keys, webhooks, audit logs and backups.
@@ -86,12 +86,12 @@ Add your Cloudflare credentials to `.dev.vars`, then open [localhost:3000](http:
 - `npm run deploy`: build and deploy
 - `npm run lint`: lint and type check
 
-A schema change needs a migration for each database type. See [Databases](docs/databases.md#migrations).
+A schema change needs a migration. See [Database](docs/databases.md#migrations).
 
 ## Documentation
 
 - [Deployment and configuration](docs/deployment.md)
-- [Databases](docs/databases.md)
+- [Database](docs/databases.md)
 - [Sending and receiving providers](docs/providers.md)
 - [API and integrations](docs/api.md)
 - [Adding a language](docs/localization.md)

@@ -43,4 +43,4 @@ _List the checks you ran and what you verified by hand. State anything you could
 > - `node --test tests/*.test.mjs` passes
 > - `npx tsc --noEmit` passes
 > - By hand in `npm run dev`: replied to a 3-recipient message, Cc kept and own address removed
-> - Not tested: PostgreSQL/MySQL (no schema change)
+> - Not tested: email delivery to an external provider

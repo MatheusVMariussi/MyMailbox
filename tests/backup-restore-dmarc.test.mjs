@@ -49,7 +49,7 @@ function database() {
 
 const buffer = (bytes) => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 
-test("dmarc_daily_stats is backed up without its serial id, so a PostgreSQL restore cannot leave the sequence behind the rows", async () => {
+test("dmarc_daily_stats is backed up without its serial id; its identity is the unique key", async () => {
 	const sqlite = database();
 	const backup = await exportDatabaseRecords(d1(sqlite));
 	const document = JSON.parse(new TextDecoder().decode(backup));

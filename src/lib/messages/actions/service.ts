@@ -1,7 +1,6 @@
 import { and, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
 import { getDb } from "@/db";
-import { schemaDialect } from "@/db/dialect";
 import { folders, messages } from "@/db/schema";
 import type { SessionUser } from "@/lib/auth/types";
 import { isOthersDraft } from "@/lib/email/draft-access";
@@ -164,7 +163,7 @@ function toCaseValue(field: MessageStateField, value: MessageStateSnapshot[Messa
 	if (field === "snoozedUntil") {
 		return value === null ? null : Math.floor(new Date(value as string).getTime() / 1000);
 	}
-	if ((field === "read" || field === "starred") && schemaDialect() === "sqlite") return value ? 1 : 0;
+	if (field === "read" || field === "starred") return value ? 1 : 0;
 	return value;
 }
 
@@ -195,11 +194,10 @@ function updateChunkSize(parametersPerRow: number): number {
 }
 
 /**
- * Runs bounded CAS updates. SQLite/Postgres group rows by written fields and
- * OR their per-row conditions, so D1's query cap does not turn a large or
- * heterogeneous selection into one query per message. MySQL always writes per
- * row because its RETURNING shim can over-report a concurrently changed batch.
- * Any batch miss falls back to per-row CAS to report the exact stale rows.
+ * Runs bounded CAS updates. Rows are grouped by written fields and their per-row
+ * conditions ORed, so D1's query cap does not turn a large or heterogeneous
+ * selection into one query per message. Any batch miss falls back to per-row
+ * CAS to report the exact stale rows.
  */
 async function runPlannedUpdates(
 	db: AppDatabase,
@@ -207,15 +205,6 @@ async function runPlannedUpdates(
 ): Promise<{ applied: Set<string>; skipped: MessageActionSkipped[] }> {
 	const applied = new Set<string>();
 	const skipped: MessageActionSkipped[] = [];
-	if (schemaDialect() === "mysql") {
-		for (const plan of plans) {
-			const outcome = await updatePlannedRow(db, plan);
-			if (outcome === "applied") applied.add(plan.id);
-			else skipped.push({ id: plan.id, reason: outcome });
-		}
-		return { applied, skipped };
-	}
-
 	const groups = new Map<string, PlannedUpdate[]>();
 	for (const plan of plans) {
 		const key = plan.fields.join("|");

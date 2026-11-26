@@ -1,4 +1,3 @@
-import { withDatabase } from "./src/db/with-database";
 import vinextHandler from "vinext/server/fetch-handler";
 import {
 	processInboundMessage,
@@ -50,7 +49,7 @@ export default {
 		// them from read replicas; email/queue/scheduled below keep primary reads on purpose.
 		// The policy answer stays cookie free, so it opens no read session (which would add a bookmark cookie).
 		const d1Session = isMtaStsHost(requestUrl.hostname) ? null : withD1ReadSession(rawEnv, request);
-		const env = withDatabase(d1Session?.env ?? rawEnv);
+		const env = d1Session?.env ?? rawEnv;
 		const url = requestUrl;
 		if (url.pathname === "/api/realtime") {
 			if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
@@ -75,8 +74,7 @@ export default {
 		return withD1BookmarkCookie(request, response, d1Session?.session);
 	},
 
-	async email(message: ForwardableEmailMessage, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
-		const env = withDatabase(rawEnv);
+	async email(message: ForwardableEmailMessage, env: CloudflareEnv, ctx: ExecutionContext) {
 		try {
 			if (message.rawSize > 25 * 1024 * 1024) {
 				message.setReject("Message rejected: raw email exceeds the 25 MiB receiving limit. Send a download link instead.");
@@ -133,8 +131,7 @@ export default {
 		}
 	},
 
-	async queue(batch: MessageBatch, rawEnv: CloudflareEnv): Promise<void> {
-		const env = withDatabase(rawEnv);
+	async queue(batch: MessageBatch, env: CloudflareEnv): Promise<void> {
 		// One budget per batch, so the reverse lookups of every DMARC report in it stay within the invocation's subrequests.
 		const reportBudget = createBatchBudget();
 		for (const msg of batch.messages) {
@@ -162,8 +159,7 @@ export default {
 		}
 	},
 
-	async scheduled(controller: ScheduledController, rawEnv: CloudflareEnv, ctx: ExecutionContext) {
-		const env = withDatabase(rawEnv);
+	async scheduled(controller: ScheduledController, env: CloudflareEnv, ctx: ExecutionContext) {
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runScheduledDatabaseBackup(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		ctx.waitUntil(runFollowUpReminders(env, new Date(controller.scheduledTime)));
