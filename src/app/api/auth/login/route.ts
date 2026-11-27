@@ -4,7 +4,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { verifyPasswordInConstantTime } from "@/lib/auth/password";
-import { clearPasswordAttempt, PASSWORD_LOCKOUT_RETRY_AFTER, reservePasswordAttempt } from "@/lib/auth/password-attempts";
+import { clearPasswordAttempt, reservePasswordAttempt, spendUnknownPasswordAttempt } from "@/lib/auth/password-attempts";
 import { loginSchema } from "@/lib/validators";
 import { allowLoginAttempt } from "@/lib/auth/rate-limit";
 import { verifyTurnstileToken } from "@/lib/auth/turnstile";
@@ -36,15 +36,23 @@ export async function POST(request: Request) {
 
 	const db = getDb(env);
 	const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
-	// An unknown email or a passwordless account has no usable password; it still costs one bcrypt
-	// comparison and takes the same generic error, so neither the answer nor its timing enumerates accounts.
+	// An unknown email or a passwordless account has no usable password; it still records an attempt,
+	// costs one bcrypt comparison and takes the same generic error, so neither the answer nor its timing
+	// enumerates accounts.
 	if (!user) {
+		await spendUnknownPasswordAttempt(env, request);
 		verifyPasswordInConstantTime(parsed.data.password, null);
 		return authError("invalid_credentials", 401);
 	}
-	// Guesses are limited per account across every IP (shared with step-up).
+	// Guesses are limited per account across every IP (shared with step-up). A locked account is answered
+	// exactly like a wrong password, after the same comparison cost, even when the password is right: a
+	// distinct answer would confirm the address has an account (docs/security.md, "Sign-in throttling").
 	const attempt = await reservePasswordAttempt(env, user.id, request);
-	if (!attempt) return authError("rate_limited", 429, { "Retry-After": PASSWORD_LOCKOUT_RETRY_AFTER });
+	if (!attempt) {
+		console.warn(`Password sign-in locked for user ${user.id}: too many wrong passwords in the window`);
+		verifyPasswordInConstantTime(parsed.data.password, null);
+		return authError("invalid_credentials", 401);
+	}
 	if (!verifyPasswordInConstantTime(parsed.data.password, user.passwordHash)) {
 		return authError("invalid_credentials", 401);
 	}

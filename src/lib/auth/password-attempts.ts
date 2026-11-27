@@ -1,4 +1,4 @@
-import { clearAccountAttempt, reserveAccountAttempt, type AccountAttemptPolicy } from "./account-attempts";
+import { clearAccountAttempt, reserveAccountAttempt, spendUnknownAccountAttempt, type AccountAttemptPolicy } from "./account-attempts";
 
 /**
  * Wrong passwords are limited per account across every IP: sign-in and step-up share one budget, so a
@@ -13,6 +13,11 @@ export const PASSWORD_LOCKOUT_RETRY_AFTER = String(PASSWORD_ATTEMPTS.windowMinut
 /** Returns an attempt id to clear once the password is right, or null when the account is out of attempts. */
 export function reservePasswordAttempt(env: CloudflareEnv, userId: string, request: Request): Promise<string | null> {
 	return reserveAccountAttempt(env, userId, request, PASSWORD_ATTEMPTS);
+}
+
+/** The cost of `reservePasswordAttempt` for a sign-in whose email has no account; counts against nothing. */
+export function spendUnknownPasswordAttempt(env: CloudflareEnv, request: Request): Promise<void> {
+	return spendUnknownAccountAttempt(env, request, PASSWORD_ATTEMPTS);
 }
 
 /** A correct password is not a failed attempt. */

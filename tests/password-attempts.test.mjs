@@ -50,12 +50,43 @@ async function fixture(t, env = {}) {
 	return { ...database, login };
 }
 
-test("wrong passwords are limited per account, across IPs", async (t) => {
+const REAL_HASH = `$2mock$${PASSWORD}`;
+
+async function answer(response) {
+	return { status: response.status, retryAfter: response.headers.get("Retry-After"), body: await response.json() };
+}
+
+test("wrong passwords are limited per account, across IPs, and the lockout looks like a wrong password", async (t) => {
 	const f = await fixture(t);
-	for (let index = 0; index < 10; index++) assert.equal((await f.login("alice@mail.test", `wrong-${index}`)).status, 401);
-	const locked = await f.login("alice@mail.test", PASSWORD);
-	assert.equal(locked.status, 429);
-	assert.equal((await locked.json()).code, "rate_limited");
+	const warnings = [];
+	t.mock.method(console, "warn", (...args) => { warnings.push(args.join(" ")); });
+	let wrong;
+	for (let index = 0; index < 10; index++) {
+		wrong = await answer(await f.login("alice@mail.test", `wrong-${index}`));
+		assert.equal(wrong.status, 401);
+	}
+	globalThis.__bcryptCompares = [];
+	const locked = await answer(await f.login("alice@mail.test", PASSWORD));
+	// Same status, headers and body as a wrong password (or an unknown email), even with the right password.
+	assert.deepEqual(locked, wrong);
+	assert.equal(locked.body.code, "invalid_credentials");
+	assert.deepEqual(locked, await answer(await f.login("nobody@mail.test", PASSWORD)));
+	// The locked attempt still pays for one bcrypt comparison, never against the real hash.
+	assert.equal(globalThis.__bcryptCompares.filter((hash) => hash === REAL_HASH).length, 0);
+	assert.equal(globalThis.__bcryptCompares.length, 2);
+	assert.ok(warnings.some((line) => /locked/i.test(line) && line.includes("alice")), "the lockout is logged server-side");
+});
+
+test("an unknown email goes through the attempt counter like a real account", async (t) => {
+	const f = await fixture(t);
+	for (let index = 0; index < 12; index++) {
+		const response = await answer(await f.login("nobody@mail.test", `guess-${index}`));
+		assert.equal(response.status, 401);
+		assert.equal(response.body.code, "invalid_credentials");
+	}
+	const rows = f.sqlite.prepare("SELECT target_user_id AS target FROM audit_logs WHERE action = 'auth.password_failed'").all();
+	assert.equal(rows.length, 12, "each guess records an attempt, as a wrong password does");
+	assert.ok(rows.every((row) => row.target === null), "and counts against no account");
 });
 
 test("a correct password still signs in after a few wrong ones, and does not count", async (t) => {
@@ -69,10 +100,11 @@ test("a correct password still signs in after a few wrong ones, and does not cou
 test("parallel guesses cannot outrun the per-account limit", async (t) => {
 	const f = await fixture(t);
 	const statuses = await Promise.all(Array.from({ length: 25 }, () => f.login("alice@mail.test", "parallel").then((response) => response.status)));
+	assert.deepEqual([...new Set(statuses)], [401]);
 	// Every guess is logged before any is checked, so a burst may even be refused entirely.
-	const checked = statuses.filter((status) => status === 401).length;
+	const checked = globalThis.__bcryptCompares.filter((hash) => hash === REAL_HASH).length;
 	assert.ok(checked <= 10, `${checked} passwords were checked`);
-	assert.equal(checked + statuses.filter((status) => status === 429).length, 25);
+	assert.equal(globalThis.__bcryptCompares.length, 25, "refused guesses still pay for a comparison");
 });
 
 test("unknown and passkey-only accounts still pay for a bcrypt comparison", async (t) => {
@@ -96,7 +128,7 @@ test("step-up password failures spend the same per-account budget", async (t) =>
 	}));
 	for (let index = 0; index < 10; index++) assert.equal((await stepUp(`wrong-${index}`)).status, 400);
 	assert.equal((await stepUp(PASSWORD)).status, 429, "step-up is locked");
-	assert.equal((await f.login("alice@mail.test", PASSWORD)).status, 429, "and so is sign-in");
+	assert.equal((await f.login("alice@mail.test", PASSWORD)).status, 401, "and so is sign-in, answered like a wrong password");
 });
 
 test("step-up second-factor codes are limited per account", async (t) => {

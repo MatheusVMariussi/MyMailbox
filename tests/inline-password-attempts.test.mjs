@@ -49,7 +49,8 @@ test("inline password confirmations spend the sign-in budget", async (t) => {
 	const confirm = (password) => app.authorizeSecurityChange(f.env, f.user(), f.request("/api/webhooks", { password }), { password }, "webhook.change");
 	for (let index = 0; index < 10; index++) assert.equal(await confirm(`wrong-${index}`), false);
 	assert.equal(await confirm(PASSWORD), false, "the right password is refused once the budget is spent");
-	assert.equal((await f.signIn()).status, 429, "and sign-in is locked too");
+	// Sign-in is locked too, answered like a wrong password so the lockout does not reveal the account.
+	assert.equal((await f.signIn()).status, 401, "and sign-in is locked too");
 });
 
 test("a right inline password still works and does not count", async (t) => {
@@ -65,5 +66,5 @@ test("the current password on a password change spends the sign-in budget", asyn
 	const change = (currentPassword) => app.passwordRoute.PATCH(f.request("/api/settings/password", { currentPassword, newPassword: "a-brand-new-password" }, "PATCH"));
 	for (let index = 0; index < 10; index++) assert.equal((await change(`wrong-${index}`)).status, 400);
 	assert.equal((await change(PASSWORD)).status, 429);
-	assert.equal((await f.signIn()).status, 429);
+	assert.equal((await f.signIn()).status, 401);
 });
