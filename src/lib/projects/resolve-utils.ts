@@ -61,7 +61,8 @@ export function normalizeProjectLocalPart(value: unknown): string | null {
 
 /**
  * Requested addresses that would share a normalized local part with another project's address on the
- * same domain, or with an earlier entry of the same request. Rows of `projectId` itself are being replaced.
+ * same domain, or with an earlier entry of the same request. `existing` holds the owner's own mappings only
+ * (other users may map the same address); rows of `projectId` itself are being replaced.
  */
 export function findLocalPartConflicts(
 	existing: readonly ProjectAddressRow[],

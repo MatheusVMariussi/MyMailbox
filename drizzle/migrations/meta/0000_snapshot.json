@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cb6d3712-0fd2-4897-836a-fdb258aa77fc",
+  "id": "8adb9072-c189-46d3-a4c7-e8676e1a87ed",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "api_key_mailboxes": {
@@ -5009,6 +5009,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "domain_id": {
           "name": "domain_id",
           "type": "text",
@@ -5033,9 +5040,10 @@
         }
       },
       "indexes": {
-        "project_addresses_address_idx": {
-          "name": "project_addresses_address_idx",
+        "project_addresses_user_address_idx": {
+          "name": "project_addresses_user_address_idx",
           "columns": [
+            "user_id",
             "domain_id",
             "local_part"
           ],
@@ -5056,6 +5064,19 @@
           "tableTo": "projects",
           "columnsFrom": [
             "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_addresses_user_id_users_id_fk": {
+          "name": "project_addresses_user_id_users_id_fk",
+          "tableFrom": "project_addresses",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
           ],
           "columnsTo": [
             "id"

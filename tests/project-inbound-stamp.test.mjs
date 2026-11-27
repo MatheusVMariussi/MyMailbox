@@ -55,11 +55,11 @@ async function fixture(t) {
 			('p-two', 'admin', 'Two', '#34d399', 1),
 			('p-hello', 'admin', 'Hello desk', '#c084fc', 1),
 			('p-three', 'admin', 'Three', '#fbbf24', 1);
-		INSERT INTO project_addresses (id, project_id, domain_id, local_part, created_at) VALUES
-			('a1', 'p-alpha', 'd-one', '', 1),
-			('a2', 'p-two', 'd-two', '', 1),
-			('a3', 'p-hello', 'd-two', 'hello', 1),
-			('a4', 'p-three', 'd-three', '', 1);
+		INSERT INTO project_addresses (id, project_id, user_id, domain_id, local_part, created_at) VALUES
+			('a1', 'p-alpha', 'admin', 'd-one', '', 1),
+			('a2', 'p-two', 'admin', 'd-two', '', 1),
+			('a3', 'p-hello', 'admin', 'd-two', 'hello', 1),
+			('a4', 'p-three', 'admin', 'd-three', '', 1);
 	`);
 	const objects = new Map();
 	const env = {

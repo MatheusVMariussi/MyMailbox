@@ -7,7 +7,10 @@ import { getOwnProject, listProjectDomains, ProjectError, setProjectAddresses } 
 import { projectAddressesSchema } from "@/lib/validators";
 import type { ProjectRouteParams } from "../types";
 
-/** Replaces the domains and addresses the project owns. Only domains the user can access may be mapped. */
+/**
+ * Replaces the domains and addresses the project owns. Only domains the user can access may be mapped, and an
+ * address is unique among the user's own projects: another user on a shared domain may map it to theirs.
+ */
 export async function PUT(request: Request, { params }: ProjectRouteParams) {
 	const { id } = await params;
 	const env = getEnv();

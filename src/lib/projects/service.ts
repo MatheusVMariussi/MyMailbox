@@ -138,9 +138,10 @@ export async function listProjectDomains(db: AppDatabase, user: Pick<SessionUser
 }
 
 /**
- * Replaces the addresses a project owns. The caller has normalized the local parts and checked the domains;
- * an address that normalizes like one another project owns is refused (409), and so is a race on the
- * unique index. Delete and inserts run as one batch, so a failure leaves the old set in place.
+ * Replaces the addresses a project owns. The caller has normalized the local parts and checked the domains.
+ * Mappings are per owner: an address that normalizes like one another project of the same user owns is
+ * refused (409), and so is a race on the (user, domain, local part) unique index, while other users' projects
+ * on a shared domain never conflict. Delete and inserts run as one batch, so a failure leaves the old set.
  */
 export async function setProjectAddresses(
 	db: AppDatabase,
@@ -152,14 +153,14 @@ export async function setProjectAddresses(
 	const existing = await selectInBatches([...new Set(unique.map((entry) => entry.domainId))], (batch) => db
 		.select({ projectId: projectAddresses.projectId, domainId: projectAddresses.domainId, localPart: projectAddresses.localPart })
 		.from(projectAddresses)
-		.where(inArray(projectAddresses.domainId, batch)));
+		.where(and(eq(projectAddresses.userId, project.userId), inArray(projectAddresses.domainId, batch))));
 	const conflicts = findLocalPartConflicts(existing, unique, project.id);
 	if (conflicts.length > 0) {
 		const first = conflicts[0];
-		throw new ProjectError(`${formatProjectAddress({ localPart: first.localPart, hostname: hostnames.get(first.domainId) ?? "" })} already belongs to another project`, 409);
+		throw new ProjectError(`${formatProjectAddress({ localPart: first.localPart, hostname: hostnames.get(first.domainId) ?? "" })} already belongs to another of your projects`, 409);
 	}
 	const createdAt = new Date(Math.floor(Date.now() / 1000) * 1000);
-	const rows = unique.map((entry) => ({ id: newId("pad"), projectId: project.id, domainId: entry.domainId, localPart: entry.localPart, createdAt }));
+	const rows = unique.map((entry) => ({ id: newId("pad"), projectId: project.id, userId: project.userId, domainId: entry.domainId, localPart: entry.localPart, createdAt }));
 	const statements = [
 		db.delete(projectAddresses).where(eq(projectAddresses.projectId, project.id)),
 		...chunk(rows, PROJECT_ADDRESS_INSERT_CHUNK).map((part) => db.insert(projectAddresses).values(part)),
@@ -167,7 +168,7 @@ export async function setProjectAddresses(
 	try {
 		await db.batch(statements as never);
 	} catch (error) {
-		if (isUniqueConstraintError(error)) throw new ProjectError("One of these addresses already belongs to another project", 409);
+		if (isUniqueConstraintError(error)) throw new ProjectError("One of these addresses already belongs to another of your projects", 409);
 		throw error;
 	}
 	return rows
@@ -177,9 +178,9 @@ export async function setProjectAddresses(
 
 /**
  * The project of `userId` owning an address: an exact (normalized) local part on its domain, else the
- * domain default. Projects are per user, so only that user's mappings count: the owner of the receiving
- * mailbox for inbound mail, the acting user for sends and drafts. Another user who maps the same address
- * on a shared domain never stamps this user's mail.
+ * domain default. Mappings are per user, so only that user's count: the owner of the receiving mailbox for
+ * inbound mail, the acting user for sends and drafts. Another user who maps the same address on a shared
+ * domain stamps only their own mail.
  */
 export async function resolveProjectForAddress(db: AppDatabase, userId: string, address: string): Promise<ResolvedProject | null> {
 	const parts = splitProjectAddress(address);
@@ -189,7 +190,7 @@ export async function resolveProjectForAddress(db: AppDatabase, userId: string, 
 		.from(projectAddresses)
 		.innerJoin(domains, eq(domains.id, projectAddresses.domainId))
 		.innerJoin(projects, eq(projects.id, projectAddresses.projectId))
-		.where(and(eq(domains.hostname, parts.hostname), eq(projects.userId, userId)))
+		.where(and(eq(projectAddresses.userId, userId), eq(domains.hostname, parts.hostname)))
 		.orderBy(asc(projectAddresses.createdAt), asc(projectAddresses.id));
 	const projectId = pickProjectForLocalPart(rows, parts.localPart);
 	if (!projectId) return null;
@@ -217,8 +218,7 @@ export async function loadProjectMappings(db: AppDatabase, userId: string): Prom
 		.select({ projectId: projectAddresses.projectId, localPart: projectAddresses.localPart, hostname: domains.hostname })
 		.from(projectAddresses)
 		.innerJoin(domains, eq(domains.id, projectAddresses.domainId))
-		.innerJoin(projects, eq(projects.id, projectAddresses.projectId))
-		.where(eq(projects.userId, userId))
+		.where(eq(projectAddresses.userId, userId))
 		.orderBy(asc(projectAddresses.createdAt), asc(projectAddresses.id));
 }
 

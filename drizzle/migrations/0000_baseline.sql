@@ -698,14 +698,16 @@ CREATE INDEX `password_reset_tokens_user_idx` ON `password_reset_tokens` (`user_
 CREATE TABLE `project_addresses` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
+	`user_id` text NOT NULL,
 	`domain_id` text NOT NULL,
 	`local_part` text DEFAULT '' NOT NULL,
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`domain_id`) REFERENCES `domains`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `project_addresses_address_idx` ON `project_addresses` (`domain_id`,`local_part`);--> statement-breakpoint
+CREATE UNIQUE INDEX `project_addresses_user_address_idx` ON `project_addresses` (`user_id`,`domain_id`,`local_part`);--> statement-breakpoint
 CREATE INDEX `project_addresses_project_idx` ON `project_addresses` (`project_id`);--> statement-breakpoint
 CREATE TABLE `projects` (
 	`id` text PRIMARY KEY NOT NULL,

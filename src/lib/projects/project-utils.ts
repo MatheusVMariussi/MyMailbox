@@ -4,7 +4,7 @@ export const PROJECT_NAME_MAX = 60;
 /** Most addresses one project may own; a PUT replaces them all at once. */
 export const PROJECT_ADDRESSES_MAX = 100;
 
-/** Rows one `project_addresses` insert writes: five parameters each keeps a statement under D1's 100. */
+/** Rows one `project_addresses` insert writes: six parameters each keeps a statement under D1's 100. */
 export const PROJECT_ADDRESS_INSERT_CHUNK = 15;
 
 /** Trimmed name with inner whitespace collapsed, or null when empty, too long or holding control characters. */

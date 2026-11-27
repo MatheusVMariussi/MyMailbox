@@ -402,7 +402,7 @@ const projectLocalPart = z.string().max(200).transform((value, ctx) => {
 	return localPart ?? "";
 });
 
-/** The full set of addresses a project owns; an empty local part owns the whole domain. */
+/** The full set of addresses a project owns; an empty local part owns the whole domain. Uniqueness among the owner's projects is checked by the service. */
 export const projectAddressesSchema = z.object({
 	addresses: z.array(z.object({ domainId: z.string().min(1).max(100), localPart: projectLocalPart.default("") }))
 		.max(PROJECT_ADDRESSES_MAX, `A project owns at most ${PROJECT_ADDRESSES_MAX} addresses`),

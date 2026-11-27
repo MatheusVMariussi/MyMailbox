@@ -280,7 +280,10 @@ export const projects = sqliteTable(
 	(t) => [uniqueIndex("projects_user_name_idx").on(t.userId, t.name)],
 );
 
-/** An address a project owns. An empty local part owns the whole domain; an address belongs to one project at most. */
+/**
+ * An address a project owns. An empty local part owns the whole domain. Mappings are per owner: one user's address
+ * belongs to at most one of their projects, while another user on a shared domain may map the same address to theirs.
+ */
 export const projectAddresses = sqliteTable(
 	"project_addresses",
 	{
@@ -288,6 +291,10 @@ export const projectAddresses = sqliteTable(
 		projectId: text("project_id")
 			.notNull()
 			.references(() => projects.id, { onDelete: "cascade" }),
+		/** The project's owner (`projects.user_id`), written with the row so uniqueness and lookups are per user. */
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
 		domainId: text("domain_id")
 			.notNull()
 			.references(() => domains.id, { onDelete: "cascade" }),
@@ -297,7 +304,7 @@ export const projectAddresses = sqliteTable(
 			.$defaultFn(() => new Date()),
 	},
 	(t) => [
-		uniqueIndex("project_addresses_address_idx").on(t.domainId, t.localPart),
+		uniqueIndex("project_addresses_user_address_idx").on(t.userId, t.domainId, t.localPart),
 		index("project_addresses_project_idx").on(t.projectId),
 	],
 );
