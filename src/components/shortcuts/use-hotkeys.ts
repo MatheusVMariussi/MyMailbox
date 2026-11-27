@@ -48,6 +48,9 @@ function matchModifiers(
 
   if (requiresAlt && !hasAlt) return false;
   if (requiresShift && !hasShift) return false;
+  // A letter shortcut without Shift must not fire on its Shift variant (`u` back to list, Shift+U mark unread).
+  // Symbols such as `?`, `#` and `!` are typed with Shift, so they are left alone.
+  if (!requiresShift && hasShift && /^[a-z]$/.test(shortcut.key.toLowerCase())) return false;
 
   if (!requiresCtrl && !requiresMeta && (hasCtrl || hasMeta)) return false;
   if (!requiresAlt && hasAlt) return false;
@@ -115,7 +118,9 @@ export function useHotkeys(
         }, 800);
       }
 
-      const sequenceMatch = matchSequence(sequenceState, shortcutsRef.current);
+      // Only multi-key sequences (`g i`) go through the sequence buffer; a single key is matched below
+      // with its modifiers, so plain `k` never fires Cmd+K and plain `i` never fires Shift+I.
+      const sequenceMatch = sequenceState.buffer.length > 1 ? matchSequence(sequenceState, shortcutsRef.current) : undefined;
 
       if (sequenceMatch) {
         e.preventDefault();

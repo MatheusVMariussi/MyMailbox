@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useId, useState, useEffect, useRef, useMemo } from "react";
-import { Search, CornerDownLeft } from "@/components/icons";
+import { CornerDownLeft } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import type { CommandItem } from "./types";
 import type { TranslationKey } from "@/lib/i18n/types";
@@ -74,19 +74,19 @@ function CommandPaletteDialog({
   }, [activeIndex, listboxId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/40 dark:bg-black/55 backdrop-blur-xs animate-in fade-in duration-100">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 px-4 pt-[12vh] dark:bg-black/65">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={t("palette.placeholder")}
-        className="relative w-full max-w-xl bg-white border border-neutral-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10"
+        className="reader-enter relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface-1 shadow-[0_32px_96px_-32px_rgb(0_0_0/0.7)]"
         onKeyDown={handleKeyDown}
       >
-        {/* Search header */}
-        <div className="flex items-center px-4 py-3.5 border-b border-neutral-100 gap-3">
-          <Search className="w-5 h-5 text-neutral-400" />
+        {/* A terminal prompt: `>` then the command you are typing. */}
+        <div className="flex items-center gap-3 border-b border-line px-4 py-3.5">
+          <span aria-hidden="true" className="font-mono text-[15px] font-medium text-accent">&gt;</span>
           <input
             ref={inputRef}
             type="text"
@@ -102,24 +102,27 @@ function CommandPaletteDialog({
             aria-autocomplete="list"
             aria-activedescendant={filteredCommands.length ? optionId(activeIndex) : undefined}
             aria-label={t("palette.placeholder")}
-            className="w-full bg-transparent text-neutral-900 placeholder-neutral-400 text-[15px] focus:outline-none"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            className="w-full bg-transparent font-mono text-[14px] text-ink caret-accent placeholder:text-ink-muted focus:outline-none"
           />
-          <kbd className="px-2 py-0.5 text-xs font-semibold text-neutral-500 bg-neutral-100 border border-neutral-200 rounded-md shadow-2xs">
-            ESC
+          <kbd className="inline-flex h-5 items-center rounded border border-line bg-surface-2 px-1.5 font-mono text-[11px] text-ink-soft">
+            Esc
           </kbd>
         </div>
 
         {/* Results */}
         <div id={listboxId} role="listbox" aria-label={t("palette.placeholder")} className="max-h-80 overflow-y-auto p-2">
           {filteredCommands.length === 0 ? (
-            <div role="status" className="p-8 text-center text-sm text-neutral-500">
+            <div role="status" className="px-4 py-8 font-mono text-[13px] text-ink-muted">
               {t("palette.noMatch", { query })}
             </div>
           ) : (
             Object.entries(grouped).map(([category, items]) => (
               <div key={category} role="group" aria-label={t(`shortcut.category.${category}` as TranslationKey)} className="mb-2 last:mb-0">
-                <div aria-hidden="true" className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                  {t(`shortcut.category.${category}` as TranslationKey)}
+                <div aria-hidden="true" className="px-3 pb-1 pt-1.5 font-mono text-[11px] text-ink-muted">
+                  {"// "}{t(`shortcut.category.${category}` as TranslationKey).toLocaleLowerCase()}
                 </div>
                 {items.map((item) => {
                   const isCurrent = flatIndex === activeIndex;
@@ -146,20 +149,18 @@ function CommandPaletteDialog({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2.5 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500">
-          <div className="flex items-center gap-3">
-            <span>
-              <kbd className="px-1.5 py-0.5 bg-neutral-200 rounded mr-1 text-[10px]">
-                ↑↓
-              </kbd>
+        <div className="flex items-center justify-between border-t border-line bg-surface-2 px-4 py-2 text-xs text-ink-muted">
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5">
+              <kbd className="inline-flex h-5 items-center rounded border border-line bg-surface-1 px-1 font-mono text-[11px] text-ink-soft">↑↓</kbd>
               {t("palette.navigate")}
             </span>
-            <span className="flex items-center">
-              <CornerDownLeft className="w-3 h-3 mr-1 inline" />
+            <span className="inline-flex items-center gap-1.5">
+              <kbd className="inline-flex h-5 items-center rounded border border-line bg-surface-1 px-1 text-ink-soft"><CornerDownLeft className="h-3 w-3" /></kbd>
               {t("palette.select")}
             </span>
           </div>
-          <span className="text-[11px]">{t("palette.actions")}</span>
+          <span className="font-mono text-[11px]">{t("palette.actions")}</span>
         </div>
       </div>
     </div>

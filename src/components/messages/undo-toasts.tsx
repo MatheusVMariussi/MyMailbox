@@ -32,6 +32,8 @@ import type {
 import type { Translator } from "@/lib/i18n/utils";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
+import { useHotkeys } from "@/components/shortcuts/use-hotkeys";
+import { useShortcutsActive } from "@/components/shortcuts/shortcuts-enabled-context";
 
 const ACTION_LABELS: Record<ReversibleMessageAction, TranslationKey> = {
 	archive: "undo.label.archive",
@@ -289,6 +291,19 @@ export function UndoToasts() {
 			if (!failure.retryable) restoreFocusAfterAction(current.id);
 		}
 	}
+
+	// `z` undoes the most recent action that can still be undone.
+	const shortcutsActive = useShortcutsActive();
+	const undoShortcut = [{
+		key: "z",
+		label: t("shortcut.undo"),
+		category: "Actions" as const,
+		action: () => {
+			const latest = [...getUndoToasts()].reverse().find((entry) => entry.status === "idle" || (entry.status === "failed" && entry.failure?.retryable));
+			if (latest) void undo(latest);
+		},
+	}];
+	useHotkeys(undoShortcut, { enabled: shortcutsActive && toasts.length > 0 });
 
 	function dismiss(entry: UndoToastEntry) {
 		dismissUndoToast(entry.id);

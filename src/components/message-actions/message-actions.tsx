@@ -26,6 +26,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { BulkMessageAction } from "@/app/api/messages/bulk/types";
 import { ReaderLabelMenus } from "@/components/labels/reader-label-menus";
+import { toggleMessageStar } from "@/components/messages/message-list-row-actions-utils";
 import type { MessageActionsProps, ReplyMode } from "./types";
 import { getPermanentDeleteConfirmText, PartialDeleteError, supportsPermanentDelete } from "@/lib/messages/permanent-delete-utils";
 import {
@@ -65,6 +66,7 @@ export function MessageActions({
 	category,
 	senderKey,
 	labelIds,
+	starred,
 }: MessageActionsProps) {
 	const { t } = useLanguage();
 	const router = useRouter();
@@ -85,6 +87,8 @@ export function MessageActions({
 	const [visibleCount, setVisibleCount] = useState(0);
 	const actionsRef = useRef<HTMLDivElement>(null);
 	const [sourceOpen, setSourceOpen] = useState(false);
+	// `f` is bound in a memoized list above the function it calls; the ref always holds the current one.
+	const handleForwardRef = useRef<() => Promise<void> | void>(() => undefined);
 	const [snoozeOpen, setSnoozeOpen] = useState(false);
 
 	const runAction = useCallback(async (action: BulkMessageAction, options: { undo?: boolean } = {}) => {
@@ -205,6 +209,18 @@ export function MessageActions({
 				action: () => void handleReply("reply"),
 			},
 			{
+				key: "a",
+				label: t("shortcut.replyAll"),
+				category: "Composing" as const,
+				action: () => void handleReply(canReplyAll ? "replyAll" : "reply"),
+			},
+			{
+				key: "f",
+				label: t("shortcut.forward"),
+				category: "Composing" as const,
+				action: () => void handleForwardRef.current(),
+			},
+			{
 				key: "!",
 				label: t("shortcut.reportSpam"),
 				category: "Actions" as const,
@@ -213,13 +229,41 @@ export function MessageActions({
 				},
 			},
 			{
+				key: "s",
+				label: t("shortcut.star"),
+				category: "Actions" as const,
+				action: () => {
+					void toggleMessageStar(messageId, starred === undefined ? undefined : !starred).catch(() => setError(t("message.error.star")));
+				},
+			},
+			{
+				key: "i",
+				modifiers: ["shift" as const],
+				label: t("shortcut.markRead"),
+				category: "Actions" as const,
+				action: () => {
+					if (!read) void runAction("read");
+				},
+			},
+			{
+				key: "u",
+				modifiers: ["shift" as const],
+				label: t("shortcut.markUnread"),
+				category: "Actions" as const,
+				action: () => {
+					if (read) void runAction("unread");
+				},
+			},
+			{
 				key: "u",
 				label: t("shortcut.backToList"),
 				category: "Navigation" as const,
-				action: () => router.back(),
+				// Back to the folder (in three panes: the empty reading pane), not one step back in history,
+				// which after `j`/`k` would only be the previous message.
+				action: () => router.push(listHref),
 			},
 		],
-		[status, direction, runAction, handleReply, router, t]
+		[status, direction, runAction, handleReply, canReplyAll, messageId, starred, read, router, listHref, t]
 	);
 
 	useHotkeys(shortcuts, { enabled: shortcutsEnabled });
@@ -263,6 +307,9 @@ export function MessageActions({
 		}
 	}
 
+	useLayoutEffect(() => {
+		handleForwardRef.current = handleForward;
+	});
 	async function handleForward() {
 		if (!message || !messageMeta) return;
 		setPendingAction("forward");

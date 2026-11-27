@@ -1,72 +1,54 @@
 "use client";
 
-import React, { useId, useRef } from "react";
-import { X, Keyboard } from "@/components/icons";
+import { Fragment, useId, useRef } from "react";
+import { X } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import type { TranslationKey } from "@/lib/i18n/types";
-import type { ShortcutDefinition } from "./types";
 import { useDialogFocus } from "@/components/use-dialog-focus";
+import { SHORTCUT_CATALOG } from "./shortcut-catalog";
+import type { ShortcutKeys } from "./shortcut-catalog-types";
+import type { ShortcutDefinition } from "./types";
 
 interface ShortcutsHelpDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  shortcuts: ShortcutDefinition[];
+  /** The registered shortcuts; the dialog lists the full catalog, which covers them. */
+  shortcuts?: ShortcutDefinition[];
 }
 
-// Puts a styled key badge where the translation has its {key} placeholder.
-function withKey(text: string, key: string) {
-  const [before, after = ""] = text.split("{key}");
+const kbdClass = "inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-surface-2 px-1 font-mono text-[11px] text-ink-soft";
+
+function Keys({ keys, then }: { keys: ShortcutKeys; then: string }) {
+  const parts = keys.chord ?? keys.sequence;
   return (
-    <>
-      {before}
-      <kbd className="px-1.5 py-0.5 bg-neutral-200 text-neutral-700 rounded font-mono">{key}</kbd>
-      {after}
-    </>
+    <span className="inline-flex items-center gap-1">
+      {parts.map((key, index) => (
+        <Fragment key={`${key}-${index}`}>
+          {index > 0 && (keys.sequence
+            ? <span className="font-mono text-[10px] text-ink-muted">{then}</span>
+            : <span aria-hidden="true" className="font-mono text-[10px] text-ink-muted">+</span>)}
+          <kbd className={kbdClass}>{key}</kbd>
+        </Fragment>
+      ))}
+    </span>
   );
 }
 
-export function ShortcutsHelpDialog({ isOpen, onClose, shortcuts }: ShortcutsHelpDialogProps) {
+export function ShortcutsHelpDialog({ isOpen, onClose }: ShortcutsHelpDialogProps) {
   if (!isOpen) return null;
-  return <ShortcutsHelpDialogContent onClose={onClose} shortcuts={shortcuts} />;
+  return <ShortcutsHelpDialogContent onClose={onClose} />;
 }
 
-function ShortcutsHelpDialogContent({
-  onClose,
-  shortcuts,
-}: Omit<ShortcutsHelpDialogProps, "isOpen">) {
+function ShortcutsHelpDialogContent({ onClose }: { onClose: () => void }) {
   const { t } = useLanguage();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   useDialogFocus(dialogRef, closeRef);
 
-  const grouped = shortcuts.reduce((acc, item) => {
-    if (!acc[item.category]) acc[item.category] = [];
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, ShortcutDefinition[]>);
-
-  const formatKey = (shortcut: ShortcutDefinition) => {
-    const parts: string[] = [];
-    if (shortcut.modifiers) {
-      shortcut.modifiers.forEach((m) => {
-        if (m === "ctrl") parts.push(t("shortcutsHelp.ctrl"));
-        if (m === "meta") parts.push("⌘");
-        if (m === "alt") parts.push("Alt");
-        if (m === "shift") parts.push("Shift");
-      });
-    }
-    parts.push(shortcut.key.toUpperCase());
-    return parts.join(" + ");
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/55 backdrop-blur-xs animate-in fade-in duration-100">
-      <div
-        className="fixed inset-0"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 dark:bg-black/65">
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
         ref={dialogRef}
         role="dialog"
@@ -77,66 +59,71 @@ function ShortcutsHelpDialogContent({
           event.stopPropagation();
           onClose();
         }}
-        className="relative w-full max-w-2xl bg-white border border-neutral-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 max-h-[85vh]"
+        className="reader-enter relative z-10 flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-line bg-surface-1 shadow-[0_32px_96px_-32px_rgb(0_0_0/0.7)]"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-              <Keyboard className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 id={titleId} className="text-base font-semibold text-neutral-900">
-                {t("shortcutsHelp.title")}
-              </h2>
-              <p className="text-xs text-neutral-500">
-                {t("shortcutsHelp.subtitle")}
-              </p>
-            </div>
+        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
+          <div className="min-w-0">
+            <p aria-hidden="true" className="font-mono text-[12px] text-ink-muted">
+              <span className="text-accent">~/</span>mymailbox <span className="text-ink-muted">$</span> help --keys
+            </p>
+            <h2 id={titleId} className="mt-1 text-lg font-semibold tracking-[-0.01em] text-ink">
+              {t("shortcutsHelp.title")}
+            </h2>
+            <p className="mt-0.5 text-xs text-ink-muted">{t("shortcutsHelp.subtitle")}</p>
           </div>
           <button
             ref={closeRef}
             type="button"
             onClick={onClose}
             aria-label={t("shortcutsHelp.close")}
-            className="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-lg hover:bg-neutral-100 transition-colors"
+            className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Categories */}
-        <div className="overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Object.entries(grouped).map(([category, items]) => (
-            <div key={category} className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 border-b border-neutral-100 pb-1.5">
-                {t(`shortcut.category.${category}` as TranslationKey)}
+        <div className="gap-x-10 overflow-y-auto px-6 py-5 md:columns-2 lg:columns-3">
+          {SHORTCUT_CATALOG.map((group) => (
+            <section key={group.category} aria-labelledby={`${titleId}-${group.category}`} className="mb-6 break-inside-avoid last:mb-0">
+              <h3 id={`${titleId}-${group.category}`} className="mb-2 font-mono text-[11px] text-ink-muted">
+                <span aria-hidden="true">{"// "}</span>{t(`shortcut.category.${group.category}` as TranslationKey).toLocaleLowerCase()}
               </h3>
-              <div className="space-y-2">
-                {items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span className="text-neutral-700">
-                      {item.label}
-                    </span>
-                    <kbd className="px-2 py-0.5 text-xs font-mono font-medium text-neutral-600 bg-neutral-100 border border-neutral-200 rounded-md shadow-2xs">
-                      {formatKey(item)}
-                    </kbd>
+              <dl className="divide-y divide-line">
+                {group.entries.map((entry) => (
+                  <div key={entry.labelKey} className="flex items-center justify-between gap-4 py-1.5 text-sm">
+                    <dt className="min-w-0 text-ink-soft">{t(entry.labelKey)}</dt>
+                    <dd className="flex shrink-0 items-center gap-1.5">
+                      {entry.keys.map((keys, index) => (
+                        <Fragment key={index}>
+                          {index > 0 && <span className="text-[11px] text-ink-muted">{t("shortcutsHelp.or")}</span>}
+                          <Keys keys={keys} then={t("shortcutsHelp.then")} />
+                        </Fragment>
+                      ))}
+                    </dd>
                   </div>
                 ))}
-              </div>
-            </div>
+              </dl>
+            </section>
           ))}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500">
-          <span>{withKey(t("shortcutsHelp.pressToToggle", { key: "{key}" }), "?")}</span>
-          <span>{withKey(t("shortcutsHelp.pressToClose", { key: "{key}" }), "ESC")}</span>
+        <div className="flex items-center justify-between gap-4 border-t border-line bg-surface-2 px-6 py-2.5 text-xs text-ink-muted">
+          <span className="inline-flex items-center gap-1.5">{renderWithKey(t("shortcutsHelp.pressToToggle", { key: "{key}" }), "?")}</span>
+          <span className="inline-flex items-center gap-1.5">{renderWithKey(t("shortcutsHelp.pressToClose", { key: "{key}" }), "Esc")}</span>
         </div>
       </div>
     </div>
+  );
+}
+
+// Puts a key badge where the translation has its {key} placeholder.
+function renderWithKey(text: string, key: string) {
+  const [before, after = ""] = text.split("{key}");
+  return (
+    <>
+      {before}
+      <kbd className={kbdClass}>{key}</kbd>
+      {after}
+    </>
   );
 }

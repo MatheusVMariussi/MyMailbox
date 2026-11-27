@@ -27,6 +27,8 @@ export type MessageActionsProps = {
 	senderKey?: string | null;
 	/** The message's labels, for "Label as" check marks. */
 	labelIds?: string[];
+	/** Whether the message is starred, for the `s` shortcut. */
+	starred?: boolean;
 };
 
 export type MessageSnoozeDialogProps = {

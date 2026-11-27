@@ -19,6 +19,8 @@ import type { MessageDetailNavigationContextValue, MessageDetailNavigationProps,
 import { getAutoAdvanceId, getMessageDetailNavigationState, takeOpenedUnreadMessage } from "./message-detail-navigation-utils";
 import { useAutoAdvanceEnabled } from "./use-auto-advance";
 import { useConversationView } from "./use-conversation-view";
+import { useHotkeys } from "@/components/shortcuts/use-hotkeys";
+import { useShortcutsActive } from "@/components/shortcuts/shortcuts-enabled-context";
 
 const NavigationContext = createContext<MessageDetailNavigationContextValue | null>(null);
 
@@ -141,6 +143,14 @@ export function MessageDetailNavigation({ messageId, unread }: MessageDetailNavi
 	const nextId = navigation?.nextId ?? null;
 	const unreadOrder = navigation?.unreadOrder ?? 0;
 	const totalUnread = navigation?.totalUnread ?? 0;
+	const hrefPrefixForKeys = context?.hrefPrefix;
+	// `j` is the next (older) conversation and `k` the previous (newer) one, as in Gmail.
+	const shortcutsActive = useShortcutsActive();
+	const navigationShortcuts = [
+		{ key: "j", label: t("shortcut.next"), category: "Navigation" as const, action: () => { if (nextId && hrefPrefixForKeys) router.push(`${hrefPrefixForKeys}/${nextId}`); } },
+		{ key: "k", label: t("shortcut.previous"), category: "Navigation" as const, action: () => { if (previousId && hrefPrefixForKeys) router.push(`${hrefPrefixForKeys}/${previousId}`); } },
+	];
+	useHotkeys(navigationShortcuts, { enabled: shortcutsActive && !!context });
 
 	useEffect(() => {
 		if (!previousId && !nextId) return;
@@ -185,9 +195,9 @@ export function MessageDetailNavigation({ messageId, unread }: MessageDetailNavi
 	}
 
 	return (
-		<div className="ml-auto flex shrink-0 items-center gap-2 text-neutral-500">
+		<div className="ml-auto flex shrink-0 items-center gap-1 text-ink-muted">
 			{totalUnread > 0 && (
-			<span className="mr-2 whitespace-nowrap text-xs" aria-live="polite">
+			<span className="mr-2 whitespace-nowrap font-mono text-[11px] tabular-nums" aria-live="polite">
 				{t("message.nav.unreadPosition", { position: unreadOrder, total: totalUnread })}
 			</span>
 			)}
