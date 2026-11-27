@@ -17,4 +17,6 @@ export type SearchHelpEntry = {
 export type SearchHelpMenuProps = {
 	/** Appends an operator to the query and puts the caret back in the box. */
 	onInsert: (operator: string) => void;
+	/** Called when the sheet closes, to put focus back in the search box. */
+	onDismiss?: () => void;
 };

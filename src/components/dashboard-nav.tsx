@@ -82,7 +82,7 @@ function NavToggle({ expanded, onClick, collapsedLabel, expandedLabel }: { expan
       type="button"
       onClick={onClick}
       aria-expanded={expanded}
-      className="flex h-9 w-full items-center rounded-r-full pl-[52px] text-left text-sm text-neutral-700 transition-colors hover:bg-stone-200/60 max-md:min-h-11 max-md:pl-14 max-md:text-base"
+      className="ml-3 flex h-8 w-[calc(100%-0.75rem)] items-center rounded-lg pl-10 text-left text-sm text-ink-muted transition-colors duration-150 ease-out-soft hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none max-md:min-h-11 max-md:pl-11 max-md:text-base"
     >
       {expanded ? (expandedLabel ?? t("navigation.less")) : (collapsedLabel ?? t("navigation.more"))}
     </button>
@@ -181,7 +181,7 @@ export function DashboardNav({ className }: { className?: string }) {
   return (
     <SidebarScaffold className={className} header={<SidebarHeader href="/inbox" />} footer={<SidebarFooter />}>
       {composeLink && !mobile && <NavItem labelClassName="font-medium" link={composeLink} />}
-      {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
+      {minimal && <hr className="mx-6 my-2 border-line" />}
       <ReorderableList
         storageKey="mymailbox:nav:layout"
         enabled={!minimal}
@@ -195,7 +195,7 @@ export function DashboardNav({ className }: { className?: string }) {
           },
         ]}
       />
-      {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
+      {minimal && <hr className="mx-6 my-2 border-line" />}
       <ProjectsNav counts={counts} minimal={minimal} />
       {!minimal && (
         <NavSectionHeader label={t("navigation.labels")} open={labelsSectionOpen} onToggle={toggleLabelsSection}>
@@ -203,7 +203,7 @@ export function DashboardNav({ className }: { className?: string }) {
             <button
               type="button"
               onClick={() => setDialog({ key: Date.now(), label: null })}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               aria-label={t("labels.create")}
             >
               <Plus className="h-4 w-4" />
@@ -221,7 +221,7 @@ export function DashboardNav({ className }: { className?: string }) {
         />
       )}
       {!minimal && labelsSectionOpen && labels.length === 0 && (
-        <div className="px-4 py-1.5 text-xs text-neutral-500">
+        <div className="ml-3 py-1.5 pl-3 text-xs text-ink-muted">
           {t("navigation.noLabels")}
         </div>
       )}
@@ -260,7 +260,7 @@ export function DashboardNav({ className }: { className?: string }) {
                   <button
                     type="button"
                     onClick={() => setDialog({ key: Date.now(), label: { id: label.id, mailboxId: label.mailboxId, name: label.name, color: label.color } })}
-                    className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 text-neutral-500 opacity-0 transition-opacity hover:bg-neutral-200 hover:text-neutral-800 focus-visible:opacity-100 group-hover/label:opacity-100 max-md:opacity-100"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md bg-surface-3 text-ink-muted opacity-0 transition-opacity hover:text-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent group-hover/label:opacity-100 max-md:top-2.5 max-md:opacity-100"
                     aria-label={t("labels.options", { name: label.name })}
                     title={t("labels.edit")}
                   >

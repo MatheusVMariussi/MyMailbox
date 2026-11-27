@@ -104,15 +104,17 @@ html {
 	scrollbar-color: var(--line-strong) transparent;
 }
 
+/* `@theme inline` does not emit --font-sans/--font-display as custom properties, so plain CSS names the
+   next/font variables (set on <body>) directly. */
 body {
 	background: var(--background);
 	color: var(--foreground);
-	font-family: var(--font-sans);
+	font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 	-webkit-font-smoothing: antialiased;
 }
 
 h1, h2 {
-	font-family: var(--font-display);
+	font-family: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 	letter-spacing: -0.01em;
 }
 
@@ -122,16 +124,16 @@ h1, h2 {
 }
 
 pre {
-	font-family: var(--font-sans);
+	font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 .text {
-	font-family: var(--font-sans);
+	font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* The ~/ wordmark and other terminal accents. */
+/* The ~/ wordmark and other terminal accents. (Theme variables are inlined, so name the mono stack here.) */
 .wordmark {
-	font-family: var(--font-mono);
+	font-family: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
 	font-weight: 500;
 	letter-spacing: -0.02em;
 }
@@ -605,7 +607,8 @@ button {
 }
 
 /* White text and borders on coloured surfaces (buttons, badges) stay white */
-.dark .text-white, .dark .hover\:text-white:hover, .dark .fill-white { color: #fff; fill: #fff; }
+.dark .text-white, .dark .hover\:text-white:hover { color: #fff; }
+.dark .fill-white { fill: #fff; }
 .dark .border-white { border-color: #fff; }
 /* Dark chips with white text (tooltip, compose header): the chip turns light, the text turns dark */
 .dark .bg-neutral-900.text-white, .dark .bg-neutral-800.text-white, .dark .bg-neutral-950.text-white { color: var(--color-neutral-50); }

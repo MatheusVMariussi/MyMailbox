@@ -48,7 +48,8 @@ export function ProjectsNav({ counts, minimal }: Props) {
 							onClick={() => choose(project.id)}
 							aria-pressed={projectId === project.id}
 							aria-label={project.name}
-							className={cn("flex h-9 w-10 items-center justify-center rounded-full transition-colors", projectId === project.id ? "bg-blue-100" : "hover:bg-neutral-200/60")}
+							data-project-filter={project.id}
+							className={cn("flex h-8 w-10 items-center justify-center rounded-lg transition-colors duration-150 ease-out-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none", projectId === project.id ? "bg-accent-soft" : "hover:bg-surface-2")}
 						>
 							<ProjectDot name={project.name} color={project.color} className="h-2.5 w-2.5" />
 						</button>
@@ -63,7 +64,7 @@ export function ProjectsNav({ counts, minimal }: Props) {
 			<NavSectionHeader label={t("projects.title")} open={open} onToggle={toggle}>
 				<Link
 					href="/settings/projects"
-					className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-blue-50 hover:text-blue-700"
+					className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 					aria-label={t("projects.manage")}
 					title={t("projects.manage")}
 				>
@@ -71,8 +72,8 @@ export function ProjectsNav({ counts, minimal }: Props) {
 				</Link>
 			</NavSectionHeader>
 			{open && projects.length === 0 && (
-				<div className="px-4 py-1.5 text-xs text-neutral-500">
-					<Link href="/settings/projects" className="hover:underline">{t("projects.navEmpty")}</Link>
+				<div className="ml-3 py-1.5 pl-3 text-xs text-ink-muted">
+					<Link href="/settings/projects" className="hover:text-ink hover:underline">{t("projects.navEmpty")}</Link>
 				</div>
 			)}
 			{open && projects.map((project) => {
@@ -87,17 +88,19 @@ export function ProjectsNav({ counts, minimal }: Props) {
 						title={active ? t("projects.showAll") : t("projects.filterBy", { name: project.name })}
 						data-project-filter={project.id}
 						className={cn(
-							"flex h-9 w-full items-center gap-3 rounded-r-full pl-6 text-left text-sm text-neutral-700 transition-colors max-md:min-h-11 max-md:text-base",
-							active ? "bg-blue-100 font-semibold text-blue-900" : "hover:bg-neutral-200/60",
-							unread > 0 && "font-semibold",
+							"relative ml-3 flex h-8 w-[calc(100%-0.75rem)] items-center gap-3 rounded-lg pl-3 text-left text-sm text-ink-soft transition-colors duration-150 ease-out-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none max-md:min-h-11 max-md:text-base",
+							active
+								? "bg-accent-soft font-medium text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent"
+								: "hover:bg-surface-2 hover:text-ink",
+							unread > 0 && "font-semibold text-ink",
 						)}
 					>
 						<span className="flex h-4 w-4 shrink-0 items-center justify-center">
-							<ProjectDot name={project.name} color={project.color} className="h-2.5 w-2.5" />
+							<ProjectDot name={project.name} color={project.color} className="h-2 w-2" />
 						</span>
 						<span className="min-w-0 flex-1 truncate">{project.name}</span>
 						{unread > 0 && (
-							<span className="ml-auto mr-3 rounded-full px-2 py-0.5 text-sm font-semibold text-neutral-700">
+							<span className={cn("ml-auto mr-2 font-mono text-[11px] tabular-nums", active ? "text-ink" : "text-ink-soft")}>
 								{unread > 99 ? "99+" : unread}
 							</span>
 						)}

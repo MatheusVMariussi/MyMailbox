@@ -23,13 +23,22 @@ export function useSectionOpen(storageKey: string): [boolean, () => void] {
 	return [open, toggle];
 }
 
-/** Collapsible section label: small uppercase text behind a chevron that turns when the section opens. */
+/**
+ * Collapsible section label as a mono kicker in the portfolio style (`// projects`): lower-case, muted,
+ * with a small chevron that turns when the section opens.
+ */
 export function NavSectionHeader({ label, open, onToggle, children }: { label: string; open: boolean; onToggle: () => void; children?: ReactNode }) {
 	return (
-		<div className="mt-2 flex h-9 shrink-0 items-center justify-between gap-1 ml-3 mr-2 hover:bg-neutral-200/60 rounded-full pr-2">
-			<button type="button" onClick={onToggle} aria-expanded={open} className="flex h-9 min-w-0 flex-1 items-center gap-2 pl-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500 max-md:text-sm">
-				<ChevronRight className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-90")} />
-				<span className="truncate">{label}</span>
+		<div className="group/section mt-5 mb-1 ml-3 mr-1 flex h-7 shrink-0 items-center justify-between gap-1">
+			<button
+				type="button"
+				onClick={onToggle}
+				aria-expanded={open}
+				className="flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md pl-3 pr-2 text-left font-mono text-[11px] text-ink-muted transition-colors duration-150 ease-out-soft hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none max-md:text-xs"
+			>
+				<span aria-hidden="true" className="shrink-0 text-ink-muted/70">{"//"}</span>
+				<span className="truncate">{label.toLocaleLowerCase()}</span>
+				<ChevronRight aria-hidden="true" className={cn("h-3 w-3 shrink-0 opacity-60 transition-transform duration-150 ease-out-soft group-hover/section:opacity-100 motion-reduce:transition-none", open && "rotate-90")} />
 			</button>
 			{children}
 		</div>

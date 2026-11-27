@@ -18,13 +18,13 @@ export function SidebarFooter() {
         <button
           type="button"
           onClick={openHelpModal}
-          className="flex items-center justify-between w-full px-2.5 py-1.5 text-xs text-neutral-500 hover:text-neutral-800 hover:bg-neutral-200/60 rounded-lg transition-colors"
+          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-ink-muted transition-colors duration-150 ease-out-soft hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none"
         >
           <span className="flex items-center gap-1.5">
-            <Keyboard className="w-3.5 h-3.5 text-neutral-400" />
+            <Keyboard className="h-3.5 w-3.5" />
             {t("navigation.shortcuts")}
           </span>
-          <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-white border border-neutral-200 rounded text-neutral-500 shadow-2xs">
+          <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-surface-2 px-1 font-mono text-[11px] text-ink-soft">
             ?
           </kbd>
         </button>

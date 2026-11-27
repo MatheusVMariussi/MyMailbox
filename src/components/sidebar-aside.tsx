@@ -8,6 +8,8 @@ import type { ReactNode } from "react";
 import { useSidebar } from "./sidebar-state";
 import { useLanguage } from "./language-provider";
 import { useBranding } from "./branding-provider";
+import { Wordmark } from "./wordmark";
+import { hasCustomBranding } from "./wordmark-utils";
 
 export function SidebarAside({ children, className }: { children: ReactNode; className?: string }) {
 	const { mobile, mobileOpen, toggle } = useSidebar();
@@ -35,7 +37,7 @@ export function SidebarAside({ children, className }: { children: ReactNode; cla
 				aria-hidden={hidden}
 				inert={hidden}
 				className={clsx(
-					"fixed inset-y-0 left-0 z-[110] w-[min(85vw,300px)] pb-[env(safe-area-inset-bottom)] md:pb-0 min-h-0 min-w-0 bg-[#f6f8fc] transition-transform duration-200 ease-out motion-reduce:transition-none",
+					"fixed inset-y-0 left-0 z-[110] w-[min(85vw,300px)] pb-[env(safe-area-inset-bottom)] md:pb-0 min-h-0 min-w-0 bg-ground transition-transform duration-200 ease-out-soft motion-reduce:transition-none",
 					"md:relative md:z-30 md:w-[var(--sidebar-width)] md:translate-x-0 md:shadow-none",
 					mobileOpen ? "translate-x-0 shadow-xl" : "-translate-x-full",
 					className,
@@ -54,12 +56,18 @@ export function MobileMenuButton({ className }: { className?: string }) {
 	if (!mobile) return null;
 	return (
 		<>
-			<button type="button" data-mobile-menu onClick={toggle} aria-label={t("navigation.openMenu")} aria-expanded={mobileOpen} className={clsx("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-200 md:hidden", className)}>
+			<button type="button" data-mobile-menu onClick={toggle} aria-label={t("navigation.openMenu")} aria-expanded={mobileOpen} className={clsx("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:hidden", className)}>
 				<Menu size={20} />
 			</button>
-			<Link href="/inbox" aria-label={t("navigation.inbox")} className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-neutral-200 md:hidden">
-				<img src={branding.iconUrl} height={28} width={28} alt="" />
-			</Link>
+			{hasCustomBranding(branding) ? (
+				<Link href="/inbox" aria-label={t("navigation.inbox")} className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-surface-2 md:hidden">
+					<img src={branding.iconUrl} height={28} width={28} alt="" />
+				</Link>
+			) : (
+				<Link href="/inbox" aria-label={t("navigation.inbox")} className="-ml-1 flex h-10 min-w-0 shrink items-center rounded-md px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent md:hidden">
+					<Wordmark name={branding.appName} caret="none" className="text-sm" />
+				</Link>
+			)}
 		</>
 	);
 }

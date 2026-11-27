@@ -42,16 +42,10 @@ export function MailSearchInput({ mobileEnd }: { mobileEnd?: boolean }) {
 			onSubmit={() => setQuery(input.trim() ? input : "")}
 			label={t("search.mail")}
 			mobileEnd={mobileEnd}
-			placeholder={showShortcutHints ? t("search.mailHint") : t("search.mail")}
+			placeholder={t("search.mail")}
 			inputProps={{ "data-mail-search-input": "" }}
 			trailing={(
 				<>
-					<SearchHelpMenu
-						onInsert={(operator) => {
-							setInput((current) => appendSearchOperator(current, operator));
-							focusSearchInput();
-						}}
-					/>
 					{input ? (
 						<button
 							type="button"
@@ -60,21 +54,39 @@ export function MailSearchInput({ mobileEnd }: { mobileEnd?: boolean }) {
 								setInput("");
 								setQuery("");
 							}}
-							className="rounded-full p-1 text-neutral-500 hover:bg-blue-100 hover:text-neutral-800"
+							className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-3 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 							aria-label={t("search.clear")}
 						>
 							<X className="h-4 w-4" />
 						</button>
 					) : showShortcutHints ? (
+						// The `/` key focuses the field; the badge says so until you are in it.
+						<kbd
+							aria-hidden="true"
+							title={t("search.mailHint")}
+							className="hidden h-5 min-w-5 shrink-0 items-center justify-center rounded border border-line bg-surface-1 px-1 font-mono text-[11px] text-ink-soft md:inline-flex md:group-focus-within/search:hidden"
+						>
+							/
+						</kbd>
+					) : null}
+					<SearchHelpMenu
+						onInsert={(operator) => {
+							setInput((current) => appendSearchOperator(current, operator));
+							focusSearchInput();
+						}}
+						onDismiss={focusSearchInput}
+					/>
+					{showShortcutHints && (
 						<button
 							type="button"
 							onClick={openCommandPalette}
-							className="hidden sm:flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-neutral-500 bg-white/70 hover:bg-white border border-neutral-200/80 rounded-md shadow-2xs transition-colors"
+							className="hidden h-6 shrink-0 items-center rounded-md border border-line bg-surface-1 px-1.5 font-mono text-[11px] text-ink-soft transition-colors hover:border-line-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:flex"
 							title={t("search.openPalette")}
+							aria-label={t("search.openPalette")}
 						>
-							<span className="text-[11px] font-mono">⌘K</span>
+							⌘K
 						</button>
-					) : null}
+					)}
 				</>
 			)}
 		/>
