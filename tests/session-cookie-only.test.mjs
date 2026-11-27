@@ -141,6 +141,8 @@ test("the web client keeps no session token in storage and sends no Bearer heade
 	t.after(() => { delete globalThis.localStorage; delete globalThis.window; });
 	const client = await import(`${pathToFileURL(join(clientDirectory, "client.mjs")).href}?case=storage`);
 	assert.equal(store.has("mymailbox-session-token"), false, "the token an older build stored is removed on load");
+	// A browser that has not signed in has no key, so signed-out pages open no realtime connection.
+	assert.equal(client.getClientSessionKey(), null);
 
 	const response = new Response(JSON.stringify({ ok: true, authenticated: true, redirect: "/inbox" }), { headers: { "Content-Type": "application/json" } });
 	await client.persistAuthSession(response);
@@ -152,4 +154,10 @@ test("the web client keeps no session token in storage and sends no Bearer heade
 	client.clearClientSession();
 	assert.equal(client.getClientSessionKey(), null);
 	assert.ok([...store.values()].every((value) => !String(value).startsWith("sess_")));
+	// The server confirms a cookie session again (another tab signed in): a new key, not the old one.
+	client.ensureClientSessionKey();
+	const renewed = client.getClientSessionKey();
+	assert.ok(renewed && renewed !== key);
+	client.ensureClientSessionKey();
+	assert.equal(client.getClientSessionKey(), renewed, "an existing key is kept");
 });

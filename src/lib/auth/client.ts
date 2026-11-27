@@ -63,18 +63,14 @@ function dispatchAuthSessionChanged(authenticated: boolean): void {
 }
 
 /**
- * The current browser session's cache key, or null after a sign-out. It is not a credential. A
- * browser that has never stored one (a cleared storage, an older build) gets one here; the cookie
- * still decides whether requests are signed in.
+ * The current browser session's cache key, or null when this browser has not seen a sign-in (or
+ * signed out). It is not a credential; the cookie decides whether requests are signed in. Null keeps
+ * signed-out pages from opening the realtime connection.
  */
 export function getClientSessionKey(): string | null {
 	if (typeof window === "undefined") return null;
 	const stored = readSessionKey();
-	if (stored === SIGNED_OUT) return null;
-	if (stored) return stored;
-	const created = newSessionKey();
-	writeSessionKey(created);
-	return created;
+	return stored && stored !== SIGNED_OUT ? stored : null;
 }
 
 /** A sign-in or account switch: start a new key and tell listeners. */
@@ -84,9 +80,12 @@ export function markClientSessionChanged(): void {
 	dispatchAuthSessionChanged(true);
 }
 
-/** The server confirmed a session; a browser that last signed out starts a new key for it. */
+/**
+ * The server confirmed a session (AuthGuard). A browser without a key for it (storage cleared, or it
+ * signed out and another tab signed in) starts one, which also starts the realtime connection.
+ */
 export function ensureClientSessionKey(): void {
-	if (typeof window !== "undefined" && readSessionKey() === SIGNED_OUT) markClientSessionChanged();
+	if (typeof window !== "undefined" && getClientSessionKey() === null) markClientSessionChanged();
 }
 
 export function clearClientSession(): void {
