@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/cloudflare";
 import { getEmailAddress, getEmailAddressList } from "@/lib/email/address";
 import { getResendClient } from "@/lib/email/outbound-provider";
-import { intakeProviderMail } from "@/lib/email/provider-intake";
+import { intakeProviderMail, MAX_PROVIDER_MESSAGE_BYTES } from "@/lib/email/provider-intake";
 import { getReceivedEmail } from "@/lib/email/resend-api";
 import { verifySvixSignature } from "@/lib/email/svix";
+import { claimSvixDelivery, releaseSvixDelivery } from "@/lib/email/svix-replay";
 import { getResendWebhookSecret } from "@/lib/domains/resend-receiving";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { readRawBody } from "@/lib/http/request";
@@ -16,7 +17,8 @@ type ReceivedEvent = { type?: string; data?: { email_id?: string; id?: string } 
 /**
  * Resend's `email.received` webhook. The event only names the message, so fetch
  * it, download the raw MIME and run it through the normal intake. Authenticated
- * by the Svix signature of the secret Resend returned when the webhook was created.
+ * by the Svix signature of the secret Resend returned when the webhook was created;
+ * each Svix message id is processed once (svix-replay.ts).
  */
 export async function POST(request: Request) {
 	const env = getEnv();
@@ -30,13 +32,28 @@ export async function POST(request: Request) {
 		if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ error: "Request body is too large" }, { status: 413 });
 		throw error;
 	}
+	const svixId = request.headers.get("svix-id");
 	const valid = await verifySvixSignature(secret, {
-		id: request.headers.get("svix-id"),
+		id: svixId,
 		timestamp: request.headers.get("svix-timestamp"),
 		signature: request.headers.get("svix-signature"),
 	}, body);
-	if (!valid) return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+	if (!valid || !svixId) return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
 
+	const claim = await claimSvixDelivery(env.BUCKET, "resend-inbound", svixId);
+	if (!claim) return NextResponse.json({ ignored: "Already processed" });
+	try {
+		const response = await processReceivedEvent(env, body);
+		// A server-side failure is retried by Resend with the same id; let that retry through.
+		if (response.status >= 500) await releaseSvixDelivery(env.BUCKET, claim);
+		return response;
+	} catch (error) {
+		await releaseSvixDelivery(env.BUCKET, claim);
+		throw error;
+	}
+}
+
+async function processReceivedEvent(env: CloudflareEnv, body: string): Promise<NextResponse> {
 	let event: ReceivedEvent;
 	try { event = JSON.parse(body) as ReceivedEvent; } catch { return NextResponse.json({ error: "Invalid body" }, { status: 400 }); }
 	if (event.type !== "email.received") return NextResponse.json({ ignored: true });
@@ -50,7 +67,15 @@ export async function POST(request: Request) {
 	const rawResponse = await fetch(download);
 	if (!rawResponse.ok) return NextResponse.json({ error: "Could not download the raw message" }, { status: 502 });
 
+	// The receiving limit is enforced while reading: a declared or streamed size past it stops the download.
+	let raw: ArrayBuffer;
+	try {
+		raw = await readRawBody(rawResponse, MAX_PROVIDER_MESSAGE_BYTES);
+	} catch (error) {
+		if (error instanceof RequestBodyTooLargeError) return NextResponse.json({ delivered: 0, dropped: "Message exceeds the 25 MiB receiving limit" });
+		throw error;
+	}
 	const recipients = [...(email.to ?? []), ...(email.cc ?? []), ...(email.bcc ?? [])].flatMap((value) => getEmailAddressList(value));
-	const result = await intakeProviderMail(env, { from: getEmailAddress(email.from), recipients, raw: await rawResponse.arrayBuffer() });
+	const result = await intakeProviderMail(env, { from: getEmailAddress(email.from), recipients, raw });
 	return NextResponse.json(result);
 }
