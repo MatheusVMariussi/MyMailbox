@@ -44,5 +44,10 @@ export async function logMessageHidden(
 	message: { id: string; mailboxId: string | null; threadId: string | null },
 ): Promise<void> {
 	if (!message.mailboxId) return;
-	await db.insert(jmapChanges).values({ mailboxId: message.mailboxId, objectType: "email", objectId: message.id, threadId: message.threadId ?? message.id, change: "hidden" });
+	await messageHiddenInsert(db, { ...message, mailboxId: message.mailboxId });
+}
+
+/** The `logMessageHidden` insert as a statement, for a caller that batches it with the status change. */
+export function messageHiddenInsert(db: AppDatabase, message: { id: string; mailboxId: string; threadId: string | null }) {
+	return db.insert(jmapChanges).values({ mailboxId: message.mailboxId, objectType: "email", objectId: message.id, threadId: message.threadId ?? message.id, change: "hidden" });
 }

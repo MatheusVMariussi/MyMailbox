@@ -141,3 +141,62 @@ test("labels are created and renamed as Mailboxes, and a read-only sharee cannot
 	assert.deepEqual(result.notUpdated["mb-team~f~l-team"], { type: "forbidden" });
 	assert.equal(team.sqlite.prepare("SELECT name FROM labels WHERE id = 'l-team'").get().name, "Team");
 });
+
+function quietly(t) {
+	const errors = [];
+	t.mock.method(console, "error", (...args) => { errors.push(args); });
+	return errors;
+}
+
+test("a failed label write is reported per message, rolls back its status, and the other updates still apply", async (t) => {
+	const { env, db, sqlite } = await newDatabase(t, seed);
+	const errors = quietly(t);
+	sqlite.exec(`
+		CREATE TRIGGER fail_m_own_label BEFORE INSERT ON message_labels
+		WHEN NEW.message_id = 'm-own'
+		BEGIN
+			SELECT RAISE(ABORT, 'injected label failure');
+		END;
+	`);
+	const result = await app.emailSet(context(db, env), { update: {
+		"m-own": { mailboxIds: { [OWN]: true }, "keywords/$flagged": true },
+		"m-sent": { "keywords/$flagged": true },
+	} });
+	assert.equal(result.notUpdated["m-own"].type, "serverFail");
+	assert.doesNotMatch(result.notUpdated["m-own"].description, /injected/, "the database error stays in the logs");
+	assert.ok(errors.length > 0, "the failure is logged");
+	assert.deepEqual(result.updated, { "m-sent": null });
+	// The whole update of m-own is one unit: neither the archive, the flag nor the label committed.
+	assert.equal(statusOf(sqlite, "m-own"), "received");
+	assert.equal(sqlite.prepare("SELECT starred FROM messages WHERE id = 'm-own'").get().starred, 0);
+	assert.deepEqual(labelsOf(sqlite, "m-own"), []);
+	assert.equal(sqlite.prepare("SELECT starred FROM messages WHERE id = 'm-sent'").get().starred, 1);
+});
+
+test("a label that moved to another mailbox meanwhile is reported as invalidProperties", async (t) => {
+	const { env, db, sqlite } = await newDatabase(t, seed);
+	// The label check passed; the database's own guard refuses the pair at write time (a race with a label change).
+	sqlite.exec(`
+		CREATE TRIGGER race_m_own_label BEFORE INSERT ON message_labels
+		WHEN NEW.message_id = 'm-own'
+		BEGIN
+			SELECT RAISE(ABORT, 'label-mailbox-mismatch');
+		END;
+	`);
+	const result = await app.emailSet(context(db, env), { update: { "m-own": { mailboxIds: { [OWN]: true, [TWO]: true } } } });
+	assert.equal(result.notUpdated["m-own"].type, "invalidProperties");
+	assert.deepEqual(result.notUpdated["m-own"].properties, ["mailboxIds"]);
+	assert.equal(statusOf(sqlite, "m-own"), "received");
+	assert.deepEqual(labelsOf(sqlite, "m-own"), []);
+});
+
+test("a move into Drafts commits the status, the label removal and the hidden marker together", async (t) => {
+	const { env, db, sqlite } = await newDatabase(t, seed);
+	sqlite.exec("INSERT INTO message_labels (message_id, label_id) VALUES ('m-sent', 'l-own')");
+	const result = await app.emailSet(context(db, env), { update: { "m-sent": { mailboxIds: { "mb-delegate~drafts": true } } } });
+	assert.deepEqual(result.updated, { "m-sent": null });
+	assert.equal(statusOf(sqlite, "m-sent"), "draft");
+	assert.deepEqual(labelsOf(sqlite, "m-sent"), []);
+	assert.equal(sqlite.prepare("SELECT private_draft FROM messages WHERE id = 'm-sent'").get().private_draft, 1);
+	assert.equal(sqlite.prepare("SELECT count(*) AS n FROM jmap_changes WHERE object_id = 'm-sent' AND change = 'hidden'").get().n, 1);
+});

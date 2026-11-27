@@ -1,7 +1,7 @@
 import { and, asc, count, countDistinct, desc, eq, inArray, sql } from "drizzle-orm";
 import { emailChangesSince, threadChangesSince } from "./changes";
 import { messages } from "@/db/schema";
-import { DRAFT_FILTER_PARAMS, draftsVisibleTo, logMessageHidden, privateDraftForStatus } from "@/lib/email/draft-access";
+import { DRAFT_FILTER_PARAMS, draftsVisibleTo, messageHiddenInsert, privateDraftForStatus } from "@/lib/email/draft-access";
 import { newId } from "@/lib/ids";
 import { buildSnippet, parseRawMime } from "@/lib/email/parse";
 import { getAuthorizedSenderAddress } from "@/lib/email/sender";
@@ -13,7 +13,7 @@ import { LIMITS, KEYWORD_FLAGGED, KEYWORD_SEEN } from "./constants";
 import { JmapError, invalidArguments } from "./errors";
 import { decodeBlobId, decodeMailboxRef, roleToStatus } from "./ids";
 import { buildEmailObject, loadAttachmentsByMessage, mailboxIdsFor, resolveHeaderProperty } from "./email-objects";
-import { addMessageLabels, loadLabels, loadMessageLabelIds, removeMessageLabels } from "@/lib/labels/service";
+import { LabelError, labelWriteError, loadLabels, loadMessageLabelIds, messageLabelWrites } from "@/lib/labels/service";
 import { canCarryLabels, moveStatusFor } from "@/lib/messages/actions/definitions";
 import { importFlags, parseReceivedAt, resolveDraftsMailbox } from "./email-import-utils";
 import { filterToSql, mailboxRefCondition, sortToSql } from "./email-query";
@@ -334,6 +334,18 @@ async function createDraft(ctx: JmapContext, value: Record<string, unknown>, acc
 	return { id };
 }
 
+/**
+ * The SetError for one message whose update batch failed (nothing of it committed): a label the
+ * database refused is the client's `mailboxIds`, anything else a server failure, logged here and
+ * described without the database's own text.
+ */
+function updateFailure(id: string, error: unknown): JmapSetError {
+	const mapped = labelWriteError(error);
+	if (mapped instanceof LabelError) return { type: "invalidProperties", properties: ["mailboxIds"], description: mapped.message };
+	console.error("JMAP Email/set update failed", id, error);
+	return { type: "serverFail", description: "The update could not be saved; nothing was changed" };
+}
+
 export const emailSet: JmapMethodHandler = async (ctx, args) => {
 	const oldState = await getEmailState(ctx);
 	if (args.ifInState && args.ifInState !== oldState) return { type: "stateMismatch" };
@@ -397,16 +409,22 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 		if (flags.read !== undefined) set.read = flags.read;
 		if (flags.starred !== undefined) set.starred = flags.starred;
 		if (move && move.status !== row.status) Object.assign(set, { status: move.status }, privateDraftForStatus(move.status));
-		if (Object.keys(set).length) await ctx.db.update(messages).set(set).where(eq(messages.id, id));
-		if (move) {
-			// Labels are applied as a diff, so a concurrent label change on another pair is kept.
-			const add = move.labelIds.filter((labelId) => !currentLabelIds.includes(labelId));
-			const remove = currentLabelIds.filter((labelId) => !move.labelIds.includes(labelId));
-			if (add.length) await addMessageLabels(ctx.db, add.map((labelId) => ({ messageId: id, labelId })));
-			if (remove.length) await removeMessageLabels(ctx.db, remove.map((labelId) => ({ messageId: id, labelId })));
+		// Labels are applied as a diff, so a concurrent label change on another pair is kept.
+		const add = move ? move.labelIds.filter((labelId) => !currentLabelIds.includes(labelId)) : [];
+		const remove = move ? currentLabelIds.filter((labelId) => !move.labelIds.includes(labelId)) : [];
+		// One batch per message: the flags, the status, the label diff and (moved into Drafts, where the
+		// message is gone for the mailbox's other readers) the hidden marker commit together or not at all.
+		const statements = [
+			...(Object.keys(set).length ? [ctx.db.update(messages).set(set).where(eq(messages.id, id))] : []),
+			...messageLabelWrites(ctx.db, add.map((labelId) => ({ messageId: id, labelId })), remove.map((labelId) => ({ messageId: id, labelId }))),
+			...(set.privateDraft && !row.privateDraft ? [messageHiddenInsert(ctx.db, { ...row, mailboxId: row.mailboxId })] : []),
+		];
+		try {
+			if (statements.length > 0) await ctx.db.batch(statements as never);
+		} catch (error) {
+			notUpdated[id] = updateFailure(id, error);
+			continue;
 		}
-		// Moved into Drafts, the message is gone for the mailbox's other readers.
-		if (set.privateDraft && !row.privateDraft) await logMessageHidden(ctx.db, row);
 		// Report the resulting mailboxIds when the server changed what the client asked for (an implicit archive).
 		const resulting = move ? mailboxIdsFor({ mailboxId: row.mailboxId, status: move.status }, move.labelIds) : null;
 		const differs = !!resulting && (Object.keys(resulting).length !== move!.requested.length || move!.requested.some((mailboxRef) => !resulting[mailboxRef]));

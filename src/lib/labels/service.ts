@@ -118,40 +118,48 @@ export async function deleteLabel(db: AppDatabase, labelId: string, maxBatches =
  */
 export type LabelWriteResult = { committed: LabelPair[]; failed: LabelPair[]; error: unknown };
 
-type LabelWriteStep = { pairs: LabelPair[]; run: () => Promise<LabelPair[]> };
-
-function insertStep(db: AppDatabase, part: LabelPair[]): LabelWriteStep {
-	return {
-		pairs: part,
-		run: async () => {
-			try {
-				return await db
-					.insert(messageLabels)
-					.values(part.map((pair) => ({ messageId: pair.messageId, labelId: pair.labelId })))
-					.onConflictDoNothing()
-					.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId });
-			} catch (error) {
-				if (isLabelMailboxMismatchError(error)) {
-					throw new LabelError("A label can only be applied to mail in its own mailbox", 400);
-				}
-				throw error;
-			}
-		},
-	};
+function insertQuery(db: AppDatabase, part: readonly LabelPair[]) {
+	return db
+		.insert(messageLabels)
+		.values(part.map((pair) => ({ messageId: pair.messageId, labelId: pair.labelId })))
+		.onConflictDoNothing()
+		.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId });
 }
 
+function deleteQuery(db: AppDatabase, labelId: string, messageIds: string[]) {
+	return db
+		.delete(messageLabels)
+		.where(and(eq(messageLabels.labelId, labelId), inArray(messageLabels.messageId, messageIds)))
+		.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId });
+}
+
+/** One `message_labels` statement; drizzle runs it when awaited, or as part of a `db.batch`. */
+export type LabelWriteQuery = ReturnType<typeof insertQuery> | ReturnType<typeof deleteQuery>;
+
+type LabelWriteStep = { pairs: LabelPair[]; query: LabelWriteQuery };
+
 function insertSteps(db: AppDatabase, pairs: readonly LabelPair[]): LabelWriteStep[] {
-	return chunk(uniquePairs(pairs), LABEL_PAIR_CHUNK).map((part) => insertStep(db, part));
+	return chunk(uniquePairs(pairs), LABEL_PAIR_CHUNK).map((part) => ({ pairs: part, query: insertQuery(db, part) }));
 }
 
 function deleteSteps(db: AppDatabase, pairs: readonly LabelPair[]): LabelWriteStep[] {
 	return [...groupPairsByLabel(pairs)].flatMap(([labelId, messageIds]) => chunk(messageIds, LABEL_PAIR_CHUNK).map((part) => ({
 		pairs: part.map((messageId) => ({ messageId, labelId })),
-		run: () => db
-			.delete(messageLabels)
-			.where(and(eq(messageLabels.labelId, labelId), inArray(messageLabels.messageId, part)))
-			.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId }),
+		query: deleteQuery(db, labelId, part),
 	})));
+}
+
+/** A failed membership write, with the label-mailbox guard's refusal turned into a `LabelError` (400). */
+export function labelWriteError(error: unknown): unknown {
+	return isLabelMailboxMismatchError(error) ? new LabelError("A label can only be applied to mail in its own mailbox", 400) : error;
+}
+
+async function runStep(step: LabelWriteStep): Promise<LabelPair[]> {
+	try {
+		return await step.query;
+	} catch (error) {
+		throw labelWriteError(error);
+	}
 }
 
 /** Runs every step even when one fails, so the result names exactly what committed. */
@@ -159,7 +167,7 @@ async function runStepsSettled(steps: LabelWriteStep[]): Promise<LabelWriteResul
 	const result: LabelWriteResult = { committed: [], failed: [], error: undefined };
 	for (const step of steps) {
 		try {
-			result.committed.push(...(await step.run()));
+			result.committed.push(...(await runStep(step)));
 		} catch (error) {
 			result.failed.push(...step.pairs);
 			result.error ??= error;
@@ -170,8 +178,17 @@ async function runStepsSettled(steps: LabelWriteStep[]): Promise<LabelWriteResul
 
 async function runSteps(steps: LabelWriteStep[]): Promise<LabelPair[]> {
 	const changed: LabelPair[] = [];
-	for (const step of steps) changed.push(...(await step.run()));
+	for (const step of steps) changed.push(...(await runStep(step)));
 	return changed;
+}
+
+/**
+ * The statements that add and remove these memberships, chunked as `addMessageLabels` and
+ * `removeMessageLabels` chunk them, for a caller that runs them in one `db.batch` with its own writes
+ * so that everything commits or nothing does. Map a failure of that batch with `labelWriteError`.
+ */
+export function messageLabelWrites(db: AppDatabase, add: readonly LabelPair[], remove: readonly LabelPair[]): LabelWriteQuery[] {
+	return [...insertSteps(db, add), ...deleteSteps(db, remove)].map((step) => step.query);
 }
 
 /**
