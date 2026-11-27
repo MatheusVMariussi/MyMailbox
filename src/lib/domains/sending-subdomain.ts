@@ -3,6 +3,7 @@ import { CloudflareApiError, isCloudflareApiErrorCode } from "@/lib/cloudflare-a
 import type { CfDnsRecord, CfSendingSubdomain } from "@/lib/cloudflare-api.types";
 import { listConflictingMxRecords, removeMxRecords } from "@/lib/domains/mx-records";
 import { MxConflictError } from "@/lib/domains/receiving-dns";
+import { explainSendingError } from "@/lib/domains/sending-errors";
 import { findSendingSubdomain } from "@/lib/domains/sending-status";
 
 /**
@@ -23,13 +24,28 @@ function isSendingUnauthorized(error: unknown): boolean {
  * Returns the zone's sending subdomain for `hostname`, creating it when missing.
  * When Cloudflare refuses because of another service's MX records, this throws
  * MxConflictError unless `replaceMx` is set, in which case it deletes them (pushing
- * them onto `deletedMx` so a rollback can restore them) and tries again.
+ * them onto `deletedMx` so a rollback can restore them) and tries again. A refusal
+ * the admin fixes in the dashboard (token permission, domain not onboarded for
+ * Email Sending) is a SendingSetupError that says what to do.
  */
 export async function ensureSendingSubdomain(
 	env: CloudflareEnv,
 	zoneId: string,
 	hostname: string,
 	options: { replaceMx?: boolean; deletedMx?: CfDnsRecord[] } = {},
+): Promise<{ subdomain: CfSendingSubdomain; created: boolean }> {
+	try {
+		return await findOrCreateSendingSubdomain(env, zoneId, hostname, options);
+	} catch (error) {
+		throw explainSendingError(error, hostname);
+	}
+}
+
+async function findOrCreateSendingSubdomain(
+	env: CloudflareEnv,
+	zoneId: string,
+	hostname: string,
+	options: { replaceMx?: boolean; deletedMx?: CfDnsRecord[] },
 ): Promise<{ subdomain: CfSendingSubdomain; created: boolean }> {
 	const existing = findSendingSubdomain(hostname, await listSendingSubdomains(env, zoneId));
 	if (existing) return { subdomain: existing, created: false };

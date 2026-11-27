@@ -9,6 +9,7 @@ import { getDomainDnsView } from "@/lib/domains/dns-view";
 import type { DnsAuthRecord } from "@/lib/domains/dns-audit";
 import { setupDomainDnsRecord } from "@/lib/domains/dns-setup";
 import { MxConflictError } from "@/lib/domains/receiving-dns";
+import { SendingSetupError } from "@/lib/domains/sending-errors";
 import { mtaStsBlockedResponse } from "@/lib/deliverability/mta-sts-block-response";
 
 type Params = { params: Promise<{ id: string }> };
@@ -49,6 +50,8 @@ export async function POST(request: Request, { params }: Params) {
 		if (blocked) return blocked;
 		// 409 MX_CONFLICT asks the caller to confirm and retry with replaceMx.
 		if (err instanceof MxConflictError) return NextResponse.json({ error: err.message, code: err.code, records: err.records }, { status: 409 });
+		// SENDING_PERMISSION or SENDING_NOT_ONBOARDED: fixed in the Cloudflare dashboard, then retried.
+		if (err instanceof SendingSetupError) return NextResponse.json({ error: err.message, code: err.code }, { status: 502 });
 		const message = err instanceof Error ? err.message : "Failed to set up DNS record";
 		return NextResponse.json({ error: message }, { status: 500 });
 	}

@@ -44,6 +44,7 @@ export default function DomainItemCard({
   onSetup,
   setupRecord,
   setupMessage,
+  setupMessageRecord,
 }: DomainItemCardProps) {
   const { t } = useLanguage();
   const auth = dns?.auth;
@@ -153,6 +154,7 @@ export default function DomainItemCard({
             onSetup={onSetup}
             setupRecord={setupRecord}
             setupMessage={setupMessage}
+            setupMessageRecord={setupMessageRecord}
           />
         ) : dnsError ? (
           <div className="px-4 pb-4 pt-4 text-sm text-red-600 sm:px-5 sm:pb-5">

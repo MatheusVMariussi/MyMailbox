@@ -24,7 +24,8 @@ import type { DnsAuthRecord, DnsStatusSummary, Domain, DomainDnsCache, DomainDns
 import DomainItemCard from "./DomainItemCard";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
 import { checkDomain } from "./utils";
-import { confirmMxReplacement, createDomain, isMxConflictError } from "./api";
+import { ApiError, confirmMxReplacement, createDomain, isMxConflictError } from "./api";
+import { sendingProblemMessage } from "./sending-problem-utils";
 import { Select } from "@/components/ui/select";
 
 export default function DomainsPage() {
@@ -46,6 +47,8 @@ export default function DomainsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [setupRecord, setSetupRecord] = useState<DnsAuthRecord | null>(null);
   const [setupMessage, setSetupMessage] = useState<string | null>(null);
+  // Which record the setup message is about: a DKIM failure is shown with the sending setup.
+  const [setupMessageRecord, setSetupMessageRecord] = useState<DnsAuthRecord | null>(null);
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(null);
   const expandedIdRef = useRef<string | null>(null);
   const [dnsLoading, setDnsLoading] = useState(false);
@@ -189,6 +192,8 @@ export default function DomainsPage() {
   const [sendingBusy, setSendingBusy] = useState(false);
   const [sendingMessage, setSendingMessage] = useState<string | null>(null);
 
+  const hostnameOf = (id: string) => dnsViews[id]?.domain.hostname ?? data?.domains.find((domain) => domain.id === id)?.hostname ?? "";
+
   const changeSendingProvider = async (provider: SendingProvider) => {
     if (!expandedDomainId) return;
     const id = expandedDomainId;
@@ -201,13 +206,14 @@ export default function DomainsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ provider, replaceMx }),
         });
-        return { res, json: (await res.json()) as { warning?: string; error?: string; code?: string; records?: { content: string; priority: number }[] } };
+        return { res, json: (await res.json()) as { warning?: string; warningCode?: string; error?: string; code?: string; records?: { content: string; priority: number }[] } };
       };
       let { res, json } = await put(false);
       // Cloudflare sending refuses while another service's MX records exist.
       if (await confirmMxReplacement(res, json)) ({ res, json } = await put(true));
-      if (!res.ok) throw new Error(json.error ?? t("domains.sendingChangeFailed"));
-      if (json.warning) setSendingMessage(json.warning);
+      if (!res.ok) throw new Error(sendingProblemMessage(json.code, hostnameOf(id), t) ?? json.error ?? t("domains.sendingChangeFailed"));
+      // The choice is saved even when Cloudflare refused the setup; say what to fix in the dashboard.
+      if (json.warning) setSendingMessage(sendingProblemMessage(json.warningCode, hostnameOf(id), t) ?? json.warning);
       await loadDns(id);
       qc.invalidateQueries({ queryKey: ["domains"] });
     } catch (error) {
@@ -254,6 +260,7 @@ export default function DomainsPage() {
     if (!dnsView) return;
     setSetupRecord(record);
     setSetupMessage(null);
+    setSetupMessageRecord(record);
     try {
       const post = async (replaceMx: boolean) => {
         const res = await authFetch(`/api/domains/${dnsView.domain.id}/dns/setup`, {
@@ -274,7 +281,7 @@ export default function DomainsPage() {
       };
       let { res, json } = await post(false);
       if (await confirmMxReplacement(res, json)) ({ res, json } = await post(true));
-      if (!res.ok) throw new Error(json.error ?? t("domains.dnsSetupFailed"));
+      if (!res.ok) throw new Error(sendingProblemMessage(json.code, dnsView.domain.hostname, t) ?? json.error ?? t("domains.dnsSetupFailed"));
       if (json.domain && json.dns) {
         const updatedView = { domain: json.domain, dns: json.dns };
         setDnsViews((current) => ({
@@ -289,6 +296,11 @@ export default function DomainsPage() {
       setSetupRecord(null);
     }
   };
+
+  // Cloudflare refused Email Sending for a reason fixed in its dashboard (token permission, onboarding).
+  const createSendingProblem = create.error instanceof ApiError
+    ? sendingProblemMessage((create.error.data as { code?: unknown } | null)?.code, hostname.toLowerCase().trim(), t)
+    : null;
 
   const inspectDomain = async () => {
     const normalized = hostname.toLowerCase().trim();
@@ -422,7 +434,13 @@ export default function DomainsPage() {
                   {domainCheckError}
                 </p>
               )}
-              {create.isError && (
+              {create.isError && createSendingProblem && (
+                <div className="space-y-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <p>{createSendingProblem}</p>
+                  <p>{t("domains.sendingLaterHint")}</p>
+                </div>
+              )}
+              {create.isError && !createSendingProblem && (
                 <div className="space-y-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
                   <p>{(create.error as Error).message}</p>
                   {!isMxConflictError(create.error) && (
@@ -486,6 +504,7 @@ export default function DomainsPage() {
                 onSetup={setupDns}
                 setupRecord={setupRecord}
                 setupMessage={setupMessage}
+                setupMessageRecord={setupMessageRecord}
                 item={d}
                 remove={remove}
               />

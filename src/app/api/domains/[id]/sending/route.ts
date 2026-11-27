@@ -13,6 +13,7 @@ import { isManualZone } from "@/lib/domains/provision";
 import { findCloudflareSending, removeCloudflareSending } from "@/lib/domains/cloudflare-sending";
 import { setupDomainDnsRecord } from "@/lib/domains/dns-setup";
 import { MxConflictError } from "@/lib/domains/receiving-dns";
+import { SendingSetupError, type SendingSetupProblem } from "@/lib/domains/sending-errors";
 import { mtaStsBlockedResponse } from "@/lib/deliverability/mta-sts-block-response";
 
 type Params = { params: Promise<{ id: string }> };
@@ -23,6 +24,8 @@ const schema = z.object({ provider: z.enum(["none", "cloudflare"]), replaceMx: z
  * Turns Cloudflare Email Sending on (`cloudflare`) or off (`none`) for this domain. Receiving is
  * unaffected, except that Cloudflare sending refuses while another service's MX records exist:
  * that is a 409 MX_CONFLICT (the choice is still saved) until the caller retries with replaceMx.
+ * Any other setup failure is a `warning` (with a `warningCode` when the admin fixes it in the
+ * Cloudflare dashboard); the choice is kept so the Setup buttons on the domain page can finish.
  */
 export async function PUT(request: Request, { params }: Params) {
 	const { id } = await params;
@@ -48,6 +51,7 @@ export async function PUT(request: Request, { params }: Params) {
 		.where(eq(domains.id, domain.id));
 
 	let warning: string | undefined;
+	let warningCode: SendingSetupProblem | undefined;
 	if (provider === "cloudflare" && !isManualZone(domain.zoneId)) {
 		// Enable the zone's sending subdomain right away; failure is reported but the
 		// choice is kept so the setup buttons on the domain page can finish the job.
@@ -56,11 +60,15 @@ export async function PUT(request: Request, { params }: Params) {
 			const blocked = await mtaStsBlockedResponse(error);
 			if (blocked) return blocked;
 			if (error instanceof MxConflictError) return NextResponse.json({ error: error.message, code: error.code, records: error.records }, { status: 409 });
+			if (error instanceof SendingSetupError) {
+				console.warn(`Cloudflare Email Sending setup for ${domain.hostname} refused: ${error.detail}`);
+				warningCode = error.code;
+			}
 			warning = error instanceof Error ? error.message : "Could not enable Cloudflare sending";
 		}
 	}
 	const updated = await getDomainForUser(env, user.id, id);
-	return NextResponse.json({ domain: updated, warning }, { headers: { "Cache-Control": "no-store" } });
+	return NextResponse.json({ domain: updated, warning, warningCode }, { headers: { "Cache-Control": "no-store" } });
 }
 
 /** Whether the zone still has a Cloudflare sending subdomain for this domain. */

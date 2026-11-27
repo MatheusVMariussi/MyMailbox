@@ -82,6 +82,8 @@ export type DomainDnsDetailsProps = {
 	onSetup?: (record: DnsAuthRecord) => void;
 	setupRecord?: DnsAuthRecord | null;
 	setupMessage?: string | null;
+	/** The record `setupMessage` is about; a DKIM message belongs with the sending setup. */
+	setupMessageRecord?: DnsAuthRecord | null;
 };
 
 export type DomainItemCardProps = {
@@ -103,4 +105,6 @@ export type DomainItemCardProps = {
 	onSetup?: (record: DnsAuthRecord) => void;
 	setupRecord?: DnsAuthRecord | null;
 	setupMessage?: string | null;
+	/** The record `setupMessage` is about; a DKIM message belongs with the sending setup. */
+	setupMessageRecord?: DnsAuthRecord | null;
 };

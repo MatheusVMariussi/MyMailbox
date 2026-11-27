@@ -25,7 +25,7 @@
   "cloudflare": {
     "bindings": {
       "CF_TOKEN": {
-        "description": "Runtime Cloudflare API token used by MyMailbox onboarding to call the Zones, DNS, and Email Routing APIs. Cloudflare's deploy/build token is not passed to the app, so create this separately at https://dash.cloudflare.com/profile/api-tokens with `Zone Read`, `DNS Edit`, `Email Routing Edit`, and `Email Routing Rules Write` permissions for the zones you will connect. Add `Email Sending Edit` to enable outbound mail. Paste only the token secret value, without `Bearer`."
+        "description": "Runtime Cloudflare API token used by MyMailbox onboarding to call the Zones, DNS, Email Routing and Email Sending APIs. Cloudflare's deploy/build token is not passed to the app, so create this separately at https://dash.cloudflare.com/profile/api-tokens with `Zone Read`, `DNS Edit`, `Email Routing Edit`, and `Email Routing Rules Write` permissions for the zones you will connect. Outbound mail goes through Cloudflare Email Sending: add the account-level `Email Sending: Edit` permission and onboard each sending domain under Compute → Email Service → Email Sending (Workers Paid plan). Paste only the token secret value, without `Bearer`."
       },
       "SETUP_TOKEN": {
         "description": "Secret you enter on /setup before MyMailbox creates the first admin account and provisions DNS with CF_TOKEN. Use a long random value (for example `openssl rand -base64 32`). Setup is refused while it is unset, except on localhost."

@@ -14,6 +14,7 @@ export default function DomainDnsDetails({
 	onSetup,
 	setupRecord,
 	setupMessage,
+	setupMessageRecord,
 	onSendingProviderChange,
 	sendingProviderBusy,
 	sendingProviderMessage,
@@ -70,12 +71,25 @@ export default function DomainDnsDetails({
 		);
 	};
 
+	// DKIM comes with the sending subdomain, so until one exists the Email Sending row carries the Setup.
+	const sendingSetup = !subdomain && !manual ? (
+		<Button size="sm" variant="outline" className="bg-white" disabled={setupRecord === "dkim"} onClick={() => onSetup?.("dkim")}>
+			{setupRecord === "dkim" ? t("domains.settingUp") : t("domains.setup")}
+		</Button>
+	) : undefined;
+	const sendingMessage = setupMessageRecord === "dkim" ? setupMessage : null;
 	const cloudflareConfig = (
-		<ul className="space-y-2">
-			<StatusRow ok={!!sendingOk} title={t("domains.emailSending")} hint={t("domains.emailSendingHint")}>{sendingLabel}</StatusRow>
-			{auditRow("dkim")}
-		</ul>
+		<div className="space-y-2">
+			<ul className="space-y-2">
+				<StatusRow ok={!!sendingOk} title={t("domains.emailSending")} hint={t("domains.emailSendingHint")} action={sendingSetup}>{sendingLabel}</StatusRow>
+				{(subdomain || manual) && auditRow("dkim")}
+			</ul>
+			{subdomain && !dns.sendingEnabled && <p className="text-xs text-amber-700">{t("domains.sendingDisabledHint", { host: domain.hostname })}</p>}
+			{sendingMessage && <p role="alert" className="text-xs text-red-600">{sendingMessage}</p>}
+			<p className="text-xs text-neutral-500">{t("domains.sendingRequirements")}</p>
+		</div>
 	);
+	const domainSetupMessage = setupMessageRecord === "dkim" ? null : setupMessage;
 
 	const cloudflareReceiving = (
 		<CloudflareReceivingConfig domainId={domain.id} routingOk={routingOk} routingLabel={routingLabel} manual={manual} onChanged={onDnsChanged} />
@@ -97,7 +111,7 @@ export default function DomainDnsDetails({
 							{t("domains.manualDnsNote")}
 						</p>
 					)}
-					{setupMessage && <p role="alert" className="text-xs text-red-600">{setupMessage}</p>}
+					{domainSetupMessage && <p role="alert" className="text-xs text-red-600">{domainSetupMessage}</p>}
 				</section>
 			)}
 			<ReceivingSetupSection

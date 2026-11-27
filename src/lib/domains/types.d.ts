@@ -1,5 +1,6 @@
 import type { domains } from "@/db/schema";
 import type { CfDnsRecord, CfEmailRoutingRule } from "@/lib/cloudflare-api.types";
+import type { SendingSetupProblem } from "@/lib/domains/sending-errors";
 
 /**
  * Exactly what one provisioning attempt changed on the Cloudflare zone, so a
@@ -24,7 +25,7 @@ export type DomainProvisioningChanges = {
 
 export type DomainProvisioningError = {
 	message: string;
-	code?: "MX_RECORDS_CONFLICT";
+	code?: "MX_RECORDS_CONFLICT" | SendingSetupProblem;
 	status: number;
 };
 

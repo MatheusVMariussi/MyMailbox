@@ -11,6 +11,7 @@ import type { DnsAuthRecord } from "@/lib/domains/dns-audit";
 import { adoptCloudflareZone } from "@/lib/domains/adopt-zone";
 import { setupDomainDnsRecord } from "@/lib/domains/dns-setup";
 import { MxConflictError } from "@/lib/domains/receiving-dns";
+import { SendingSetupError } from "@/lib/domains/sending-errors";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { mtaStsBlockedResponse } from "@/lib/deliverability/mta-sts-block-response";
 
@@ -52,6 +53,11 @@ export async function POST(request: Request, { params }: Params) {
 		if (blocked) return blocked;
 		// 409 MX_CONFLICT asks the caller to confirm and retry with replaceMx.
 		if (err instanceof MxConflictError) return NextResponse.json({ error: err.message, code: err.code, records: err.records }, { status: 409 });
+		// The token or the domain's Email Sending onboarding needs fixing in the Cloudflare dashboard.
+		if (err instanceof SendingSetupError) {
+			console.warn(`Cloudflare Email Sending setup for ${domain.hostname} refused: ${err.detail}`);
+			return NextResponse.json({ error: err.message, code: err.code }, { status: 502 });
+		}
 		const message = err instanceof Error ? err.message : "Failed to set up DNS record";
 		return NextResponse.json({ error: message }, { status: 500 });
 	}
