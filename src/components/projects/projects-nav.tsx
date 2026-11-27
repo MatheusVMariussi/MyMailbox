@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/language-provider";
 import { useListScope } from "@/components/list-scope-provider";
 import { NavSectionHeader, useSectionOpen } from "@/components/nav-section-header";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useSidebar } from "@/components/sidebar-state";
 import type { MessageCounts } from "@/hooks/types";
 import { cn } from "@/lib/utils";
 import { ProjectDot } from "./project-dot";
@@ -29,12 +30,15 @@ export function ProjectsNav({ counts, minimal }: Props) {
 	const { projects } = useProjects();
 	const { projectId, setProjectFilter } = useListScope();
 	const [open, toggle] = useSectionOpen("mymailbox:nav:projects-section-open");
+	const sidebar = useSidebar();
 
 	function choose(id: string) {
 		const next = projectId === id ? null : id;
 		setProjectFilter(next);
 		const root = listRootFor(pathname);
 		if (root !== pathname) router.push(root);
+		// On phones the menu covers the list; close it so the filtered list is what you see next.
+		else if (sidebar.mobile && sidebar.mobileOpen) sidebar.toggle();
 	}
 
 	if (minimal) {

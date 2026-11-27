@@ -126,14 +126,14 @@ export function LoadingTransition({ children, ready }: LoadingTransitionProps) {
 				{!ready && !showInitialLoader && <div aria-hidden="true"><RouteSkeleton /></div>}
 				{ready && (
 					<div
-						className={`min-h-dvh transition-opacity duration-300 ${contentVisible ? "opacity-100" : "opacity-0"}`}
+						className={`min-h-dvh transition-opacity duration-300 motion-reduce:transition-none ${contentVisible ? "opacity-100" : "opacity-0"}`}
 					>
 						{children}
 					</div>
 				)}
 				<div
 					role="status"
-					className={`splash-overlay fixed inset-0 z-[100] flex items-center justify-center bg-[#f6f8fc] transition-opacity duration-300 ${
+					className={`splash-overlay fixed inset-0 z-[100] flex items-center justify-center bg-[#f6f8fc] transition-opacity duration-300 motion-reduce:transition-none ${
 						loaderVisible ? "opacity-100" : "pointer-events-none opacity-0"
 					}`}
 				>

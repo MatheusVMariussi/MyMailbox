@@ -66,6 +66,7 @@ export const Mail = Icon;
 export const MailOpen = Icon;
 export const MailCheck = Icon;
 export const MoreVertical = Icon;
+export const Paperclip = Icon;
 export const Send = Icon;
 export const ShieldAlert = Icon;
 export const ShieldCheck = Icon;

@@ -45,6 +45,8 @@ export type Message = {
 	scheduledAt?: string | null;
 	/** Opens counted by the read-receipt pixel; absent when the message was sent without one. */
 	openCount?: number;
+	/** Set by the list API when the message carries at least one real (not inline) attachment. */
+	hasAttachments?: boolean;
 	/** Notes on the conversation, with the text of the latest ones; absent when it has none. */
 	noteCount?: number;
 	notePreview?: string;

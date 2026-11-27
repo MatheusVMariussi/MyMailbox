@@ -33,16 +33,16 @@ export function EmailHtmlRenderer({ html, className, dense = false, preserveLead
 	const [choice, setChoice] = useState<{ source: string; allow: boolean } | null>(null);
 	const [hasRemote, setHasRemote] = useState(false);
 	const allowRemote = choice?.source === html ? choice.allow : autoAllowRemote;
-	// Mail is authored for white paper. Under the dark theme it is inverted
-	// (images inverted back) instead of glaring as a white slab.
+	// Mail is authored for white paper, so under the dark theme it stays on a rounded sheet of light paper.
+	// Dense text (notes) is ours, not authored mail: it is inverted (images back) to sit on the dark surface.
 	useEffect(() => {
 		const root = document.documentElement;
-		const sync = () => host.current?.classList.toggle("mf-dark", root.classList.contains("dark"));
+		const sync = () => host.current?.classList.toggle("mf-dark", dense && root.classList.contains("dark"));
 		sync();
 		const observer = new MutationObserver(sync);
 		observer.observe(root, { attributes: true, attributeFilter: ["class"] });
 		return () => observer.disconnect();
-	}, []);
+	}, [dense]);
 	useEffect(() => {
 		if (!host.current) return;
 		host.current.dir = document.documentElement.dir || "ltr";
@@ -79,7 +79,7 @@ export function EmailHtmlRenderer({ html, className, dense = false, preserveLead
 	}, [html, allowRemote, preserveLeadingQuote, quoteToggleLabel]);
 	return <div className={`min-w-0 max-w-full ${className ?? ""}`}>
 		{hasRemote && !allowRemote && <div className="mb-2 flex justify-end">
-			<button type="button" aria-pressed={allowRemote} className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+			<button type="button" aria-pressed={allowRemote} className="rounded-md px-2 py-1 text-xs font-medium text-accent hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 				onClick={() => {
 					if (!allowRemote) onAllowRemote?.();
 					setChoice({ source: html, allow: !allowRemote });
@@ -87,6 +87,6 @@ export function EmailHtmlRenderer({ html, className, dense = false, preserveLead
 				{t("message.allowRemote")}
 			</button>
 		</div>}
-		<div className={`max-w-full overflow-x-auto${dense ? " mf-dense" : ""}`} ref={host} />
+		<div className={`max-w-full overflow-x-auto${dense ? " mf-dense" : " dark:rounded-xl dark:bg-[#fff] dark:p-3 dark:ring-1 dark:ring-line sm:dark:p-5"}`} ref={host} />
 	</div>;
 }

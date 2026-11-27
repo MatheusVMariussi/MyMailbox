@@ -4,7 +4,7 @@ import type { SQL } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getDb } from "@/db";
-import { messages, outboundJobs } from "@/db/schema";
+import { messageAttachments, messages, outboundJobs } from "@/db/schema";
 import { getContactDisplayNameMap } from "@/lib/contacts/service";
 import { getPartyDisplayName } from "@/lib/contacts/utils";
 import { getFirstEmailAddressEntry, normalizeEmailAddress } from "@/lib/email/address";
@@ -206,7 +206,7 @@ export async function GET(request: Request) {
 			? inArray(messages.mailboxId, accessibleMailboxIds)
 			: eq(messages.userId, user.id);
 	// These enrichments depend only on the selected page, not on each other.
-	const [countRows, jobs, openCounts, noteSummaries, contactMaps, labelIdsByMessage] = await Promise.all([
+	const [countRows, jobs, openCounts, noteSummaries, contactMaps, labelIdsByMessage, attachmentRows] = await Promise.all([
 		threadIds.length > 0
 			? selectInBatches(threadIds, (batch) => db
 				.select({
@@ -239,7 +239,15 @@ export async function GET(request: Request) {
 			] as const),
 		),
 		loadMessageLabelIds(db, rows.map((row) => row.id)),
+		// The paperclip on a row: messages with at least one real attachment (inline images do not count).
+		rows.length > 0
+			? selectInBatches(rows.map((row) => row.id), (batch) => db
+				.selectDistinct({ messageId: messageAttachments.messageId })
+				.from(messageAttachments)
+				.where(and(inArray(messageAttachments.messageId, batch), eq(messageAttachments.disposition, "attachment"))))
+			: [],
 	]);
+	const withAttachments = new Set(attachmentRows.map((row) => row.messageId));
 	const threadCounts = new Map<string, { total: number; unread: number }>();
 	for (const row of countRows) {
 		if (row.threadId) threadCounts.set(row.threadId, { total: row.total, unread: Number(row.unread ?? 0) });
@@ -277,6 +285,7 @@ export async function GET(request: Request) {
 				getPartyDisplayName(message.fromAddr, contactMap?.get(normalizeEmailAddress(message.fromAddr))),
 			toContactName: getPartyDisplayName(firstTo, contactMap?.get(normalizeEmailAddress(firstTo))),
 			labelIds: labelIdsByMessage.get(message.id) ?? [],
+			...(withAttachments.has(message.id) ? { hasAttachments: true } : {}),
 			threadCount: threadStats?.total || 1,
 			threadUnread: (groupByThread ? folderUnread : threadStats?.unread) || 0,
 			...(groupByThread

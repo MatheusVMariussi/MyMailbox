@@ -3,7 +3,10 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 const mobileQuery = "(max-width: 767px)";
-const desktopQuery = "(min-width: 1024px)";
+// The message list sits beside the reader from tablet width up (two panes, three with the sidebar on desktop).
+const splitQuery = "(min-width: 768px)";
+// Between phone and desktop the sidebar shrinks to its icon rail so the list and reader keep their room.
+const tabletQuery = "(min-width: 768px) and (max-width: 1023px)";
 const hoverQuery = "(hover: hover) and (pointer: fine)";
 
 function useMediaQuery(query: string): boolean {
@@ -24,9 +27,14 @@ export function useIsMobile(): boolean {
 	return useMediaQuery(mobileQuery);
 }
 
-/** Whether the split message list is actually rendered beside the reader. */
+/** Whether the split message list is actually rendered beside the reader (tablet and desktop). */
 export function useIsDesktop(): boolean {
-	return useMediaQuery(desktopQuery);
+	return useMediaQuery(splitQuery);
+}
+
+/** Tablet width: two panes, with the sidebar as an icon rail. */
+export function useIsTablet(): boolean {
+	return useMediaQuery(tabletQuery);
 }
 
 /** Whether the primary pointer can hover; coarse touch screens get no hover rail. */

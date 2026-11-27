@@ -32,6 +32,13 @@ export function getAutoAdvanceId(entries: MessageNavigationEntry[], currentId: s
 	return entries[index + 1]?.id ?? entries[index - 1]?.id ?? null;
 }
 
+/** `j`/`k` walk the list as it is shown (Gmail order), unlike the arrows' unread-first order. */
+export function getListNeighbours(entries: MessageNavigationEntry[], currentId: string): { newerId: string | null; olderId: string | null } {
+	const index = entries.findIndex((entry) => entry.id === currentId);
+	if (index < 0) return { newerId: null, olderId: null };
+	return { newerId: entries[index - 1]?.id ?? null, olderId: entries[index + 1]?.id ?? null };
+}
+
 export function getMessageDetailNavigationState(entries: MessageNavigationEntry[], currentId: string): MessageDetailNavigationState {
 	const unread = entries.filter((entry) => entry.unread);
 	const ordered = [...unread, ...entries.filter((entry) => !entry.unread)];

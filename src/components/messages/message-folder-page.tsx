@@ -5,7 +5,7 @@ import { confirmDestructive, alertDialog } from "@/components/ui/confirm-dialog"
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Trash2 } from "@/components/icons";
+import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Paperclip, Star, Trash2 } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,6 +62,9 @@ import { ProjectDot } from "@/components/projects/project-dot";
 import { useProjects } from "@/components/projects/use-projects";
 import { sumLabelCounts } from "@/lib/labels/group-utils";
 import { useScopeLabels } from "./use-scope-labels";
+import { ListEmptyState } from "./list-empty-state";
+import { useListKeyboard } from "./use-list-keyboard";
+import { toPathSegment } from "./reading-pane-utils";
 import { useHotkeys } from "@/components/shortcuts/use-hotkeys";
 import { useShortcutsActive } from "@/components/shortcuts/shortcuts-enabled-context";
 import { getUserTimeZone, zonedDateFields } from "@/lib/time/utils";
@@ -133,6 +136,8 @@ function MessageListRowComponent({
 	canMovePromotions = false,
 	labelsById,
 	project,
+	cursor = false,
+	selectionMode = false,
 }: MessageListRowProps) {
 	const { t } = useLanguage();
 	const Icon = config.icon;
@@ -218,27 +223,50 @@ function MessageListRowComponent({
 	}
 
 	if (compact) {
+		const highlighted = active || opening;
+		const showCheckbox = selectionMode || selected;
+		const timestamp = message.scheduledAt ? formatScheduledSendTime(message.scheduledAt, t) : formatMessageListTimestamp(message.createdAt, todayKey);
 		const compactRow = (
 			<div
 				role={swipeable ? undefined : "listitem"}
-				className={`group relative grid grid-cols-[20px_minmax(0,1fr)] gap-3 border-l-2 px-4 py-3 transition-colors ${active || opening
-					? "border-l-blue-600 bg-blue-50"
-					: selected
-						? "border-l-transparent bg-neutral-50"
-						: "border-l-transparent hover:bg-neutral-50 focus-within:bg-neutral-50"
-					} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+				data-message-row={message.id}
+				className={clsx(
+					"group relative flex gap-2.5 py-2.5 pl-3 pr-3 transition-colors duration-150 ease-out-soft motion-reduce:transition-none",
+					highlighted
+						? "bg-accent-soft"
+						: selected
+							? "bg-accent-soft/50"
+							// neutral-50 is surface-2 in both themes; the hover rail paints the same surface behind its buttons.
+							: "hover:bg-neutral-50 focus-within:bg-neutral-50",
+					cursor && !highlighted && "bg-neutral-50 ring-1 ring-inset ring-accent",
+					draggable && "cursor-grab active:cursor-grabbing",
+				)}
 				draggable={draggable}
 				onDragStart={(event) => {
 					if (!draggable) return;
 					setMessageDragData(event.dataTransfer, { messageIds: dragMessageIds ?? message.threadMessageIds ?? [message.id] });
 				}}
 			>
-				<Checkbox
-					checked={selected}
-					onChange={(event) => onSelectedChange(message.id, event.target.checked)}
-					className="mt-1 h-4 w-4 rounded border-neutral-300"
-					aria-label={t("list.selectFrom", { sender: party })}
-				/>
+				{highlighted && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-accent" />}
+				{/* The project dot holds the leading slot; the checkbox takes it over on hover, focus and in selection mode. */}
+				<span className="relative z-10 mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+					{project && (
+						<ProjectDot
+							name={project.name}
+							color={project.color}
+							className={clsx("transition-opacity duration-150 motion-reduce:transition-none", showCheckbox ? "opacity-0" : "group-hover:opacity-0 group-focus-within:opacity-0")}
+						/>
+					)}
+					<Checkbox
+						checked={selected}
+						onChange={(event) => onSelectedChange(message.id, event.target.checked)}
+						className={clsx(
+							"absolute inset-0 h-4 w-4 rounded border-line-strong transition-opacity duration-150 focus-visible:opacity-100 motion-reduce:transition-none",
+							showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+						)}
+						aria-label={t("list.selectFrom", { sender: party })}
+					/>
+				</span>
 				<Link
 					href={href}
 					onClick={config.folder === "drafts" ? undefined : onMessageNavigate}
@@ -248,33 +276,34 @@ function MessageListRowComponent({
 					onBlur={config.folder === "drafts" ? undefined : navigation.cancelPrefetch}
 					onTouchStart={config.folder === "drafts" ? undefined : navigation.prefetchNow}
 					aria-current={active ? "true" : undefined}
-					className="min-w-0"
+					className="min-w-0 flex-1 rounded-sm focus-visible:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-accent"
 				>
-					<span className="flex items-baseline justify-between gap-3">
-						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
-							{project && <ProjectDot name={project.name} color={project.color} className="me-1.5 align-middle" />}
+					<span className="flex min-w-0 items-center gap-2">
+						<span className={clsx("min-w-0 text-sm leading-5", getMessagePartyClassName(rowMessage, config.folder))}>
 							{unread && <span className="sr-only">{t("list.unread")} </span>}
 							{party}
-
-							{(message.threadCount ?? 1) > 1 && (
-								<span className="ml-2 text-xs font-normal text-neutral-500">{message.threadCount}</span>
-							)}
-							<NoteBadge count={message.noteCount} className="ml-2" />
-							{promotionChip}
 						</span>
-						<span className={clsx(unread ?"font-medium":"text-neutral-500","shrink-0 text-[11px]")}>
-							<OpenedIndicator count={message.openCount} />
-							{message.scheduledAt ? formatScheduledSendTime(message.scheduledAt, t) : formatMessageListTimestamp(message.createdAt, todayKey)}
+						{(message.threadCount ?? 1) > 1 && (
+							<span className="shrink-0 rounded bg-surface-3 px-1 font-mono text-[10px] leading-4 text-ink-muted tabular-nums" aria-label={t("list.threadCount", { count: message.threadCount ?? 1 })}>{message.threadCount}</span>
+						)}
+						<NoteBadge count={message.noteCount} className="shrink-0" />
+						{promotionChip}
+						<span className="ml-auto flex shrink-0 items-center gap-1.5 pl-1">
+							{message.hasAttachments && <Paperclip className="h-3.5 w-3.5 text-ink-muted" role="img" aria-label={t("list.hasAttachments")} />}
+							{starred && <Star className="h-3.5 w-3.5 fill-warm text-warm" role="img" aria-label={t("list.starred")} />}
+							<time dateTime={message.createdAt} className={clsx("font-mono text-[11px] leading-5 tabular-nums", unread ? "font-medium text-ink" : "text-ink-muted")}>
+								<OpenedIndicator count={message.openCount} />
+								{timestamp}
+							</time>
 						</span>
 					</span>
-					{labelsById && <LabelChips labelIds={message.labelIds} labelsById={labelsById} exclude={config.labelId} className="mt-1 max-w-full" />}
-					<span
-						className={`mt-1 block truncate text-sm ${unread ? "font-semibold text-neutral-900" : "text-neutral-700"
-							}`}
-					>
-						{message.subject ?? t("list.noSubject")}
+					<span className="mt-0.5 flex min-w-0 items-center gap-2">
+						<span className={clsx("min-w-0 truncate text-[13px] leading-5", unread ? "font-semibold text-ink" : "text-ink-soft")}>
+							{message.subject ?? t("list.noSubject")}
+						</span>
+						{labelsById && <LabelChips labelIds={message.labelIds} labelsById={labelsById} exclude={config.labelId} className="min-w-0 max-w-[50%] shrink" />}
 					</span>
-					<span className="mt-0.5 block truncate text-xs leading-5 text-neutral-500">
+					<span className="mt-0.5 block truncate text-xs leading-5 text-ink-muted">
 						{preview}
 					</span>
 				</Link>
@@ -285,7 +314,7 @@ function MessageListRowComponent({
 						labelId={config.labelId}
 						onAction={runRowAction}
 						compact
-						active={active || opening}
+						active={highlighted}
 						onSnoozeChange={onSnoozeChange}
 						promotionTarget={promotionTarget}
 						onPromotionMove={moveToCategory}
@@ -315,9 +344,12 @@ function MessageListRowComponent({
 		);
 	}
 
-	const className =
-		`group relative grid min-h-12 w-full grid-cols-[24px_32px_minmax(160px,80px)_1fr_auto] items-center gap-3 px-6 text-left text-sm hover:z-10 hover:bg-[#f2f6fc] hover:shadow-sm has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-inset has-[a:focus-visible]:ring-blue-600 ${active || selected || opening ? "bg-blue-50" : ""
-		} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`;
+	// The full-width list (reading pane off): one line per conversation, Gmail-style.
+	const className = clsx(
+		"group relative grid min-h-11 w-full grid-cols-[24px_32px_minmax(160px,80px)_1fr_auto] items-center gap-3 px-6 text-left text-sm transition-colors duration-150 ease-out-soft hover:z-10 hover:bg-surface-2 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-inset has-[a:focus-visible]:ring-accent motion-reduce:transition-none",
+		active || opening ? "bg-accent-soft" : selected ? "bg-accent-soft/50" : cursor && "bg-surface-2 ring-1 ring-inset ring-accent",
+		draggable && "cursor-grab active:cursor-grabbing",
+	);
 	const content = (
 		<>
 			{config.folder === "inbox" && message.direction === "inbound" && (
@@ -333,23 +365,23 @@ function MessageListRowComponent({
 						aria-label={t("message.star")}
 						aria-pressed={starred}
 					>
-						<Icon className={`h-4 w-4 ${starred ? "fill-amber-400 text-amber-400" : "text-neutral-300"}`} />
+						<Icon className={`h-4 w-4 ${starred ? "fill-warm text-warm" : "text-ink-muted/60"}`} />
 					</Button>
 				</Tooltip>
 			)}
 			{(config.folder !== "inbox" || message.direction !== "inbound") && (
-				<Icon className="h-4 w-4 text-neutral-300" />
+				<Icon className="h-4 w-4 text-ink-muted/60" />
 			)}
-			<span className={clsx(unread && "font-semibold", getMessagePartyClassName(rowMessage, config.folder))}>
+			<span className={getMessagePartyClassName(rowMessage, config.folder)}>
 				{project && <ProjectDot name={project.name} color={project.color} className="me-1.5 align-middle" />}
 				{unread && <span className="sr-only">{t("list.unread")} </span>}
 				{party}
 
 				{(message.threadCount ?? 1) > 1 && (
-					<span className="ml-2 text-xs text-neutral-500">{message.threadCount}</span>
+					<span className="ml-2 rounded bg-surface-3 px-1 font-mono text-[10px] leading-4 text-ink-muted tabular-nums" aria-label={t("list.threadCount", { count: message.threadCount ?? 1 })}>{message.threadCount}</span>
 				)}
 			</span>
-			<span className="flex min-w-0 items-center text-neutral-700">
+			<span className="flex min-w-0 items-center text-ink-soft">
 				{/* A fixed slot keeps every subject aligned, with or without notes. */}
 				<span className="w-11 shrink-0">
 					{message.noteCount ? <MessageNotesPopover messageId={message.id} count={message.noteCount} preview={message.notePreview} /> : null}
@@ -366,17 +398,17 @@ function MessageListRowComponent({
 					aria-current={active ? "true" : undefined}
 					className="min-w-0 truncate focus-visible:outline-none after:absolute after:inset-0"
 				>
-					<span className={unread ? "font-semibold text-neutral-900" : ""}>
+					<span className={unread ? "font-semibold text-ink" : ""}>
 						{rowMessage.subject ?? t("list.noSubject")}
 					</span>
-					<span className="text-neutral-500"> - {getMessagePreview(rowMessage, config.folder, t)}</span>
+					<span className="text-ink-muted"> - {getMessagePreview(rowMessage, config.folder, t)}</span>
 				</Link>
 				{promotionChip}
+				{message.hasAttachments && <Paperclip className="ml-2 h-3.5 w-3.5 shrink-0 text-ink-muted" role="img" aria-label={t("list.hasAttachments")} />}
 			</span>
 			<time
 				dateTime={message.createdAt}
-				className={`min-w-[96px] whitespace-nowrap text-right text-xs group-hover:opacity-0 ${unread ? "font-semibold text-neutral-800" : "text-neutral-500"
-					}`}
+				className={clsx("min-w-[96px] whitespace-nowrap text-right font-mono text-[11px] tabular-nums group-hover:opacity-0", unread ? "font-medium text-ink" : "text-ink-muted")}
 			>
 				<OpenedIndicator count={message.openCount} />
 				{message.scheduledAt ? formatScheduledSendTime(message.scheduledAt, t) : formatMessageListTimestamp(message.createdAt, todayKey)}
@@ -386,11 +418,11 @@ function MessageListRowComponent({
 
 	if (config.folder === "drafts") {
 		return (
-			<div role="listitem" className={className}>
+			<div role="listitem" data-message-row={message.id} className={className}>
 				<Checkbox
 					checked={selected}
 					onChange={(event) => onSelectedChange(message.id, event.target.checked)}
-					className="relative z-10 h-4 w-4 rounded border-neutral-300"
+					className="relative z-10 h-4 w-4 rounded border-line-strong"
 					aria-label={t("list.selectMessage")}
 				/>
 				{content}
@@ -401,6 +433,7 @@ function MessageListRowComponent({
 	return (
 		<div
 			role="listitem"
+			data-message-row={message.id}
 			className={className}
 			draggable={draggable}
 			onDragStart={(event) => {
@@ -411,7 +444,7 @@ function MessageListRowComponent({
 			<Checkbox
 				checked={selected}
 				onChange={(event) => onSelectedChange(message.id, event.target.checked)}
-				className="relative z-10 h-4 w-4 rounded border-neutral-300"
+				className="relative z-10 h-4 w-4 rounded border-line-strong"
 				aria-label={t("list.selectFrom", { sender: party })}
 			/>
 			{content}
@@ -502,6 +535,7 @@ export function MessageFolderPage({
 	const { labelsById, groupOf } = useScopeLabels();
 	const { projects } = useProjects();
 	const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+	const scopeProject = scope.projectId ? projectsById.get(scope.projectId) : undefined;
 	const getPromotionMode = useCallback((message: Message): "show" | "separate" | undefined => counts.promotionModes?.[message.mailboxId ?? ""], [counts.promotionModes]);
 	// Only received mail in Inbox or Promotions moves between them, in mailboxes with Promotions on that the user manages.
 	const canMovePromotions = useCallback((message: Message) => (config.folder === "promotions" || (config.folder === "inbox" && !config.labelId)) && canMoveCategory({
@@ -525,6 +559,8 @@ export function MessageFolderPage({
 	const mailboxAddress = getMailboxAddress(selectedMailbox);
 	const currentAccountName = selectedMailbox?.displayName ?? selectedMailbox?.localPart;
 	const pageRange = getPageRange(offset, messages.length, total);
+	// The empty list says what it listed, as a shell command (`ls inbox`, `ls labels/clientes`).
+	const emptyListPath = config.labelId ? `labels/${toPathSegment(config.title)}` : (config.hrefPrefix.replace(/^\/+/, "") || config.folder);
 	const selectedIds = useMemo(
 		() => selectedMessages.map((message) => message.id),
 		[selectedMessages],
@@ -537,7 +573,9 @@ export function MessageFolderPage({
 		{ key: "l", label: t("labels.labelAs"), category: "Actions" as const, action: () => setLabelMenuRequest({ kind: "label", key: Date.now() }) },
 		{ key: "v", label: t("common.moveTo"), category: "Actions" as const, action: () => setLabelMenuRequest({ kind: "move", key: Date.now() }) },
 	], [t]);
-	useHotkeys(selectionShortcuts, { enabled: shortcutsEnabled && selectedIds.length > 0 && !compact });
+	// Beside the reading pane the selection bar lives in the pane and owns `l`/`v`; otherwise the list header does.
+	const paneBeside = compact && isDesktop;
+	useHotkeys(selectionShortcuts, { enabled: shortcutsEnabled && selectedIds.length > 0 && !paneBeside });
 	// How many selected rows carry each label (counted per same-named group, keyed by the group's first id, as
 	// the menus list them): "Label as" checks a label every selected row has.
 	const selectedLabelCounts = useMemo(() => {
@@ -685,47 +723,53 @@ export function MessageFolderPage({
 	}, [actionError]);
 
 	async function runSelectedActionReportingErrors(action: BulkMessageAction, labelId?: string) {
+		await runActionReportingErrors(selectedIds, action, labelId);
+	}
+
+	async function runActionReportingErrors(ids: string[], action: BulkMessageAction, labelId?: string) {
 		setActionError(null);
 		try {
-			await runSelectedAction(action, labelId);
+			await runActionOn(ids, action, labelId);
 		} catch (error) {
 			setActionError(error instanceof PartialDeleteError ? t("actions.error.deleteSkipped") : t("actions.error.update"));
 		}
 	}
 
-	async function runSelectedAction(action: BulkMessageAction, labelId?: string) {
-		if (selectedIds.length === 0) return;
+	/** Runs a bulk action on these rows (the selection, or the keyboard cursor's row). */
+	async function runActionOn(rowIds: string[], action: BulkMessageAction, labelId?: string) {
+		if (rowIds.length === 0) return;
+		const idSet = new Set(rowIds);
 		if (action === "delete") {
-			const ids = expandSelectedIds(selectedIds);
+			const ids = expandSelectedIds(rowIds);
 			if (!await confirmDestructive(getPermanentDeleteConfirmText(ids.length, t))) return;
 		}
 
 		setPendingBulkAction(true);
 		const previousReadStates = new Map(messages
-			.filter((message) => selectedIdSet.has(message.id))
+			.filter((message) => idSet.has(message.id))
 			.map((message) => [message.id, { read: message.read, threadUnread: message.threadUnread }]));
 		const previousSelectedRead = new Map(selectedMessages.map((message) => [message.id, message.read]));
 		const readValue = action === "read" ? true : action === "unread" ? false : null;
 		const countsDelta = readValue === null
 			? null
 			: messages
-				.filter((message) => selectedIdSet.has(message.id))
+				.filter((message) => idSet.has(message.id))
 				.reduce<UnreadDeltas | null>((total, message) => mergeUnreadDeltas(total, unreadDeltas(
 					{ folder: config.folder, labelId: config.labelId, mode: getPromotionMode(message), category: message.category },
 					getUnreadFlipCount(message, readValue) * (readValue ? -1 : 1),
 				)), null);
 		if (readValue !== null) {
 			updateMessages((current) => current.map((message) =>
-				selectedIdSet.has(message.id)
+				idSet.has(message.id)
 					? { ...message, read: readValue, ...(message.threadMessageIds ? { threadUnread: readValue ? 0 : message.threadMessageIds.length } : {}) }
 					: message,
 			));
-			setSelectedMessages((current) => current.map((message) => ({ ...message, read: readValue })));
+			setSelectedMessages((current) => current.map((message) => (idSet.has(message.id) ? { ...message, read: readValue } : message)));
 			if (countsDelta) dispatchMessageCountsDelta(countsDelta);
 		}
 		try {
-			await runBulkMessageAction(expandSelectedIds(selectedIds), action, true, labelId);
-			setSelectedMessages([]);
+			await runBulkMessageAction(expandSelectedIds(rowIds), action, true, labelId);
+			setSelectedMessages((current) => current.filter((message) => !idSet.has(message.id)));
 		} catch (error) {
 			if (readValue !== null) {
 				// Roll back only the fields this action optimistically changed, and only
@@ -751,6 +795,22 @@ export function MessageFolderPage({
 		}
 	}
 
+	const cursorRowId = useListKeyboard({
+		messages,
+		config,
+		selectedMessageId,
+		selectedIds,
+		selectedIdSet,
+		paneBeside,
+		enabled: shortcutsEnabled,
+		navigate: (href) => router.push(href),
+		runAction: (ids, action) => void runActionReportingErrors(ids, action),
+		toggleSelected: updateSelectedMessage,
+		updateMessages,
+		onError: setActionError,
+		t,
+	});
+
 	const refreshButton = (
 		<MessageListRefreshButton
 			disabled={mailboxesLoading}
@@ -759,21 +819,21 @@ export function MessageFolderPage({
 	);
 
 	return (
-		<div className="flex h-full min-h-0 flex-col">
-			<div className={`flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
+		<div className="@container flex h-full min-h-0 flex-col">
+			<div className={clsx("flex h-12 shrink-0 items-center gap-3 border-b border-line", compact ? "pl-3 pr-2" : "px-4.5 md:px-6")}>
 				{selectedMessageId ? <h2 className="sr-only">{title}</h2> : <h1 className="sr-only">{title}</h1>}
-				<div className="flex min-w-0 items-center gap-3 w-full">
+				<div className="flex min-w-0 flex-1 items-center gap-2.5">
 					<Tooltip label={t("list.selectAll")}>
 						<Checkbox
 							checked={allVisibleSelected}
 							disabled={messages.length === 0}
 							onChange={(event) => toggleAllVisible(event.target.checked)}
-							className="h-4 w-4 rounded border-neutral-300"
+							className="h-4 w-4 rounded border-line-strong"
 							aria-label={t("list.selectAll")}
 						/>
 					</Tooltip>
 					{!compact && refreshButton}
-					{selectedIds.length > 0 && !compact ? (
+					{selectedIds.length > 0 && !paneBeside ? (
 						<BulkMessageToolbar
 							selectedCount={selectedIds.length}
 							hasUnreadSelection={hasUnreadSelection}
@@ -786,13 +846,23 @@ export function MessageFolderPage({
 						/>
 					) : (
 						(compact || isMobile) && (
-							<p aria-hidden="true" className="truncate font-semibold text-neutral-900 pl-1">{title}</p>
+							<span className="flex min-w-0 items-center gap-2">
+								<p aria-hidden="true" className="min-w-0 truncate pl-0.5 font-display text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</p>
+								{/* The project filter applies to every folder; say so where the list is named. */}
+								{scopeProject && (
+									<span className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-md border border-line bg-surface-2 px-1.5 text-[11px] font-medium leading-[18px] text-ink-soft" data-list-project="">
+										<ProjectDot name={scopeProject.name} color={scopeProject.color} className="h-1.5 w-1.5" />
+										<span className="truncate">{scopeProject.name}</span>
+									</span>
+								)}
+							</span>
 						)
 					)}
 				</div>
-				{(selectedIds.length === 0 || compact) && (
-					<div className="flex items-center gap-2 text-neutral-500">
-						<span className="text-xs text-neutral-500 whitespace-nowrap">
+				{(selectedIds.length === 0 || paneBeside) && (
+					<div className="flex shrink-0 items-center gap-0.5 text-ink-muted">
+						{/* A narrow list column drops the range before it would squeeze the title. */}
+						<span className={clsx("mr-1.5 hidden whitespace-nowrap font-mono text-[11px] tabular-nums text-ink-muted", pageRange.total > 0 && (scopeProject ? "@[30rem]:inline" : "@[23rem]:inline"))}>
 							{t("list.range", { start: pageRange.start, end: pageRange.end, total: pageRange.total })}
 						</span>
 						{compact && refreshButton}
@@ -800,6 +870,7 @@ export function MessageFolderPage({
 							<Button
 								variant="ghost"
 								size="sm"
+								className="h-8 w-8 px-0 hover:bg-surface-2 hover:text-ink focus-visible:ring-accent focus-visible:ring-offset-0"
 								disabled={offset === 0 || isLoading}
 								onClick={() => setOffset(Math.max(offset - limit, 0))}
 								aria-label={t("list.previousPage")}
@@ -811,6 +882,7 @@ export function MessageFolderPage({
 							<Button
 								variant="ghost"
 								size="sm"
+								className="h-8 w-8 px-0 hover:bg-surface-2 hover:text-ink focus-visible:ring-accent focus-visible:ring-offset-0"
 								disabled={offset + messages.length >= total || isLoading}
 								onClick={() => setOffset(offset + limit)}
 								aria-label={t("list.nextPage")}
@@ -827,7 +899,7 @@ export function MessageFolderPage({
 									aria-label={t("list.showUnreadOnly")}
 									aria-pressed={unreadOnly}
 									onClick={() => setUnreadOnly((current) => !current)}
-									className={unreadOnly ? "bg-blue-100 text-blue-700 hover:bg-blue-100" : undefined}
+									className={clsx("h-8 w-8 px-0 focus-visible:ring-accent focus-visible:ring-offset-0", unreadOnly ? "bg-accent-soft text-accent hover:bg-accent-soft" : "hover:bg-surface-2 hover:text-ink")}
 								>
 									<ListFilter className="h-4 w-4" />
 								</Button>
@@ -842,7 +914,7 @@ export function MessageFolderPage({
 									aria-label={getEmptyFolderLabel(permanentDeleteFolder, t)}
 									disabled={emptyingFolder || isLoading || total === 0}
 									onClick={() => void emptyFolder()}
-									className="gap-1.5 text-xs font-medium text-red-600 hover:text-red-700"
+									className="gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 focus-visible:ring-accent focus-visible:ring-offset-0"
 								>
 									<Trash2 className="h-4 w-4" />
 									{!compact && <span className="max-md:hidden">{emptyingFolder ? t("list.emptying") : getEmptyFolderLabel(permanentDeleteFolder, t)}</span>}
@@ -862,9 +934,10 @@ export function MessageFolderPage({
 				</p>
 			)}
 
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
+			{/* Phones keep the last rows clear of the floating Compose button. */}
+			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable max-md:pb-24">
 				{config.folder === "inbox" && !config.labelId && !isSearching && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={scope.mailboxId ?? undefined} />}
-				<div role="list" aria-label={title} className="divide-y divide-neutral-100">
+				<div role="list" aria-label={title} className="divide-y divide-line">
 					{messages.map((message) => (
 						<MessageListRow
 							key={message.id}
@@ -886,21 +959,25 @@ export function MessageFolderPage({
 							canMovePromotions={canMovePromotions(message)}
 							labelsById={labelsById}
 							project={message.projectId ? projectsById.get(message.projectId) : undefined}
+							cursor={message.id === cursorRowId}
+							selectionMode={selectedIds.length > 0}
 						/>
 					))}
 				</div>
 				{!isLoading && messages.length === 0 && promotionsOff && (
-					<p className="px-6 py-4 text-sm text-neutral-500">
+					<p className="px-6 py-4 text-sm text-ink-muted">
 						{t("folder.empty.promotionsOff")}{" "}
-						<Link href="/settings/inbox" className="font-medium text-blue-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+						<Link href="/settings/inbox" className="font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
 							{t("folder.empty.promotionsOffLink")}
 						</Link>
 					</p>
 				)}
 				{!isLoading && messages.length === 0 && !promotionsOff && (
-					<p className="px-6 py-4 text-sm text-neutral-500">
-						{isRefused ? t("search.invalid") : hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
-					</p>
+					<ListEmptyState
+						command={isSearching ? `grep "${query.trim()}"` : `ls ${emptyListPath}`}
+						result={isRefused ? t("list.empty.refused") : isSearching ? t("list.empty.noMatches") : t("list.empty.nothing")}
+						message={isRefused ? t("search.invalid") : hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
+					/>
 				)}
 			</div>
 		</div>

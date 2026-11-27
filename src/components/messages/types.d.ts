@@ -43,6 +43,10 @@ export type MessageListRowProps = {
 	labelsById?: ReadonlyMap<string, NavLabel>;
 	/** The row's project, for its colored dot; undefined when it has none (or it is not the user's). */
 	project?: { name: string; color: string };
+	/** The keyboard cursor (`j`/`k`) is on this row. */
+	cursor?: boolean;
+	/** Some row is checked, so every row shows its checkbox instead of its project dot. */
+	selectionMode?: boolean;
 };
 
 export type RowMessageAction = "archive" | "trash" | "read" | "unread" | "inbox" | "delete";
@@ -112,6 +116,8 @@ export type BulkMessageActionBarProps = {
 	folder?: MessageFolder;
 	selectedMessages: SelectedMessage[];
 	onClearSelection: () => void;
+	/** Bind `l` and `v` to the bar's label menus (only while no message is open; the reader owns them then). */
+	shortcutsEnabled?: boolean;
 };
 
 export type PageRange = {

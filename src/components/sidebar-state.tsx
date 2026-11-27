@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useState } from 
 import { usePathname } from "next/navigation";
 import { fetchCurrentUser } from "@/hooks/use-current-user";
 import { readColumnWidth, readInitialColumnWidth, saveColumnWidth } from "./column-width-preferences";
-import { isMobileViewport, useIsMobile } from "./sidebar-mobile-utils";
+import { isMobileViewport, useIsMobile, useIsTablet } from "./sidebar-mobile-utils";
 import { readInitialSidebarMinimal, saveInitialSidebarMinimal, syncInitialSidebarWidth } from "./sidebar-state-utils";
 import type { SidebarProviderProps, SidebarState } from "./sidebar-state-types";
 
@@ -19,7 +19,11 @@ export function SidebarProvider({ children, expandedWidth = 260, mobileOverlay =
 	const [storageKey, setStorageKey] = useState<string | null>(null);
 	const pathname = usePathname();
 	const mobile = useIsMobile();
+	const tablet = useIsTablet();
 	const [mobileOpen, setMobileOpen] = useState(false);
+	// On tablets the sidebar is an icon rail so the list and the reader fit side by side; the toggle expands it
+	// until the next navigation, without touching the saved desktop preference.
+	const [tabletExpanded, setTabletExpanded] = useState(false);
 	// Overlay layouts have no minified rail on phones: the menu is either fully shown over the page or hidden.
 	const overlay = mobileOverlay && mobile;
 	const [syncedRoute, setSyncedRoute] = useState({ pathname, mobile });
@@ -28,6 +32,7 @@ export function SidebarProvider({ children, expandedWidth = 260, mobileOverlay =
 	if (syncedRoute.pathname !== pathname || syncedRoute.mobile !== mobile) {
 		setSyncedRoute({ pathname, mobile });
 		setMobileOpen(false);
+		setTabletExpanded(false);
 		if (mobile) setMinimal(true);
 		else if (syncedRoute.mobile) setMinimal(readInitialSidebarMinimal());
 	}
@@ -75,6 +80,10 @@ export function SidebarProvider({ children, expandedWidth = 260, mobileOverlay =
 			setMobileOpen((current) => !current);
 			return;
 		}
+		if (tablet) {
+			setTabletExpanded((current) => !current);
+			return;
+		}
 		if (forcedMinimal) {
 			setForcedMinimal(false);
 			setMinimal(false);
@@ -94,9 +103,10 @@ export function SidebarProvider({ children, expandedWidth = 260, mobileOverlay =
 		});
 	}
 
+	const rail = tablet ? !tabletExpanded : minimal || forcedMinimal;
 	return (
-		<SidebarContext.Provider value={{ minimal: !overlay && (minimal || forcedMinimal), width, userId, toggle, setWidth, setForcedMinimal, mobile: overlay, mobileOpen }}>
-			<div className="h-full" style={{ "--sidebar-width": widthReady ? `${minimal || forcedMinimal ? 72 : width}px` : `var(--persisted-sidebar-width, ${expandedWidth}px)`, "--sidebar-transition-duration": widthReady ? "200ms" : "0ms" } as React.CSSProperties}>
+		<SidebarContext.Provider value={{ minimal: !overlay && rail, width, userId, toggle, setWidth, setForcedMinimal, mobile: overlay, mobileOpen }}>
+			<div className="h-full" style={{ "--sidebar-width": widthReady ? `${rail ? 72 : width}px` : `var(--persisted-sidebar-width, ${expandedWidth}px)`, "--sidebar-transition-duration": widthReady ? "200ms" : "0ms" } as React.CSSProperties}>
 				{children}
 			</div>
 		</SidebarContext.Provider>

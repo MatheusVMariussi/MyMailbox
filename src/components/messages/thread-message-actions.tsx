@@ -198,7 +198,7 @@ export function ThreadMessageActions({
 					disabled={pending}
 					onClick={() => void onToggleStar()}
 				>
-					<Star className={starred ? "h-4 w-4 fill-amber-400 text-amber-400" : "h-4 w-4"} />
+					<Star className={starred ? "h-4 w-4 fill-warm text-warm" : "h-4 w-4"} />
 				</Button>
 			</Tooltip>
 			{!starOnly && (

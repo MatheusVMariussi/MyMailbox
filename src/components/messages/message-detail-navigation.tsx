@@ -16,7 +16,7 @@ import { FULL_ROUTE_PREFETCH } from "@/lib/navigation/prefetch";
 import type { CachedMessageDetail } from "@/lib/messages/detail-cache-types";
 import type { MessageNavigationResponse } from "@/app/api/messages/navigation/types";
 import type { MessageDetailNavigationContextValue, MessageDetailNavigationProps, MessageDetailNavigationProviderProps, MessageDetailNavigationSnapshot, OpenedUnreadMessages } from "./message-detail-navigation-types";
-import { getAutoAdvanceId, getMessageDetailNavigationState, takeOpenedUnreadMessage } from "./message-detail-navigation-utils";
+import { getAutoAdvanceId, getListNeighbours, getMessageDetailNavigationState, takeOpenedUnreadMessage } from "./message-detail-navigation-utils";
 import { useAutoAdvanceEnabled } from "./use-auto-advance";
 import { useConversationView } from "./use-conversation-view";
 import { useHotkeys } from "@/components/shortcuts/use-hotkeys";
@@ -144,11 +144,13 @@ export function MessageDetailNavigation({ messageId, unread }: MessageDetailNavi
 	const unreadOrder = navigation?.unreadOrder ?? 0;
 	const totalUnread = navigation?.totalUnread ?? 0;
 	const hrefPrefixForKeys = context?.hrefPrefix;
-	// `j` is the next (older) conversation and `k` the previous (newer) one, as in Gmail.
+	// `j` is the next (older) conversation and `k` the previous (newer) one in list order, as in Gmail.
 	const shortcutsActive = useShortcutsActive();
+	const neighbours = context ? getListNeighbours(context.entries, messageId) : { newerId: null, olderId: null };
+	const goTo = (id: string | null) => { if (id && hrefPrefixForKeys) router.push(`${hrefPrefixForKeys}/${id}`); };
 	const navigationShortcuts = [
-		{ key: "j", label: t("shortcut.next"), category: "Navigation" as const, action: () => { if (nextId && hrefPrefixForKeys) router.push(`${hrefPrefixForKeys}/${nextId}`); } },
-		{ key: "k", label: t("shortcut.previous"), category: "Navigation" as const, action: () => { if (previousId && hrefPrefixForKeys) router.push(`${hrefPrefixForKeys}/${previousId}`); } },
+		{ key: "j", label: t("shortcut.next"), category: "Navigation" as const, action: () => goTo(neighbours.olderId) },
+		{ key: "k", label: t("shortcut.previous"), category: "Navigation" as const, action: () => goTo(neighbours.newerId) },
 	];
 	useHotkeys(navigationShortcuts, { enabled: shortcutsActive && !!context });
 

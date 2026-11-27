@@ -289,7 +289,7 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
 
   if (!message) {
     return (
-      <p className="px-6 py-4 text-sm text-neutral-500">
+      <p className="px-6 py-4 text-sm text-ink-muted">
         {data?.error ?? t("message.notFound")}
       </p>
     );
@@ -322,7 +322,7 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
       : { month: "short", day: "2-digit", year: "numeric" });
   return (<ConversationNotesProvider key={message.threadId ?? message.id} messageId={message.id} emails={noteEmails}>
 
-    <div className={clsx("flex py-2 h-12 items-center px-2 border-b sticky top-0 bg-white z-40 gap-3", scrolled ? "border-neutral-200" : "border-transparent")}>
+    <div className={clsx("sticky top-0 z-40 flex h-12 items-center gap-3 border-b bg-white px-2 py-2 transition-colors duration-150", scrolled ? "border-line" : "border-transparent")}>
       <MessageReadingHeaderButton />
       {/* <div className="min-w-0 flex-1" /> */}
       {/* <div className="flex items-center flex-row gap-6">
@@ -351,15 +351,16 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
         category={message.category}
         senderKey={message.senderAddress}
         labelIds={message.labelIds}
+        starred={message.starred}
       />
       <MessageDetailNavigation messageId={message.id} unread={message.direction === "inbound" && !message.read} />
     </div>
 
-    <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto overscroll-contain scrollbar-gutter-stable flex-1 min-h-0">
-      <h1 className={clsx("sm:pl-[78px] px-4 pb-2 pt-2 text-2xl text-neutral-900 sm:pr-6")} title={message.subject ?? t("list.noSubject")}>
+    <div ref={scrollRef} onScroll={handleScroll} className="reader-enter h-full min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
+      <h1 className="text-balance px-4 pb-1 pt-4 font-display text-[26px] font-semibold leading-[1.2] tracking-[-0.02em] text-ink sm:pl-[78px] sm:pr-8" title={message.subject ?? t("list.noSubject")}>
         {message.subject ?? t("list.noSubject")}
       </h1>
-      <ReaderLabelChips mailboxId={message.mailboxId} labelIds={message.labelIds} className="sm:pl-[78px] px-4 pb-2 sm:pr-6" />
+      <ReaderLabelChips mailboxId={message.mailboxId} labelIds={message.labelIds} className="px-4 pb-1 pt-2 sm:pl-[78px] sm:pr-8" />
       <MessageInviteCard key={message.id} messageId={message.id} hasCalendarAttachment={!!findInviteAttachment(attachments)} className={clsx("sm:ml-[78px] mx-4 mb-3 sm:mr-6")} />
       <ConversationNotes
         className={clsx("sm:pl-[78px] px-4 sm:pr-6")}
@@ -387,7 +388,7 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
         expandedAll={threadExpanded}
         onExpandedAllChange={setThreadExpanded}
       />
-      <article data-message-id={message.id} className={"pb-4 sm:pl-0 sm:pr-6"}>
+      <article data-message-id={message.id} className="pb-6 pt-3 sm:pl-0 sm:pr-8">
         <div className="w-full">
           {canUnsubscribe && !unsubBannerDismissed && (
             <MailingListBanner messageId={message.id} onDismiss={dismissUnsubBanner} />
@@ -405,8 +406,8 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
                 className="mt-2 sm:-ml-12"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-neutral-900 mt-1.25 flex flex-row items-center gap-1 w-full  overflow-hidden">
-                  <b className="whitespace-nowrap">
+                <p className="mt-1.25 flex w-full flex-row items-baseline gap-1.5 overflow-hidden text-[15px] text-ink">
+                  <b className="whitespace-nowrap font-semibold">
                     {message.direction === "inbound" ? (
                       <ContactDetailsTrigger
                         mailboxId={message.mailboxId}
@@ -417,12 +418,12 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
                       fromName
                     )}
                   </b>{" "}
-                  <span className="hidden sm:block text-neutral-500 text-xs flex-1 overflow-hidden text-ellipsis min-w-0">&lt;{fromAddress}&gt;</span>
+                  <span className="hidden min-w-0 flex-1 overflow-hidden text-ellipsis font-mono text-[12px] text-ink-muted sm:block">&lt;{fromAddress}&gt;</span>
                   {canUnsubscribe && unsubBannerDismissed && (
                     <MessageUnsubscribeButton key={message.id} messageId={message.id} />
                   )}
                 </p>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-ink-muted">
                   {t("source.to").toLowerCase()}{" "}
                   <RecipientList
                     entries={toEntries}
@@ -430,35 +431,34 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
                     style={showFullRecipientAddresses ? "full" : "address"}
                   />
                 </p>
-                <div className="sm:hidden flex items-center gap-2 text-xs text-neutral-500">
+                <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums text-ink-muted sm:hidden">
                   <span>{messageDate(false)}</span>
                 </div>
                 {ccEntries.length > 0 && (
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-xs text-ink-muted">
                     {t("message.cc")} <RecipientList entries={ccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
                   </p>
                 )}
                 {bccEntries.length > 0 && (
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-xs text-ink-muted">
                     {t("message.bcc")} <RecipientList entries={bccEntries} mailboxId={message.mailboxId} style={showFullRecipientAddresses ? "full" : "address"} />
                   </p>
                 )}
                 {(readerProject || message.deliveredTo) && (
-                  <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-neutral-500" data-reader-project="">
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1" data-reader-project="">
                     {readerProject && (
-                      <>
-                        <ProjectDot name={readerProject.name} color={readerProject.color} />
-                        <span className="font-medium text-neutral-700">{readerProject.name}</span>
-                      </>
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface-2 px-1.5 py-px text-[11px] font-medium leading-[18px] text-ink-soft">
+                        <ProjectDot name={readerProject.name} color={readerProject.color} className="h-1.5 w-1.5" />
+                        {readerProject.name}
+                      </span>
                     )}
-                    {readerProject && message.deliveredTo && <span aria-hidden="true">·</span>}
-                    {message.deliveredTo && <span>{t("projects.deliveredTo", { address: message.deliveredTo })}</span>}
+                    {message.deliveredTo && <span className="font-mono text-[11px] text-ink-muted">{t("projects.deliveredTo", { address: message.deliveredTo })}</span>}
                   </p>
                 )}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <p className="hidden text-xs sm:block">{messageDate(true)}</p>
+              <p className="hidden font-mono text-[11px] tabular-nums text-ink-muted sm:block">{messageDate(true)}</p>
               <ThreadMessageActions
                 message={currentThreadMessage}
                 mailboxId={message.mailboxId}
@@ -485,10 +485,10 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
             </div>
           )}
           {scheduledAt && <div className="px-4 sm:px-0 sm:pl-[78px]"><ScheduledSendBanner messageId={message.id} scheduledAt={scheduledAt} onRescheduled={(next) => setData((current) => current ? { ...current, scheduledAt: next } : current)} /></div>}
-          <div className="prose max-w-none px-4 text-neutral-900 sm:px-0 sm:pl-[78px]">
+          <div className="prose max-w-none px-4 pt-1 text-ink sm:px-0 sm:pl-[78px]">
             {bodyError ? (
-              <div role="alert" className="not-prose rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-                <p className="text-sm text-neutral-700">{t("source.loadFailed")}</p>
+              <div role="alert" className="not-prose rounded-lg border border-line bg-surface-2 p-4">
+                <p className="text-sm text-ink-soft">{t("source.loadFailed")}</p>
                 <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void retryBody()}>
                   {t("webhooks.retry")}
                 </Button>
@@ -501,9 +501,10 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
                 <Skeleton className="h-4 w-5/6" />
               </div>
             ) : htmlBody ? (
-              <EmailHtmlRenderer key={message.id} className="mx-auto" html={htmlBody} autoAllowRemote={remote.autoAllow} onAllowRemote={remote.allowSender} />
+              <EmailHtmlRenderer key={message.id} html={htmlBody} autoAllowRemote={remote.autoAllow} onAllowRemote={remote.allowSender} />
             ) : (
-              <pre className="whitespace-pre-wrap text-sm text mx-auto">
+              // Plain text reads at a comfortable measure instead of running the full pane width.
+              <pre className="text max-w-[720px] whitespace-pre-wrap break-words text-[15px] leading-7 text-ink">
                 {cloudAttachmentResult.content}
               </pre>
             )}
@@ -516,8 +517,8 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
             ))}
           </div>
           {cloudAttachmentResult.attachments.length > 0 && (
-            <section className="mt-8 border-t border-neutral-100 px-4 py-6 sm:px-0 sm:pl-[78px]">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+            <section className="mt-8 border-t border-line px-4 py-6 sm:px-0 sm:pl-[78px]">
+              <h2 className="mb-3 text-sm font-semibold text-ink">
                 {t("message.cloudFiles", { count: cloudAttachmentResult.attachments.length })}
               </h2>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -546,14 +547,14 @@ function MessageDetailContent({ messageId }: { messageId: string }) {
             </section>
           )}
           {attachments.length > 0 && (
-            <section className="mt-8 border-t border-neutral-100 px-4 py-6 sm:px-0 sm:pl-[78px]">
+            <section className="mt-8 border-t border-line px-4 py-6 sm:px-0 sm:pl-[78px]">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-neutral-900">
+                <h2 className="text-sm font-semibold text-ink">
                   {t("message.attachments", { count: attachments.length })}
                 </h2>
                 <button
                   type="button"
-                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md text-xs font-medium text-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   onClick={() => void onDownloadAllAttachments()}
                 >
                   <ArrowDownToLine className="h-3.5 w-3.5" />
