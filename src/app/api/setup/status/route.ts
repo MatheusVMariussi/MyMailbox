@@ -3,6 +3,11 @@ import { hasAdminAccount } from "@/lib/auth/setup";
 import { getEnv } from "@/lib/cloudflare";
 import { getPrimaryDomain } from "@/lib/user";
 
+/**
+ * Public: whether first-run setup is closed and whether its domain step is done, which is all the setup page
+ * needs before the operator proves the setup token. The primary domain's name and settings are never part of
+ * it; the token-gated `POST /api/setup/prepare` returns them while setup is open.
+ */
 export async function GET() {
 	const env = getEnv();
 	try {
@@ -13,9 +18,6 @@ export async function GET() {
 		return NextResponse.json({
 			hasAdminAccount: adminAccountExists,
 			hasPrimaryDomain: !!domain,
-			primaryDomain: domain
-				? { hostname: domain.hostname, sendingRequested: domain.sendingRequested }
-				: null,
 		}, {
 			headers: { "Cache-Control": "no-store" },
 		});

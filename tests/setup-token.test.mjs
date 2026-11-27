@@ -129,6 +129,34 @@ test("without SETUP_TOKEN, a local development host may still run setup", async 
 	assert.equal(f.userCount(), 1);
 });
 
+test("the public setup status names no domain; only the token-gated prepare step does", async (t) => {
+	const f = await fixture(t, { CF_TOKEN: "token" });
+	const status = async () => {
+		const response = await routes.status(new Request("https://mail.example.com/api/setup/status"));
+		assert.equal(response.status, 200);
+		assert.equal(response.headers.get("Cache-Control"), "no-store");
+		return response.json();
+	};
+	assert.deepEqual(await status(), { hasAdminAccount: false, hasPrimaryDomain: false });
+
+	// A setup interrupted after its domain step: the domain exists, no admin does yet.
+	f.database.db.exec(`
+		INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES ('u1', 'someone@example.com', 'hash', 'Someone', 'user', 1);
+		INSERT INTO domains (id, user_id, hostname, zone_id, status, sending_requested, created_at) VALUES ('d1', 'u1', 'example.com', 'z1', 'active', 1, 1);
+	`);
+	const publicBody = await status();
+	assert.deepEqual(publicBody, { hasAdminAccount: false, hasPrimaryDomain: true });
+	assert.doesNotMatch(JSON.stringify(publicBody), /example\.com/);
+
+	const refused = await routes.prepare(request("/api/setup/prepare"));
+	assert.equal(refused.status, 401);
+	assert.doesNotMatch(await refused.text(), /example\.com/);
+	const prepared = await routes.prepare(request("/api/setup/prepare", { token: TOKEN }));
+	const body = await prepared.json();
+	assert.equal(prepared.status, 200, JSON.stringify(body));
+	assert.deepEqual(body.primaryDomain, { hostname: "example.com", sendingRequested: true });
+});
+
 test("registration spends the per-IP login budget", async (t) => {
 	const keys = [];
 	const f = await fixture(t, { LOGIN_RATE_LIMIT: { limit: async ({ key }) => { keys.push(key); return { success: false }; } } });

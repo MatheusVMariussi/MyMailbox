@@ -142,8 +142,9 @@ export function RegisterClient() {
       const data = await getSetupStatus();
       setHasAdminAccount(data.hasAdminAccount);
       setHasPrimaryDomain(data.hasPrimaryDomain);
-      setPrimaryDomain(data.primaryDomain?.hostname ?? null);
-      setPrimaryDomainSendingRequested(data.primaryDomain?.sendingRequested ?? null);
+      // The domain's name comes from the token-gated prepare step, never from the public status.
+      setPrimaryDomain(preparation.data.primaryDomain?.hostname ?? null);
+      setPrimaryDomainSendingRequested(preparation.data.primaryDomain?.sendingRequested ?? null);
       setPreparationComplete(true);
     } catch (error) {
       setError(error instanceof Error ? error.message : t("setup.prepFailed"));

@@ -1,8 +1,14 @@
+/** The public `/api/setup/status` answer: whether setup is closed and whether its domain step is done, nothing more. */
 export type SetupStatus = {
 	hasAdminAccount: boolean;
 	hasPrimaryDomain: boolean;
-	primaryDomain?: { hostname: string; sendingRequested: boolean } | null;
 	error?: string;
+};
+
+/** The primary domain an interrupted setup already created; only the setup-token-gated prepare step returns it. */
+export type SetupPrimaryDomain = {
+	hostname: string;
+	sendingRequested: boolean;
 };
 
 export type SetupRequirementCheck = {
@@ -17,6 +23,7 @@ export type SetupErrorCode = import("@/lib/setup/token-utils").SetupTokenErrorCo
 export type SetupPreparationResult = {
 	checks?: SetupRequirementCheck[];
 	migrated?: boolean;
+	primaryDomain?: SetupPrimaryDomain | null;
 	error?: string;
 	code?: SetupErrorCode;
 };
