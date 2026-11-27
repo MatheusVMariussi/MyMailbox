@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 	const draftId = newId("msg");
 	const text = input.text ?? "";
 	const html = input.html ?? "";
-	const project = await resolveProjectSafely(db, sender.fromAddr);
+	const project = await resolveProjectSafely(db, user.id, sender.fromAddr);
 
 	await db.insert(messages).values({
 		id: draftId,

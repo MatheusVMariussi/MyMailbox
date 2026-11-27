@@ -123,7 +123,8 @@ export async function processInboundMessage(
 	const deliveredAddress = getEmailAddress(payload.to) || `${decision.mailbox.localPart}@${decision.mailbox.hostname}`;
 	// The envelope recipient decides the project: with use_all_domains one mailbox receives on every domain of its owner.
 	const deliveredTo = normalizeEmailAddress(payload.to) || null;
-	const project = await resolveProjectSafely(db, deliveredTo);
+	// Only the receiving mailbox owner's projects count, never another user's mapping of the same address.
+	const project = await resolveProjectSafely(db, decision.mailbox.userId, deliveredTo);
 	// Keep the whole To header so reply-all can address everyone; rules and
 	// webhooks still see the envelope recipient the message was delivered to.
 	const toAddr = parsed.toAddr ?? payload.to;

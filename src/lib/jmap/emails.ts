@@ -52,7 +52,7 @@ type DraftRow = {
 /** Insert a draft and return its id. Drafts are outbound mail that has not been sent. */
 async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 	const id = newId("msg");
-	const project = await resolveProjectSafely(ctx.db, row.fromAddr);
+	const project = await resolveProjectSafely(ctx.db, ctx.auth.userId, row.fromAddr);
 	await ctx.db.insert(messages).values({
 		id,
 		userId: ctx.auth.userId,

@@ -68,10 +68,10 @@ test("the server resolves an address to its project and name", async (t) => {
 	const sales = await p.createProject(db, { userId: "owner", name: "Sales", color: "#4f8cff" });
 	await p.setProjectAddresses(db, alpha, [{ domainId: "d-alpha", localPart: "" }], hostnames);
 	await p.setProjectAddresses(db, sales, [{ domainId: "d-alpha", localPart: "sales" }], hostnames);
-	assert.deepEqual(await p.resolveProjectForAddress(db, "Sa.les+x@Alpha.test"), { id: sales.id, name: "Sales" });
-	assert.deepEqual(await p.resolveProjectForAddress(db, "me@alpha.test"), { id: alpha.id, name: "Alpha" });
-	assert.equal(await p.resolveProjectForAddress(db, "me@beta.test"), null);
-	assert.equal(await p.resolveProjectSafely(db, null), null);
+	assert.deepEqual(await p.resolveProjectForAddress(db, "owner", "Sa.les+x@Alpha.test"), { id: sales.id, name: "Sales" });
+	assert.deepEqual(await p.resolveProjectForAddress(db, "owner", "me@alpha.test"), { id: alpha.id, name: "Alpha" });
+	assert.equal(await p.resolveProjectForAddress(db, "owner", "me@beta.test"), null);
+	assert.equal(await p.resolveProjectSafely(db, "owner", null), null);
 });
 
 test("mappable domains are the user's own plus those of their accessible mailboxes", async (t) => {
@@ -101,7 +101,7 @@ test("re-stamping walks the mailboxes in bounded pages and writes only what chan
 	const calls = [];
 	let cursor = null;
 	for (let guard = 0; guard < 10; guard++) {
-		const result = await p.restampMessages(db, ["mb-b", "mb-a"], cursor, 1);
+		const result = await p.restampMessages(db, "owner", ["mb-b", "mb-a"], cursor, 1);
 		calls.push(result);
 		if (result.done) break;
 		cursor = result.cursor;
@@ -111,7 +111,7 @@ test("re-stamping walks the mailboxes in bounded pages and writes only what chan
 	const stamps = Object.fromEntries(sqlite.prepare("SELECT id, project_id FROM messages").all().map((row) => [row.id, row.project_id]));
 	assert.deepEqual(stamps, { "in-env": beta.id, "in-legacy": alpha.id, "in-cc": beta.id, out: beta.id, stale: null, foreign: null });
 	// Nothing left to change: a second run writes nothing.
-	assert.deepEqual(await p.restampMessages(db, ["mb-a", "mb-b"], null), { done: true, scanned: 5, updated: 0, cursor: null });
+	assert.deepEqual(await p.restampMessages(db, "owner", ["mb-a", "mb-b"], null), { done: true, scanned: 5, updated: 0, cursor: null });
 });
 
 test("a re-stamp page stops at the page size and resumes after the last row", async (t) => {
@@ -120,10 +120,10 @@ test("a re-stamp page stops at the page size and resumes after the last row", as
 	for (let index = 0; index < p.RESTAMP_PAGE_SIZE + 3; index++) insert.run(`m-${index}`);
 	const alpha = await p.createProject(db, { userId: "owner", name: "Alpha", color: "#4f8cff" });
 	await p.setProjectAddresses(db, alpha, [{ domainId: "d-alpha", localPart: "" }], hostnames);
-	const first = await p.restampMessages(db, ["mb-a"], null, 1);
+	const first = await p.restampMessages(db, "owner", ["mb-a"], null, 1);
 	assert.equal(first.done, false);
 	assert.equal(first.scanned, p.RESTAMP_PAGE_SIZE);
-	const second = await p.restampMessages(db, ["mb-a"], first.cursor, 1);
+	const second = await p.restampMessages(db, "owner", ["mb-a"], first.cursor, 1);
 	assert.equal(second.scanned, 3);
 	assert.equal(second.done, true);
 	assert.equal(sqlite.prepare("SELECT count(*) AS n FROM messages WHERE project_id = ?").get(alpha.id).n, p.RESTAMP_PAGE_SIZE + 3);

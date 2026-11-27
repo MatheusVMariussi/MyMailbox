@@ -129,7 +129,7 @@ export async function sendEmail(
 	const snippet = buildSnippet(input.text ?? null, input.html ?? null);
 	const toAddr = joinEmailAddressList(to);
 	// Sent mail belongs to the project of its From address.
-	const project = await resolveProjectSafely(db, sender.fromAddr);
+	const project = await resolveProjectSafely(db, input.userId, sender.fromAddr);
 
 	await db.insert(messages).values({
 		id: messageId,

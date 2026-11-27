@@ -53,7 +53,7 @@ export async function PATCH(request: Request, { params }: DraftRouteParams) {
 
 	const text = input.text ?? "";
 	const html = input.html ?? "";
-	const project = await resolveProjectSafely(db, sender.fromAddr);
+	const project = await resolveProjectSafely(db, user.id, sender.fromAddr);
 	await db
 		.update(messages)
 		.set({

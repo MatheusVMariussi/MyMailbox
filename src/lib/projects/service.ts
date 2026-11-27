@@ -175,8 +175,13 @@ export async function setProjectAddresses(
 		.sort((left, right) => left.hostname.localeCompare(right.hostname) || left.localPart.localeCompare(right.localPart));
 }
 
-/** The project owning an address: an exact (normalized) local part on its domain, else the domain default. */
-export async function resolveProjectForAddress(db: AppDatabase, address: string): Promise<ResolvedProject | null> {
+/**
+ * The project of `userId` owning an address: an exact (normalized) local part on its domain, else the
+ * domain default. Projects are per user, so only that user's mappings count: the owner of the receiving
+ * mailbox for inbound mail, the acting user for sends and drafts. Another user who maps the same address
+ * on a shared domain never stamps this user's mail.
+ */
+export async function resolveProjectForAddress(db: AppDatabase, userId: string, address: string): Promise<ResolvedProject | null> {
 	const parts = splitProjectAddress(address);
 	if (!parts) return null;
 	const rows = await db
@@ -184,51 +189,55 @@ export async function resolveProjectForAddress(db: AppDatabase, address: string)
 		.from(projectAddresses)
 		.innerJoin(domains, eq(domains.id, projectAddresses.domainId))
 		.innerJoin(projects, eq(projects.id, projectAddresses.projectId))
-		.where(eq(domains.hostname, parts.hostname))
+		.where(and(eq(domains.hostname, parts.hostname), eq(projects.userId, userId)))
 		.orderBy(asc(projectAddresses.createdAt), asc(projectAddresses.id));
 	const projectId = pickProjectForLocalPart(rows, parts.localPart);
 	if (!projectId) return null;
 	return { id: projectId, name: rows.find((row) => row.projectId === projectId)?.name ?? "" };
 }
 
-export async function resolveProjectIdForAddress(db: AppDatabase, address: string): Promise<string | null> {
-	return (await resolveProjectForAddress(db, address))?.id ?? null;
+export async function resolveProjectIdForAddress(db: AppDatabase, userId: string, address: string): Promise<string | null> {
+	return (await resolveProjectForAddress(db, userId, address))?.id ?? null;
 }
 
 /** Like `resolveProjectForAddress`, but a failure is logged and resolves to none: stamping never blocks mail. */
-export async function resolveProjectSafely(db: AppDatabase, address: string | null | undefined): Promise<ResolvedProject | null> {
+export async function resolveProjectSafely(db: AppDatabase, userId: string, address: string | null | undefined): Promise<ResolvedProject | null> {
 	if (!address) return null;
 	try {
-		return await resolveProjectForAddress(db, address);
+		return await resolveProjectForAddress(db, userId, address);
 	} catch (error) {
 		console.error("Project lookup failed", error);
 		return null;
 	}
 }
 
-/** Every project mapping with its hostname, oldest first (the order ties resolve in). */
-export async function loadProjectMappings(db: AppDatabase): Promise<ProjectHostMapping[]> {
+/** Every project mapping of one user with its hostname, oldest first (the order ties resolve in). */
+export async function loadProjectMappings(db: AppDatabase, userId: string): Promise<ProjectHostMapping[]> {
 	return db
 		.select({ projectId: projectAddresses.projectId, localPart: projectAddresses.localPart, hostname: domains.hostname })
 		.from(projectAddresses)
 		.innerJoin(domains, eq(domains.id, projectAddresses.domainId))
+		.innerJoin(projects, eq(projects.id, projectAddresses.projectId))
+		.where(eq(projects.userId, userId))
 		.orderBy(asc(projectAddresses.createdAt), asc(projectAddresses.id));
 }
 
 /**
- * Recomputes the project of stored messages in these mailboxes against the current mappings and writes the
- * ones that changed (stale ids of deleted projects included). Bounded: it reads at most `maxPages` pages
- * of `RESTAMP_PAGE_SIZE` rows, walking each mailbox by rowid, and returns a cursor to continue from.
+ * Recomputes the project of `userId`'s stored messages in these mailboxes against that user's current
+ * mappings and writes the ones that changed (stale ids of deleted projects included). Rows of other users
+ * (in a shared mailbox) keep their stamp. Bounded: it reads at most `maxPages` pages of `RESTAMP_PAGE_SIZE`
+ * rows, walking each mailbox by rowid, and returns a cursor to continue from.
  */
 export async function restampMessages(
 	db: AppDatabase,
+	userId: string,
 	mailboxIds: readonly string[],
 	cursor: string | null | undefined,
 	maxPages = RESTAMP_MAX_PAGES,
 ): Promise<ProjectRestampResult> {
 	const ids = [...new Set(mailboxIds)].sort();
 	let { mailboxIndex, afterRowId } = parseRestampCursor(cursor);
-	const mappings = await loadProjectMappings(db);
+	const mappings = await loadProjectMappings(db, userId);
 	let scanned = 0;
 	let updated = 0;
 	for (let page = 0; page < maxPages; page++) {
@@ -243,6 +252,7 @@ export async function restampMessages(
 				toAddr: messages.toAddr,
 				ccAddr: messages.ccAddr,
 				projectId: messages.projectId,
+				userId: messages.userId,
 			})
 			.from(messages)
 			.where(and(eq(messages.mailboxId, ids[mailboxIndex]), gt(sql`${messages}.rowid`, afterRowId)))
@@ -251,6 +261,8 @@ export async function restampMessages(
 		scanned += rows.length;
 		const changes = new Map<string | null, string[]>();
 		for (const row of rows) {
+			// Pages still walk every row so the cursor advances; other users' rows are only skipped.
+			if (row.userId !== userId) continue;
 			const projectId = resolveMessageProject(mappings, row);
 			if (projectId === (row.projectId ?? null)) continue;
 			changes.set(projectId, [...(changes.get(projectId) ?? []), row.id]);

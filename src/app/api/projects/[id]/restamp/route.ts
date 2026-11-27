@@ -22,5 +22,5 @@ export async function POST(request: Request, { params }: ProjectRouteParams) {
 	const db = getDb(env);
 	if (!await getOwnProject(db, auth.user.id, id)) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 	const mailboxIds = await listAccessibleMailboxIds(db, auth.user);
-	return NextResponse.json(await restampMessages(db, mailboxIds, parsed.data.cursor ?? null));
+	return NextResponse.json(await restampMessages(db, auth.user.id, mailboxIds, parsed.data.cursor ?? null));
 }
