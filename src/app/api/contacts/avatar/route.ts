@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 	const addressEntry = form.get("address");
 	const mailboxId = typeof mailboxEntry === "string" ? mailboxEntry : "";
 	const email = normalizeEmailAddress(typeof addressEntry === "string" ? addressEntry : "");
-	const images = getOptimizedAvatarFiles(form);
+	const images = await getOptimizedAvatarFiles(form);
 	if (!mailboxId || !email || !images) {
 		return NextResponse.json({ error: "Mailbox, contact, and image file are required" }, { status: 400 });
 	}
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 			return NextResponse.json({ error: "Only the account owner can change this contact" }, { status: 403 });
 		}
 		const key = avatarKeyFor(account.userId);
-		await storeAvatarImages(env.BUCKET, key, images.full, images.preview);
+		await storeAvatarImages(env.BUCKET, key, images.full, images.preview, images.contentType);
 		await syncPersonalIdentity(db, { ...account, avatarKey: key });
 		return NextResponse.json({ ok: true });
 	}
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
 	}
 
 	const key = contactAvatarKeyFor(access.mailbox.userId, email);
-	await storeAvatarImages(env.BUCKET, key, images.full, images.preview);
+	await storeAvatarImages(env.BUCKET, key, images.full, images.preview, images.contentType);
 	await db
 		.update(contacts)
 		.set({ avatarKey: key })

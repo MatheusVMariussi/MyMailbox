@@ -58,7 +58,7 @@ export async function POST(request: Request, { params }: MailboxAvatarRouteParam
 	} catch {
 		return NextResponse.json({ error: "Expected multipart form data" }, { status: 400 });
 	}
-	const images = getOptimizedAvatarFiles(form);
+	const images = await getOptimizedAvatarFiles(form);
 	if (!images) return NextResponse.json({ error: "A resized WebP image and preview are required" }, { status: 400 });
 
 	const [mailbox] = await db
@@ -80,7 +80,7 @@ export async function POST(request: Request, { params }: MailboxAvatarRouteParam
 	// The primary mailbox shares the account avatar; every other mailbox stores its own.
 	const identity = tracksAccountIdentity(mailbox, mailbox.ownerEmail);
 	const key = identity ? avatarKeyFor(mailbox.userId) : mailboxAvatarKeyFor(id);
-	await storeAvatarImages(env.BUCKET, key, images.full, images.preview);
+	await storeAvatarImages(env.BUCKET, key, images.full, images.preview, images.contentType);
 	if (identity) {
 		await syncPersonalIdentity(db, {
 			userId: mailbox.userId,

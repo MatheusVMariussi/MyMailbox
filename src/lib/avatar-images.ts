@@ -5,14 +5,32 @@ export function avatarPreviewKeyFor(key: string): string {
 	return `${key}:preview`;
 }
 
-export function getOptimizedAvatarFiles(form: FormData): { full: File; preview: File } | null {
+/** Encodings the browser may produce: WebP where canvas can encode it, JPEG where it cannot (Safari). */
+export type AvatarContentType = "image/webp" | "image/jpeg";
+
+async function hasSignature(file: File, type: AvatarContentType): Promise<boolean> {
+	const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+	if (type === "image/jpeg") return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+	const ascii = (start: number, end: number) => String.fromCharCode(...head.slice(start, end));
+	return ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP";
+}
+
+function avatarContentType(type: string): AvatarContentType | null {
+	return type === "image/webp" || type === "image/jpeg" ? type : null;
+}
+
+export async function getOptimizedAvatarFiles(
+	form: FormData,
+): Promise<{ full: File; preview: File; contentType: AvatarContentType } | null> {
 	const full = form.get("file");
 	const preview = form.get("preview");
 	if (!(full instanceof File) || !(preview instanceof File)) return null;
-	if (full.type !== "image/webp" || preview.type !== "image/webp") return null;
+	const contentType = avatarContentType(full.type);
+	if (!contentType || preview.type !== contentType) return null;
 	if (!full.size || full.size > MAX_STORED_AVATAR_SIZE) return null;
 	if (!preview.size || preview.size > MAX_PREVIEW_AVATAR_SIZE) return null;
-	return { full, preview };
+	if (!(await hasSignature(full, contentType)) || !(await hasSignature(preview, contentType))) return null;
+	return { full, preview, contentType };
 }
 
 export async function storeAvatarImages(
@@ -20,12 +38,13 @@ export async function storeAvatarImages(
 	key: string,
 	full: File,
 	preview: File,
+	contentType: AvatarContentType,
 ): Promise<void> {
 	await bucket.put(avatarPreviewKeyFor(key), await preview.arrayBuffer(), {
-		httpMetadata: { contentType: "image/webp" },
+		httpMetadata: { contentType },
 	});
 	await bucket.put(key, await full.arrayBuffer(), {
-		httpMetadata: { contentType: "image/webp" },
+		httpMetadata: { contentType },
 	});
 }
 

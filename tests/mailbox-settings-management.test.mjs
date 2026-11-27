@@ -236,6 +236,10 @@ test("an alias cannot take an address another mailbox receives on all domains", 
 	assert.equal(free.status, 200);
 });
 
+const webpBytes = (...payload) => new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x10, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, ...payload]);
+const WEBP_FULL = webpBytes(4, 5);
+const WEBP_PREVIEW = webpBytes(6);
+
 test("administrative avatar edits follow the mailbox owner's primary identity", async t => {
 	const f = await fixture(t);
 	const response = await avatar.GET(f.request("primary", "/api/mailboxes/m-sam/avatar"), context("m-sam"));
@@ -243,14 +247,15 @@ test("administrative avatar edits follow the mailbox owner's primary identity", 
 	assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], [1, 2, 3]);
 	for (const id of ["m-sam", "m-sales"]) {
 		const form = new FormData();
-		form.set("file", new File([new Uint8Array([4, 5])], "avatar.webp", { type: "image/webp" }));
-		form.set("preview", new File([new Uint8Array([6])], "preview.webp", { type: "image/webp" }));
+		// Real WebP headers: the server checks the bytes match the declared type.
+		form.set("file", new File([WEBP_FULL], "avatar.webp", { type: "image/webp" }));
+		form.set("preview", new File([WEBP_PREVIEW], "preview.webp", { type: "image/webp" }));
 		assert.equal((await avatar.POST(f.request("primary", `/api/mailboxes/${id}/avatar`, "POST", form), context(id))).status, 200);
 	}
 	assert.equal(f.sql.prepare("SELECT avatar_key FROM users WHERE id='sam'").get().avatar_key, "avatars/sam");
 	assert.equal(f.sql.prepare("SELECT avatar_key FROM mailboxes WHERE id='m-sam'").get().avatar_key, "avatars/sam");
 	assert.equal(f.sql.prepare("SELECT avatar_key FROM mailboxes WHERE id='m-sales'").get().avatar_key, "mailbox-avatars/m-sales");
-	assert.deepEqual([...f.objects.get("avatars/sam")], [4, 5]);
+	assert.deepEqual([...f.objects.get("avatars/sam")], [...WEBP_FULL]);
 	assert.equal(f.objects.has("mailbox-avatars/m-sales:preview"), true);
 });
 

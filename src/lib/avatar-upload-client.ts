@@ -3,16 +3,20 @@ const PREVIEW_AVATAR_EDGE = 16;
 const ALLOWED_SOURCE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 export const MAX_SOURCE_AVATAR_SIZE = 10 * 1024 * 1024;
 
-function canvasBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-	return new Promise((resolve, reject) => {
-		canvas.toBlob((blob) => {
-			if (!blob || blob.type !== "image/webp") {
-				reject(new Error("Unable to process this image"));
-				return;
-			}
-			resolve(blob);
-		}, "image/webp", quality);
-	});
+function encodeCanvas(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> {
+	return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+
+/**
+ * WebP where the browser can encode it from a canvas (Chromium, Firefox). Safari cannot and silently returns
+ * PNG for a WebP request, so fall back to JPEG there; the server accepts both.
+ */
+async function canvasBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+	const webp = await encodeCanvas(canvas, "image/webp", quality);
+	if (webp?.type === "image/webp") return webp;
+	const jpeg = await encodeCanvas(canvas, "image/jpeg", quality);
+	if (jpeg?.type === "image/jpeg") return jpeg;
+	throw new Error("Unable to process this image");
 }
 
 async function resizeAvatar(image: ImageBitmap, maxEdge: number, quality: number): Promise<Blob> {
@@ -42,8 +46,9 @@ export async function appendOptimizedAvatar(form: FormData, source: File): Promi
 			resizeAvatar(image, FULL_AVATAR_EDGE, 0.85),
 			resizeAvatar(image, PREVIEW_AVATAR_EDGE, 0.7),
 		]);
-		form.set("file", full, "avatar.webp");
-		form.set("preview", preview, "avatar-preview.webp");
+		const extension = full.type === "image/jpeg" ? "jpg" : "webp";
+		form.set("file", full, `avatar.${extension}`);
+		form.set("preview", preview, `avatar-preview.${extension}`);
 	} finally {
 		image.close();
 	}

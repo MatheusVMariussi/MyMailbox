@@ -26,11 +26,11 @@ export async function POST(request: Request) {
 	} catch {
 		return NextResponse.json({ error: "Expected multipart form data" }, { status: 400 });
 	}
-	const images = getOptimizedAvatarFiles(form);
+	const images = await getOptimizedAvatarFiles(form);
 	if (!images) return NextResponse.json({ error: "A resized WebP image and preview are required" }, { status: 400 });
 
 	const key = avatarKeyFor(user.id);
-	await storeAvatarImages(env.BUCKET, key, images.full, images.preview);
+	await storeAvatarImages(env.BUCKET, key, images.full, images.preview, images.contentType);
 	await syncPersonalIdentity(getDb(env), {
 		userId: user.id,
 		name: user.name,
