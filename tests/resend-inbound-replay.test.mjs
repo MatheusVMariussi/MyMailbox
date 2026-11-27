@@ -75,6 +75,47 @@ test("a replayed Svix delivery is acknowledged without being processed again", a
 	assert.deepEqual(calls, { resend: 2, download: 2 }, "a different delivery is processed");
 });
 
+const MARKER = (id) => `svix-seen/resend-inbound/${id}`;
+
+async function markerState(env, id) {
+	const head = await env.BUCKET.head(MARKER(id));
+	return head ? head.customMetadata.state : null;
+}
+
+test("a delivery is marked completed only after intake, and a completed one ignores replays", async (t) => {
+	const { env, calls } = await fixture(t, smallMessage);
+	assert.equal((await app.inbound.POST(signed("msg_done"))).status, 200);
+	assert.equal(await markerState(env, "msg_done"), "done");
+	const replay = await app.inbound.POST(signed("msg_done"));
+	assert.equal(replay.status, 200);
+	assert.equal((await replay.json()).ignored, "Already processed");
+	assert.deepEqual(calls, { resend: 1, download: 1 });
+});
+
+test("a claim left behind by an attempt that died is re-taken once it is stale", async (t) => {
+	const { env, calls } = await fixture(t, smallMessage);
+	// The isolate died mid-download two minutes and a bit ago: the claim was never completed or released.
+	await env.BUCKET.put(MARKER("msg_dead"), new Uint8Array(0), {
+		customMetadata: { state: "processing", claimedAt: String(Date.now() - 2 * 60 * 1000 - 5000) },
+	});
+	const retry = await app.inbound.POST(signed("msg_dead"));
+	assert.equal(retry.status, 200, JSON.stringify(await retry.clone().json()));
+	assert.deepEqual(calls, { resend: 1, download: 1 });
+	assert.equal(await markerState(env, "msg_dead"), "done");
+});
+
+test("a fresh claim still in progress refuses the retry with a retryable status", async (t) => {
+	const { env, calls } = await fixture(t, smallMessage);
+	await env.BUCKET.put(MARKER("msg_busy"), new Uint8Array(0), {
+		customMetadata: { state: "processing", claimedAt: String(Date.now() - 10 * 1000) },
+	});
+	const retry = await app.inbound.POST(signed("msg_busy"));
+	assert.equal(retry.status, 409);
+	assert.ok(retry.headers.get("Retry-After"));
+	assert.deepEqual(calls, { resend: 0, download: 0 }, "nothing is fetched while another attempt runs");
+	assert.equal(await markerState(env, "msg_busy"), "processing");
+});
+
 test("a failed attempt leaves the delivery open for the provider's retry", async (t) => {
 	let fail = true;
 	const { calls } = await fixture(t, () => (fail ? new Response("nope", { status: 500 }) : smallMessage()));

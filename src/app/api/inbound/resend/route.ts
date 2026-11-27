@@ -5,7 +5,7 @@ import { getResendClient } from "@/lib/email/outbound-provider";
 import { intakeProviderMail, MAX_PROVIDER_MESSAGE_BYTES } from "@/lib/email/provider-intake";
 import { getReceivedEmail } from "@/lib/email/resend-api";
 import { verifySvixSignature } from "@/lib/email/svix";
-import { claimSvixDelivery, releaseSvixDelivery } from "@/lib/email/svix-replay";
+import { claimSvixDelivery, completeSvixDelivery, releaseSvixDelivery, SVIX_CLAIM_RETRY_AFTER_SECONDS } from "@/lib/email/svix-replay";
 import { getResendWebhookSecret } from "@/lib/domains/resend-receiving";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { readRawBody } from "@/lib/http/request";
@@ -41,14 +41,22 @@ export async function POST(request: Request) {
 	if (!valid || !svixId) return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
 
 	const claim = await claimSvixDelivery(env.BUCKET, "resend-inbound", svixId);
-	if (!claim) return NextResponse.json({ ignored: "Already processed" });
+	if (claim.status === "done") return NextResponse.json({ ignored: "Already processed" });
+	if (claim.status === "busy") {
+		// Another attempt is (or was, until its isolate died) processing it: a non-2xx makes Resend retry later.
+		return NextResponse.json(
+			{ error: "This delivery is already being processed" },
+			{ status: 409, headers: { "Retry-After": String(SVIX_CLAIM_RETRY_AFTER_SECONDS) } },
+		);
+	}
 	try {
 		const response = await processReceivedEvent(env, body);
 		// A server-side failure is retried by Resend with the same id; let that retry through.
-		if (response.status >= 500) await releaseSvixDelivery(env.BUCKET, claim);
+		if (response.status >= 500) await releaseSvixDelivery(env.BUCKET, claim.key);
+		else await completeSvixDelivery(env.BUCKET, claim.key);
 		return response;
 	} catch (error) {
-		await releaseSvixDelivery(env.BUCKET, claim);
+		await releaseSvixDelivery(env.BUCKET, claim.key);
 		throw error;
 	}
 }
