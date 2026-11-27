@@ -89,8 +89,8 @@ export const domains = sqliteTable(
 			.default("pending"),
 		routingStatus: text("routing_status"),
 		sendingSubdomainTag: text("sending_subdomain_tag"),
-		sendingProvider: text("sending_provider", { enum: ["none", "cloudflare", "resend"] }).notNull().default("none"),
-		receivingProvider: text("receiving_provider", { enum: ["none", "cloudflare", "resend"] }).notNull().default("cloudflare"),
+		sendingProvider: text("sending_provider", { enum: ["none", "cloudflare"] }).notNull().default("none"),
+		receivingProvider: text("receiving_provider", { enum: ["none", "cloudflare"] }).notNull().default("cloudflare"),
 		sendingRequested: bool("sending_requested").notNull().default(false),
 		sendingEnabled: bool("sending_enabled").notNull().default(false),
 		routingEnabled: bool("routing_enabled").notNull().default(false),
@@ -1434,9 +1434,6 @@ export const appSettings = sqliteTable("app_settings", {
 	id: text("id").primaryKey(),
 	appName: text("app_name").notNull().default("MyMailbox"),
 	outboundAttachmentMaxMb: integer("outbound_attachment_max_mb").notNull().default(25),
-	resendApiKey: text("resend_api_key"),
-	resendWebhookId: text("resend_webhook_id"),
-	resendWebhookSecret: text("resend_webhook_secret"),
 	iconKey: text("icon_key"),
 	/** Spam analysis lookups; the SPAMHAUS_DQS_KEY and ABUSECH_AUTH_KEY env vars apply when these are null. */
 	spamhausDqsKey: text("spamhaus_dqs_key"),
@@ -1446,9 +1443,6 @@ export const appSettings = sqliteTable("app_settings", {
 	spamBrands: text("spam_brands"),
 	/** "off" ignores bounce and complaint events, "record" stores them, "enforce" also refuses to send to those recipients. */
 	suppressionMode: text("suppression_mode", { enum: ["off", "record", "enforce"] }).notNull().default("off"),
-	/** Resend webhook for email.bounced and email.complained; separate from the receiving webhook above. */
-	resendEventsWebhookId: text("resend_events_webhook_id"),
-	resendEventsWebhookSecret: text("resend_events_webhook_secret"),
 	updatedAt: timestamp("updated_at")
 		.notNull()
 		.$defaultFn(() => new Date()),

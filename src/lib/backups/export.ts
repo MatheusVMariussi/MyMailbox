@@ -18,13 +18,9 @@ const OMITTED_COLUMNS: Partial<Record<DatabaseBackupTable, string[]>> = { dmarc_
 /**
  * Provider secrets in `app_settings` are written as null: a backup file is a copy of the database that
  * outlives it (downloads, R2), and these keys open the operator's accounts elsewhere. After a restore
- * the operator re-enters the Resend key (or sets RESEND_API_KEY), re-runs Resend receiving and event
- * setup (which replaces a webhook it has no secret for) and re-enters the spam-intelligence keys.
+ * the operator re-enters the spam-intelligence keys.
  */
 export const REDACTED_APP_SETTINGS_COLUMNS = [
-	"resend_api_key",
-	"resend_webhook_secret",
-	"resend_events_webhook_secret",
 	"spamhaus_dqs_key",
 	"abusech_auth_key",
 ] as const;
@@ -125,6 +121,7 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 	if (!BACKUP_TABLE_GROUPS.every((group) => group.tables.some((table) => document.includedTables.includes(table)))) throw new Error("This backup contains selected table groups only. Restore requires a backup that includes every table group.");
 	fillMissingBackupTables(document);
 	validateDatabaseBackup(document);
+	replaceRetiredValues(document);
 	// Everything that can refuse the restore is checked before the teardown below deletes anything.
 	const existing = await listTableNames(db);
 	const unmigrated = BACKUP_TABLES.filter((table) => !existing.has(table) && document.tables[table]?.length);
@@ -207,6 +204,21 @@ function fillMissingBackupTables(document: DatabaseBackupDocument): void {
 	// The passkey triggers recount credentials as the table is restored.
 	// Resetting avoids counting the exported value twice.
 	for (const row of document.tables.users ?? []) row.passkey_count = 0;
+}
+
+/**
+ * Values a release retired, rewritten the way its migration rewrote live rows, so an older backup restores
+ * into what this release understands. 0002_remove_resend: Resend is no longer a sending or receiving provider
+ * nor a suppression source. (Its dropped app_settings columns need nothing: restore drops unknown columns.)
+ */
+function replaceRetiredValues(document: DatabaseBackupDocument): void {
+	for (const row of document.tables.domains ?? []) {
+		if (row.sending_provider === "resend") row.sending_provider = "none";
+		if (row.receiving_provider === "resend") row.receiving_provider = "cloudflare";
+	}
+	for (const row of document.tables.email_suppressions ?? []) {
+		if (row.source === "resend") row.source = "admin";
+	}
 }
 
 function validateDatabaseBackup(document: DatabaseBackupDocument): void {

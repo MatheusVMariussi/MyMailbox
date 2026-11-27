@@ -234,6 +234,19 @@
         "INSERT INTO `app_settings` (`id`, `app_name`, `updated_at`)\nVALUES ('default', 'MyMailbox', unixepoch());",
         "INSERT INTO `jmap_change_floor` (`id`, `seq`) VALUES (1, 0);"
       ]
+    },
+    {
+      "name": "0002_remove_resend.sql",
+      "statements": [
+        "UPDATE `domains` SET `sending_provider` = 'none' WHERE `sending_provider` = 'resend';",
+        "UPDATE `domains` SET `receiving_provider` = 'cloudflare' WHERE `receiving_provider` = 'resend';",
+        "UPDATE `email_suppressions` SET `source` = 'admin' WHERE `source` = 'resend';",
+        "ALTER TABLE `app_settings` DROP COLUMN `resend_api_key`;",
+        "ALTER TABLE `app_settings` DROP COLUMN `resend_webhook_id`;",
+        "ALTER TABLE `app_settings` DROP COLUMN `resend_webhook_secret`;",
+        "ALTER TABLE `app_settings` DROP COLUMN `resend_events_webhook_id`;",
+        "ALTER TABLE `app_settings` DROP COLUMN `resend_events_webhook_secret`;"
+      ]
     }
   ]
 }
