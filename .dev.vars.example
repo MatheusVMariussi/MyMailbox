@@ -2,6 +2,11 @@
 # This is an app runtime token, not the Cloudflare deploy/build token.
 CF_TOKEN=your_api_token_with_zone_email_permissions
 
+# First-run setup asks for this secret before it creates the admin account or touches DNS.
+# On localhost and 127.0.0.1 setup also runs without it. In production set it with
+#   npx wrangler secret put SETUP_TOKEN
+# SETUP_TOKEN=a-long-random-value
+
 # Legacy Global API Key alternative. Use this only instead of CF_TOKEN.
 # CF_EMAIL=you@example.com
 # CF_API_KEY=your_global_api_key

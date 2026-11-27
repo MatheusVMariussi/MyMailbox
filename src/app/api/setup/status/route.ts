@@ -20,7 +20,8 @@ export async function GET() {
 			headers: { "Cache-Control": "no-store" },
 		});
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "Could not load setup status";
-		return NextResponse.json({ error: message }, { status: 500 });
+		// Public endpoint: keep the database error in the Worker logs.
+		console.error("Could not load setup status", error);
+		return NextResponse.json({ error: "Could not load setup status" }, { status: 500 });
 	}
 }

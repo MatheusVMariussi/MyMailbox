@@ -31,6 +31,11 @@ interface CloudflareEnv {
 	CF_API_KEY?: string;
 	CF_EMAIL?: string;
 	TURNSTILE_SECRET_KEY?: string;
+	/**
+	 * Secret the operator enters to run first-run setup (`npx wrangler secret put SETUP_TOKEN`). Without it,
+	 * setup and first-account registration are refused everywhere but a localhost development host.
+	 */
+	SETUP_TOKEN?: string;
 	/** Public origin of this install (https://mail.example.com); used for links in mail and for provider webhooks. */
 	APP_URL?: string;
 	/** VAPID public key (uncompressed P-256 point, URL-safe base64) for Web Push. */

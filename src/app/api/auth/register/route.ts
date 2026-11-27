@@ -18,9 +18,12 @@ import { readJsonBody } from "@/lib/http/request";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { verifyTurnstileToken } from "@/lib/auth/turnstile";
 import { getDomainProvisioningError } from "@/lib/domains/errors";
+import { guardSetupRequest } from "@/lib/setup/token";
 
 export async function POST(request: Request) {
 	const env = getEnv();
+	const refused = await guardSetupRequest(env, request);
+	if (refused) return refused;
 	const db = getDb(env);
 	if (await hasAdminAccount(env)) {
 		return NextResponse.json({ error: "Registration is closed after the first account is created" }, { status: 403 });

@@ -51,11 +51,13 @@ You need a Cloudflare account whose DNS hosts the domain you want to use, and No
    npx wrangler queues create mymailbox-outbound
    npm run deploy
    npx wrangler secret put CF_TOKEN
+   openssl rand -base64 32          # copy this value: /setup asks for it
+   npx wrangler secret put SETUP_TOKEN
    ```
 
-   On the first deploy, Wrangler provisions the D1 database and the R2 bucket named in `wrangler.jsonc`.
+   On the first deploy, Wrangler provisions the D1 database and the R2 bucket named in `wrangler.jsonc`. `SETUP_TOKEN` is a secret only you know: `/setup` asks for it before it touches the database or DNS, and refuses to run until it is set.
 3. **Set `APP_URL`.** Add it as a variable on the Worker (Settings, Variables and Secrets) with the app's public HTTPS address, for example `https://mail.example.com`. Receiving through Resend and read receipts use it.
-4. **Finish setup.** Open the app at `/setup`. It checks the Cloudflare configuration, initializes the D1 database and creates your admin account.
+4. **Finish setup.** Open the app at `/setup` and enter the setup token. It checks the Cloudflare configuration, initializes the D1 database and creates your admin account.
 5. **Connect a domain.** Add a domain from the same Cloudflare account, then create your first mailbox.
 
 More options, including deploying with an AI coding agent: [deployment guide](docs/deployment.md).
@@ -70,7 +72,7 @@ npm run db:migrate:local
 npm run dev
 ```
 
-Add your Cloudflare credentials to `.dev.vars`, then open [localhost:3000](http://localhost:3000). Run `npm run db:seed` to load sample data.
+Add your Cloudflare credentials to `.dev.vars`, then open [localhost:3000](http://localhost:3000). Run `npm run db:seed` to load sample data. On `localhost` and `127.0.0.1`, setup runs without a `SETUP_TOKEN`; any other development host name needs one in `.dev.vars`.
 
 Before committing, run the checks:
 

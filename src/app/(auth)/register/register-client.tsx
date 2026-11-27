@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TurnstileField } from "@/components/auth/turnstile";
+import { isSetupTokenErrorCode, type SetupTokenErrorCode } from "@/lib/setup/token-utils";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   getSetupStatus,
   checkExistingMx,
@@ -20,6 +22,12 @@ import {
   submitRegistration,
 } from "./utils";
 import type { DomainPreflight, DomainSetupResult, SetupRequirementCheck } from "./types";
+
+const SETUP_TOKEN_MESSAGES: Record<SetupTokenErrorCode, TranslationKey> = {
+  setup_token_unset: "setup.tokenUnset",
+  setup_token_required: "setup.tokenRequired",
+  setup_token_invalid: "setup.tokenInvalid",
+};
 
 export function RegisterClient() {
   const { t } = useLanguage();
@@ -49,10 +57,23 @@ export function RegisterClient() {
   const [loading, setLoading] = useState(false);
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [usePasskey, setUsePasskey] = useState(false);
+  // The operator's SETUP_TOKEN secret, kept in memory only and sent with every setup request.
+  const [setupToken, setSetupToken] = useState("");
+  const [needsSetupToken, setNeedsSetupToken] = useState(false);
 
   useEffect(() => {
     void runPreparation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** A setup route's error, translated when it is about the setup token (which also reveals the field). */
+  function setupError(data: { error?: unknown; code?: string }, fallback: string): string {
+    if (isSetupTokenErrorCode(data.code)) {
+      setNeedsSetupToken(true);
+      return t(SETUP_TOKEN_MESSAGES[data.code]);
+    }
+    return typeof data.error === "string" ? data.error : fallback;
+  }
 
   const accountDomain = setupDomain ?? primaryDomain;
 
@@ -79,12 +100,12 @@ export function RegisterClient() {
     if (step !== 3 || !accountDomain || setupSkipDns) return;
 
     let active = true;
-    void checkExistingMx(accountDomain)
+    void checkExistingMx(setupToken, accountDomain)
       .then(({ ok, data }) => {
         if (!active) return;
         setMxChecking(false);
         if (!ok || data.hasExistingMx === undefined) {
-          setError(typeof data.error === "string" ? data.error : t("setup.mxCheckFailed"));
+          setError(setupError(data, t("setup.mxCheckFailed")));
           return;
         }
         setMxRecordsExist(data.hasExistingMx);
@@ -98,6 +119,8 @@ export function RegisterClient() {
     return () => {
       active = false;
     };
+  // setupToken and setupError are read at check time; a new token alone must not re-run the check.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, accountDomain, mxCheckRevision, setupSkipDns, t]);
 
   async function runPreparation() {
@@ -106,11 +129,11 @@ export function RegisterClient() {
     setPreparationComplete(false);
 
     try {
-      const preparation = await prepareSetup();
+      const preparation = await prepareSetup(setupToken);
       setChecks(preparation.data.checks ?? []);
       setDatabaseMigrated(!!preparation.data.migrated);
       if (!preparation.ok) {
-        setError(preparation.data.error ?? t("setup.completeConfig"));
+        setError(setupError(preparation.data, t("setup.completeConfig")));
         return;
       }
 
@@ -135,9 +158,9 @@ export function RegisterClient() {
     try {
       const hostname = String(new FormData(e.currentTarget).get("domain") ?? "").toLowerCase().trim();
       if (skipDns) {
-        const { ok, data } = await submitPrimaryDomain(hostname, true);
+        const { ok, data } = await submitPrimaryDomain(setupToken, hostname, true);
         if (!ok || !data.domain) {
-          setError(typeof data.error === "string" ? data.error : t("setup.domainFailed"));
+          setError(setupError(data, t("setup.domainFailed")));
           return;
         }
         setSetupDomain(data.domain.hostname);
@@ -150,12 +173,10 @@ export function RegisterClient() {
       const usedCachedCheck = domainCheck?.hostname === hostname;
       const result: { ok: boolean; data: DomainSetupResult } = usedCachedCheck
         ? { ok: true, data: { domain: domainCheck } }
-        : await submitPrimaryDomain(hostname);
+        : await submitPrimaryDomain(setupToken, hostname);
       const { ok, data } = result;
       if (!ok || !data.domain) {
-        setError(
-          typeof data.error === "string" ? data.error : t("setup.domainFailed"),
-        );
+        setError(setupError(data, t("setup.domainFailed")));
         return;
       }
       setSetupDomain(data.domain.hostname);
@@ -175,11 +196,11 @@ export function RegisterClient() {
     setDomainChecking(true);
     setError(null);
     try {
-      const { ok, data } = await submitPrimaryDomain(hostname);
+      const { ok, data } = await submitPrimaryDomain(setupToken, hostname);
       if (!ok || !data.domain) {
         setDomainCheck(null);
         setEnableSending(false);
-        setError(typeof data.error === "string" ? data.error : t("setup.domainCheckFailed"));
+        setError(setupError(data, t("setup.domainCheckFailed")));
         return;
       }
 
@@ -207,7 +228,7 @@ export function RegisterClient() {
         return;
       }
 
-      const { ok, data } = await submitRegistration(form, {
+      const { ok, data } = await submitRegistration(setupToken, form, {
         firstRun: true,
         domain,
         enableSending: setupDomain
@@ -227,7 +248,7 @@ export function RegisterClient() {
         setError(
           data.code === "passkey_unavailable"
             ? t("authError.passkeyUnavailable")
-            : typeof data.error === "string" ? data.error : t("setup.registrationFailed"),
+            : setupError(data, t("setup.registrationFailed")),
         );
         setTurnstileReset((value) => value + 1);
         return;
@@ -292,10 +313,33 @@ export function RegisterClient() {
       }
     >
       {step === 1 ? (
-        <div className="space-y-5">
+        <form
+          method="post"
+          className="space-y-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!loading && !preparationComplete) void runPreparation();
+          }}
+        >
           <p className="text-sm leading-6 text-neutral-600">
             {t("setup.prepareIntro")}
           </p>
+          {needsSetupToken && !preparationComplete && (
+            <div className="space-y-2">
+              <Label htmlFor="setup-token">{t("setup.token")}</Label>
+              <Input
+                id="setup-token"
+                name="setupToken"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                value={setupToken}
+                onChange={(event) => setSetupToken(event.currentTarget.value)}
+                required
+              />
+              <p className="text-xs leading-5 text-neutral-500">{t("setup.tokenHint")}</p>
+            </div>
+          )}
           <div className="space-y-2">
             {loading && checks.length === 0 && (
               <div className="flex items-center gap-3 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
@@ -338,16 +382,15 @@ export function RegisterClient() {
             </Button>
           ) : (
             <Button
-              type="button"
+              type="submit"
               variant="outline"
               className="h-11 w-full rounded-full px-6 active:scale-[0.98]"
               disabled={loading}
-              onClick={() => void runPreparation()}
             >
               {loading ? t("setup.checkingShort") : t("setup.checkAgain")}
             </Button>
           )}
-        </div>
+        </form>
       ) : showDomainStep ? (
         <form method="post" onSubmit={onDomainSubmit} className="space-y-5">
           <div className="space-y-2">

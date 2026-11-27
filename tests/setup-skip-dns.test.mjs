@@ -40,10 +40,12 @@ await build({
 
 const { SqliteDatabase, applyMigrations, setupDomain, setupMx, register } = await import(pathToFileURL(join(directory, "entry.mjs")).href);
 
+const SETUP_TOKEN = "setup-token-for-tests";
+
 function post(handler, path, body) {
 	return handler(new Request(`https://mymailbox.test${path}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json", Origin: "https://mymailbox.test" },
+		headers: { "Content-Type": "application/json", Origin: "https://mymailbox.test", "X-MyMailbox-Setup-Token": SETUP_TOKEN },
 		body: JSON.stringify(body),
 	}));
 }
@@ -52,7 +54,7 @@ async function fixture(t) {
 	const database = new SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
 	await applyMigrations(database, join(root, "drizzle/migrations"));
-	const env = { DB: database, EMAIL: { configured: true } };
+	const env = { DB: database, EMAIL: { configured: true }, SETUP_TOKEN };
 	globalThis.__testEnv = env;
 	t.after(() => { delete globalThis.__testEnv; });
 	const calls = [];

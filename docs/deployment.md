@@ -56,7 +56,8 @@ The Worker name, `services[].service` and `CF_EMAIL_WORKER_NAME` (default `mymai
 
 4. Deploy with `npm run deploy`. On the first deploy, Wrangler provisions the D1 database `mymailbox` and the R2 bucket `mymailbox-raw` declared in `wrangler.jsonc`.
 5. Store the runtime token as a Worker secret: `npx wrangler secret put CF_TOKEN`.
-6. Set `APP_URL` to the app's public HTTPS address (for example `https://mail.example.com`) as a variable on the Worker, under **Settings → Variables and Secrets**. `keep_vars` in `wrangler.jsonc` keeps dashboard variables across deploys. Receiving through Resend needs it, and read-receipt pixels use it.
+6. Store a setup token as a Worker secret: `npx wrangler secret put SETUP_TOKEN`, with a long random value (for example the output of `openssl rand -base64 32`). Keep it until setup is finished. Until an admin account exists, `/setup` and the first-account registration provision DNS with your `CF_TOKEN`, so every setup request must carry this token; without the secret, setup is refused on every host except `localhost` and `127.0.0.1`. The token is compared in constant time, and failed attempts spend the same per-IP budget as sign-in (`LOGIN_RATE_LIMIT`). You can delete it after setup (`npx wrangler secret delete SETUP_TOKEN`); setup stays closed once the admin exists.
+7. Set `APP_URL` to the app's public HTTPS address (for example `https://mail.example.com`) as a variable on the Worker, under **Settings → Variables and Secrets**. `keep_vars` in `wrangler.jsonc` keeps dashboard variables across deploys. Receiving through Resend needs it, and read-receipt pixels use it.
 
 ### Optional Web Push configuration
 
@@ -70,7 +71,7 @@ across deployments so existing browser subscriptions remain valid.
 
 1. Open the URL of the deployed `mymailbox` Worker.
 2. Go to `/setup` if MyMailbox does not take you there automatically.
-3. Let MyMailbox check the required Cloudflare configuration and initialize the empty D1 database.
+3. Enter the setup token (the `SETUP_TOKEN` secret from step 2), then let MyMailbox check the required Cloudflare configuration and initialize the empty D1 database.
 4. Create the first admin account when prompted.
 
 Setup applies the committed migrations through the Worker's D1 binding before creating the first admin account.
@@ -96,6 +97,7 @@ Paste the prompt below into an agent with terminal access. Give it your Cloudfla
 
 - **Deployment token** (Wrangler uses it as `CLOUDFLARE_API_TOKEN`): scope it to the target account with **Workers Scripts Edit** (or **Workers Admin** if you see Cloudflare's newer roles), **D1 Edit**, **Workers R2 Storage Edit**, **Queues Edit**, and **Account Settings Read**. Add **Workers Routes Edit** for the target zone only if the agent should attach a custom domain or route. See Cloudflare's [token permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/) and [Workers roles](https://developers.cloudflare.com/workers/authorization/workers/).
 - **Runtime token** (stored as the Worker secret `CF_TOKEN`): use the domain permissions above. Add **Email Sending Edit** to send mail. It must cover the zones you will connect in MyMailbox.
+- **Setup token** (stored as the Worker secret `SETUP_TOKEN`): a random value you generate yourself, for example with `openssl rand -base64 32`. `/setup` asks for it.
 
 ```text
 Install MyMailbox from https://github.com/MatheusVMariussi/MyMailbox in my Cloudflare account.
@@ -109,8 +111,10 @@ wrangler.jsonc: Worker mymailbox, D1 database mymailbox, R2 bucket mymailbox-raw
 and Queues mymailbox-inbound and mymailbox-outbound. Create or reuse them in the
 selected account. If you need the D1 database_id, set it only in the local Wrangler
 config and do not commit it. Install dependencies with Node 24, run npm run deploy,
-and set the runtime CF_TOKEN as a Worker secret. Do not run remote D1 migrations
-manually; the /setup flow initializes the database.
+and set the runtime CF_TOKEN as a Worker secret. Ask me for a SETUP_TOKEN value
+through a secret input (or generate one and give it to me once) and store it as a
+Worker secret with npx wrangler secret put SETUP_TOKEN. Do not run remote D1
+migrations manually; the /setup flow initializes the database.
 
 Give me the deployed URL and any remaining Cloudflare account actions, including
 setting APP_URL. I will open /setup, create the first admin account, and connect

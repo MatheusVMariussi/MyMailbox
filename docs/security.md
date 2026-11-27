@@ -1,5 +1,9 @@
 # Security notes for inbound mail
 
+## First-run setup
+
+Until the first admin account exists, `/setup` can create that account and provision DNS and Email Routing with the operator's `CF_TOKEN`. Every setup request (`/api/setup/prepare`, `/api/setup/domain`, `/api/setup/domain/mx` and `/api/auth/register`) must therefore carry the `SETUP_TOKEN` Worker secret, which the setup page asks for. The token is hashed and compared in constant time, and each request spends the per-IP sign-in budget. Without the secret, setup is refused on every host except `localhost` and `127.0.0.1`. Only one primary admin can exist (a unique index enforces it), and a database error while checking for one keeps setup closed.
+
 ## Deleted attachments stay in the original message
 
 Deleting an attachment removes its stored file and its row, so it can no longer be

@@ -3,6 +3,11 @@
 	"name": "mymailbox",
 	"main": "./worker.ts",
 	"compatibility_date": "2026-05-20",
+	// Secrets are not configured here. Set them with `npx wrangler secret put <NAME>`:
+	//   CF_TOKEN      runtime Cloudflare API token (DNS and Email Routing)
+	//   SETUP_TOKEN   required by /setup until the first admin exists; setup is refused without it
+	//                 (except on localhost). Use a long random value, e.g. `openssl rand -base64 32`.
+	// Local development reads them from .dev.vars (see .dev.vars.example), which is never deployed.
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public"

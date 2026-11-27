@@ -69,9 +69,9 @@ const EXEMPT = {
 	"auth/passkey/verify/route.ts": "pre-session passkey sign-in",
 	"auth/passkey/setup/options/route.ts": "pre-session, proves a single-use enrolment grant",
 	"auth/passkey/setup/verify/route.ts": "pre-session, proves a single-use enrolment grant",
-	"setup/domain/route.ts": "first-run setup, only works before any account exists",
-	"setup/domain/mx/route.ts": "first-run setup, only works before any account exists",
-	"setup/prepare/route.ts": "first-run setup, refuses a database that already has tables",
+	"setup/domain/route.ts": "first-run setup, needs the SETUP_TOKEN secret and only works before any account exists",
+	"setup/domain/mx/route.ts": "first-run setup, needs the SETUP_TOKEN secret and only works before any account exists",
+	"setup/prepare/route.ts": "first-run setup, needs the SETUP_TOKEN secret and only works before any account exists",
 	"seed/route.ts": "development seeding, refuses outside a fresh dev database",
 };
 const exemptReason = (relative) => Object.entries(EXEMPT).find(([prefix]) => relative === prefix || (prefix.endsWith("/") && relative.startsWith(prefix)))?.[1];

@@ -11,10 +11,14 @@ export type SetupRequirementCheck = {
 	message: string;
 };
 
+/** Machine-readable codes a setup route may answer with; the setup token codes are translated. */
+export type SetupErrorCode = import("@/lib/setup/token-utils").SetupTokenErrorCode;
+
 export type SetupPreparationResult = {
 	checks?: SetupRequirementCheck[];
 	migrated?: boolean;
 	error?: string;
+	code?: SetupErrorCode;
 };
 
 export type DomainPreflight = {
@@ -25,15 +29,17 @@ export type DomainPreflight = {
 export type DomainSetupResult = {
 	domain?: DomainPreflight;
 	error?: string;
+	code?: SetupErrorCode;
 };
 
 export type MxCheckResult = {
 	hasExistingMx?: boolean;
 	error?: string;
+	code?: SetupErrorCode;
 };
 
 export type RegisterResult = {
 	redirect?: string;
 	error?: string;
-	code?: "MX_RECORDS_CONFLICT" | "passkey_unavailable";
+	code?: "MX_RECORDS_CONFLICT" | "passkey_unavailable" | SetupErrorCode;
 };
