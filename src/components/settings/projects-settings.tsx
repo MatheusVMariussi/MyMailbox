@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useLanguage } from "@/components/language-provider";
-import { ProjectCard } from "@/components/projects/project-card";
+import { ProjectCard, type ProjectCardStatus } from "@/components/projects/project-card";
 import { ProjectColorPicker } from "@/components/projects/project-color-picker";
 import { useProjects } from "@/components/projects/use-projects";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ export function ProjectsSettings() {
 	const [color, setColor] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [statuses, setStatuses] = useState<Record<string, ProjectCardStatus>>({});
+	const setStatus = (projectId: string, status: ProjectCardStatus) => setStatuses((current) => ({ ...current, [projectId]: status }));
 
 	async function create(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -59,7 +61,15 @@ export function ProjectsSettings() {
 			</form>
 			{isLoading && <Skeleton className="h-40 w-full rounded-3xl" />}
 			{!isLoading && projects.length === 0 && <p className="text-sm text-neutral-500">{t("projects.empty")}</p>}
-			{projects.map((project) => <ProjectCard key={`${project.id}:${project.name}:${project.color}:${project.addresses.length}`} project={project} domains={domains} />)}
+			{projects.map((project) => (
+				<ProjectCard
+					key={`${project.id}:${project.name}:${project.color}:${project.addresses.length}`}
+					project={project}
+					domains={domains}
+					status={statuses[project.id] ?? null}
+					onStatus={(status) => setStatus(project.id, status)}
+				/>
+			))}
 		</div>
 	);
 }

@@ -156,6 +156,8 @@ test("every screen that adds or removes mailboxes or domains tells the provider"
 		"src/app/(auth)/onboarding/onboarding-client.tsx",
 		"src/app/(admin)/mailboxes/page.tsx",
 		"src/app/(admin)/accounts/[id]/utils.ts",
+		"src/app/(admin)/domains/AddDomainDialog.tsx",
+		"src/app/(admin)/domains/page.tsx",
 	];
 	for (const file of callers) assert.ok(read(file).includes("notifyMailboxesChanged()"), `${file} calls notifyMailboxesChanged()`);
 });

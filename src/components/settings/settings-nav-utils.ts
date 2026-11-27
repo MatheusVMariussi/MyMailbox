@@ -1,3 +1,4 @@
+import { canManageDomains } from "@/lib/auth/admin";
 import type { SettingsNavSection } from "./settings-nav-types";
 
 export const settingsNavSections: SettingsNavSection[] = [
@@ -43,12 +44,30 @@ export const settingsNavSections: SettingsNavSection[] = [
 				requiresMailboxAccess: true,
 			},
 			{
+				href: "/settings/domains",
+				labelKey: "settings.nav.domains",
+				requiresDomainAccess: true,
+			},
+			{
 				href: "/settings/export",
 				labelKey: "settings.nav.export",
 			},
 		],
 	},
 ];
+
+type NavUser = { role: "admin" | "user"; isPrimaryAdmin: boolean; canManageDomains: boolean; canManageMailboxes: boolean };
+
+/** The sections with the entries this user may open; permission-gated entries stay hidden until the user loads. */
+export function visibleSettingsNavSections(user: NavUser | null | undefined): SettingsNavSection[] {
+	return settingsNavSections.map((section) => ({
+		...section,
+		items: section.items.filter((item) => (
+			(!item.requiresMailboxAccess || user?.canManageMailboxes === true)
+			&& (!item.requiresDomainAccess || (!!user && canManageDomains(user)))
+		)),
+	}));
+}
 
 export function isActiveSettingsPath(pathname: string, href: string): boolean {
 	return pathname === href || pathname.startsWith(`${href}/`);

@@ -6,17 +6,13 @@ import { useLanguage } from "@/components/language-provider";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { cn } from "@/lib/utils";
 import { SectionNavSheet } from "../section-nav-sheet";
-import { isActiveSettingsPath, settingsNavSections } from "./settings-nav-utils";
+import { isActiveSettingsPath, visibleSettingsNavSections } from "./settings-nav-utils";
 
 export function SettingsNav() {
 	const { t } = useLanguage();
 	const pathname = usePathname();
 	const user = useCurrentUser();
-	const canManageMailboxes = user?.canManageMailboxes === true;
-	const sections = settingsNavSections.map((section) => ({
-		...section,
-		items: section.items.filter((item) => !item.requiresMailboxAccess || canManageMailboxes),
-	}));
+	const sections = visibleSettingsNavSections(user);
 	const currentItem = sections.flatMap((section) => section.items).find((item) => isActiveSettingsPath(pathname, item.href));
 	const currentLabel = t(currentItem?.labelKey ?? "settings.nav.settings");
 

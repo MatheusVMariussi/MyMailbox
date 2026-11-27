@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, X } from "@/components/icons";
+import { AddDomainDialog } from "@/app/(admin)/domains/AddDomainDialog";
+import { Globe2, Plus, Trash2, X } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { confirmDestructive } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { canManageDomains } from "@/lib/auth/admin";
 import { dispatchMessagesChanged } from "@/lib/messages/change-events";
 import {
 	deleteProjectRequest,
@@ -17,14 +20,19 @@ import {
 	updateProjectRequest,
 } from "@/lib/projects/client";
 import type { ProjectSummary } from "@/lib/projects/client-types";
-import { PROJECT_NAME_MAX } from "@/lib/projects/project-utils";
+import { PROJECT_NAME_MAX, withWholeDomain } from "@/lib/projects/project-utils";
 import type { ProjectDomainOption } from "@/lib/projects/types";
 import { ProjectColorPicker } from "./project-color-picker";
 import { ProjectDot } from "./project-dot";
 
+export type ProjectCardStatus = { tone: "notice" | "error"; text: string } | null;
+
 type Props = {
 	project: ProjectSummary;
 	domains: ProjectDomainOption[];
+	/** Kept by the list: saving remounts the card (its key follows the saved addresses), and the result must stay. */
+	status: ProjectCardStatus;
+	onStatus: (status: ProjectCardStatus) => void;
 };
 
 type AddressRow = { key: number; domainId: string; localPart: string };
@@ -33,24 +41,24 @@ let rowKey = 0;
 const toRows = (project: ProjectSummary): AddressRow[] => project.addresses.map((address) => ({ key: ++rowKey, domainId: address.domainId, localPart: address.localPart }));
 
 /** One project in settings: rename and recolor it, map its domains and addresses, re-stamp mail, delete it. */
-export function ProjectCard({ project, domains }: Props) {
+export function ProjectCard({ project, domains, status, onStatus }: Props) {
 	const { t } = useLanguage();
+	const user = useCurrentUser();
+	const canAddDomain = !!user && canManageDomains(user);
 	const [name, setName] = useState(project.name);
 	const [color, setColor] = useState(project.color);
 	const [rows, setRows] = useState<AddressRow[]>(() => toRows(project));
-	const [pending, setPending] = useState<"save" | "addresses" | "restamp" | "delete" | null>(null);
-	const [notice, setNotice] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [pending, setPending] = useState<"save" | "addresses" | "restamp" | "delete" | "domain" | null>(null);
 	const identityChanged = name.trim() !== project.name || color !== project.color;
 
 	async function run(kind: NonNullable<typeof pending>, task: () => Promise<string | null>) {
 		setPending(kind);
-		setError(null);
-		setNotice(null);
+		onStatus(null);
 		try {
-			setNotice(await task());
+			const notice = await task();
+			onStatus(notice ? { tone: "notice", text: notice } : null);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : t("projects.error"));
+			onStatus({ tone: "error", text: cause instanceof Error ? cause.message : t("projects.error") });
 		} finally {
 			setPending(null);
 		}
@@ -70,6 +78,25 @@ export function ProjectCard({ project, domains }: Props) {
 		try {
 			const updated = await restampProjectMessages(project.id);
 			return t("projects.addressesSavedRestamped", { count: updated });
+		} catch {
+			return t("projects.addressesSavedRestampFailed");
+		}
+	});
+
+	// The dialog has already created the domain; map it whole next to the saved addresses (not unsaved edits),
+	// then re-stamp so stored mail to it joins the project.
+	const mapNewDomain = (domain: { id: string; hostname: string }) => run("domain", async () => {
+		const saved = project.addresses.map(({ domainId, localPart }) => ({ domainId, localPart }));
+		try {
+			await setProjectAddressesRequest(project.id, withWholeDomain(saved, domain.id));
+		} catch (cause) {
+			invalidateProjectsCache();
+			throw new Error(t("projects.domainMapFailed", { host: domain.hostname, error: cause instanceof Error ? cause.message : t("projects.error") }));
+		}
+		invalidateProjectsCache();
+		try {
+			const updated = await restampProjectMessages(project.id);
+			return t("projects.domainMapped", { host: domain.hostname, count: updated });
 		} catch {
 			return t("projects.addressesSavedRestampFailed");
 		}
@@ -170,11 +197,28 @@ export function ProjectCard({ project, domains }: Props) {
 					<Button type="button" variant="ghost" size="sm" disabled={!!pending} onClick={() => void restamp()} title={t("projects.restampHint")}>
 						{pending === "restamp" ? t("projects.restamping") : t("projects.restamp")}
 					</Button>
+					{canAddDomain && (
+						<AddDomainDialog
+							trigger={(
+								<Button type="button" variant="ghost" size="sm" disabled={!!pending} data-project-add-domain="">
+									<Globe2 className="h-4 w-4" />
+									{pending === "domain" ? t("projects.addingDomain") : t("projects.addDomain")}
+								</Button>
+							)}
+							description={t("projects.addDomainDescription", { project: project.name })}
+							notice={(
+								<p className="rounded-xl bg-[#eaf1fb] px-4 py-3 text-sm leading-6 text-neutral-700">
+									{t("projects.addDomainToken", { token: "\u0001" }).split("\u0001").flatMap((part, index) => index === 0 ? [part] : [<code key={index} className="no-font-mono text-xs font-semibold text-blue-800">CF_TOKEN</code>, part])}
+								</p>
+							)}
+							onCreated={(domain) => void mapNewDomain(domain)}
+						/>
+					)}
 				</div>
 			</div>
 
-			{notice && <p role="status" className="text-sm text-neutral-600">{notice}</p>}
-			{error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+			{status?.tone === "notice" && <p role="status" className="text-sm text-neutral-600">{status.text}</p>}
+			{status?.tone === "error" && <p role="alert" className="text-sm text-red-600">{status.text}</p>}
 		</section>
 	);
 }

@@ -2226,5 +2226,12 @@
 	"empty.confirm.everyMailbox.all": "Permanently delete every message in {folder}? This empties {folder} in every mailbox you manage ({mailboxes}) and cannot be undone.",
 	"settings.reading.right": "Right",
 	"settings.reading.off": "Off",
+	"settings.nav.domains": "Domains",
+	"projects.addDomain": "Add domain",
+	"projects.addingDomain": "Adding domain...",
+	"projects.addDomainDescription": "Connect a new domain and map all of it to {project}, so mail to any address on it gets the project's dot.",
+	"projects.addDomainToken": "The domain's zone has to be on your Cloudflare account and inside {token}, the token MyMailbox uses for DNS and Email Routing. If you made the token for specific zones, add this one to it first.",
+	"projects.domainMapped": "{host} added and mapped to this project. Existing mail updated: {count}.",
+	"projects.domainMapFailed": "{host} was added, but mapping it to this project failed ({error}). Add it as a whole domain above.",
 	"message.detailsMailedBy": "mailed by {domain}"
 }

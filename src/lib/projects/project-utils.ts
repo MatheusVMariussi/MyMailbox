@@ -21,6 +21,15 @@ export function formatProjectAddress(address: { localPart: string; hostname: str
 	return `${address.localPart}@${address.hostname}`;
 }
 
+/**
+ * The addresses a project owns plus `domainId` as a whole-domain mapping (empty local part), unless the project
+ * already owns that whole domain. Specific addresses on the domain stay: they still win over the domain.
+ */
+export function withWholeDomain<T extends { domainId: string; localPart: string }>(addresses: readonly T[], domainId: string): (T | { domainId: string; localPart: string })[] {
+	if (addresses.some((address) => address.domainId === domainId && address.localPart === "")) return [...addresses];
+	return [...addresses, { domainId, localPart: "" }];
+}
+
 /** A re-stamp cursor: the index into the sorted mailbox list and the last rowid done in that mailbox. */
 export function parseRestampCursor(cursor: string | null | undefined): { mailboxIndex: number; afterRowId: number } {
 	const match = /^(\d{1,6}):(\d{1,15})$/.exec(cursor ?? "");

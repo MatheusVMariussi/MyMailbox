@@ -4,6 +4,8 @@ export type SettingsNavItem = {
 	href: string;
 	labelKey: TranslationKey;
 	requiresMailboxAccess?: boolean;
+	/** Shown only to the admins the Admin area lets manage domains (`canManageDomains`). */
+	requiresDomainAccess?: boolean;
 };
 
 export type SettingsNavSection = {

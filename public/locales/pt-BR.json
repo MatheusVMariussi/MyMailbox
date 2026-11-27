@@ -2239,5 +2239,12 @@
 	"empty.confirm.everyMailbox.all": "Excluir de vez todas as mensagens em {folder}? Isso esvazia {folder} em todas as caixas que você gerencia ({mailboxes}) e não dá pra desfazer.",
 	"settings.reading.right": "À direita",
 	"settings.reading.off": "Desligado",
+	"settings.nav.domains": "Domínios",
+	"projects.addDomain": "Adicionar domínio",
+	"projects.addingDomain": "Adicionando domínio...",
+	"projects.addDomainDescription": "Conecta um domínio novo e mapeia ele inteiro pro {project}, assim todo e-mail pra qualquer endereço dele ganha o ponto do projeto.",
+	"projects.addDomainToken": "A zona do domínio precisa estar na sua conta Cloudflare e dentro do {token}, o token que o MyMailbox usa pro DNS e o Email Routing. Se você criou o token só pra algumas zonas, inclui essa nele antes.",
+	"projects.domainMapped": "{host} adicionado e mapeado pra este projeto. E-mails existentes atualizados: {count}.",
+	"projects.domainMapFailed": "{host} foi adicionado, mas não deu pra mapear pro projeto ({error}). Adiciona ele como domínio inteiro acima.",
 	"message.detailsMailedBy": "enviado por {domain}"
 }

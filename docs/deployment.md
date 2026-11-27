@@ -83,7 +83,7 @@ Setup applies the committed migrations through the Worker's D1 binding before cr
 3. Choose the address for your first mailbox and finish setup.
 4. Open the inbox and send a test message to the new address.
 
-To connect more domains later, open **Admin → Domains**, select **New domain**, enter the hostname and choose whether Cloudflare receives (**Receive mail with**) and sends (**Send mail with**) its mail. MyMailbox enables Email Routing and, for sending, creates the zone's Email Sending subdomain with its DKIM record. Onboard the domain under **Compute → Email Service → Email Sending** first, or add it with sending **Not selected** and turn sending on later from the domain page; see [Sending and receiving mail](providers.md).
+To connect more domains later, open **Admin → Domains** (also under **Settings → Domains** for the same admins), select **New domain**, enter the hostname and choose whether Cloudflare receives (**Receive mail with**) and sends (**Send mail with**) its mail. A domain meant for one project can be added from that project in **Settings → Projects** with **Add domain**: it is provisioned the same way and mapped whole to the project. Either way, the domain's zone must be one `CF_TOKEN` can reach. MyMailbox enables Email Routing and, for sending, creates the zone's Email Sending subdomain with its DKIM record. Onboard the domain under **Compute → Email Service → Email Sending** first, or add it with sending **Not selected** and turn sending on later from the domain page; see [Sending and receiving mail](providers.md).
 
 Your inbox is now ready to send and receive email.
 
