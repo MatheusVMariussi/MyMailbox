@@ -22,6 +22,7 @@ import { getUserFromSession } from "./src/lib/auth/session";
 import { getSessionTokenFromRequest } from "./src/lib/realtime/utils";
 import { inboundAttachmentLimitReasonFromRaw } from "./src/lib/email/inbound-attachments";
 import { hasValidSessionMutationOrigin } from "./src/lib/auth/origin";
+import { applyDocumentCsp, createCspNonce, withCspNonce } from "./src/lib/security/document-csp";
 import {
 	getAccountForwardingDestination,
 	isForwardedMarkerValid,
@@ -70,7 +71,11 @@ export default {
 			return hub.fetch(hubRequest);
 		}
 
-		const response = await runWithD1Session(d1Session?.session, () => vinextHandler.fetch(request, env, ctx));
+		// A page gets a per-request script nonce that vinext stamps on its inline scripts (document-csp.ts).
+		const nonce = createCspNonce();
+		const appRequest = withCspNonce(request, nonce);
+		const rendered = await runWithD1Session(d1Session?.session, () => vinextHandler.fetch(appRequest, env, ctx));
+		const response = appRequest === request ? rendered : applyDocumentCsp(rendered, nonce);
 		return withD1BookmarkCookie(request, response, d1Session?.session);
 	},
 

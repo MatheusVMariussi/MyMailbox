@@ -59,6 +59,17 @@ server if you need that.
 
 The web app signs in with the `ep_session` cookie only: it is `HttpOnly`, `SameSite=Lax` and `Secure` on HTTPS, and the session token never appears in a response body or in browser storage, so a script injected into a page cannot read it. A session token sent as `Authorization: Bearer` is not accepted anywhere; API keys and app passwords keep their own Bearer and Basic authentication. Every state-changing request that authenticates with the cookie must come from the app's own origin (`Sec-Fetch-Site: same-origin`, or a matching `Origin`), whatever other headers it carries.
 
+## Content-Security-Policy
+
+In production no inline script runs unless the server allowed it for that response:
+
+* Every HTML page gets a fresh random nonce (`worker.ts` with `src/lib/security/document-csp.ts`). The Worker puts it in a `Content-Security-Policy` request header for vinext, which stamps it on every inline script the framework emits (the RSC payload, the navigation bootstrap, React's streaming scripts, module preloads), and sends the same policy on the response. A nonce a client sends is replaced, never used.
+* The three constant inline scripts the app renders itself (theme and sidebar bootstrap in the root layout, the splash guard) are allowed by SHA-256 hash, computed from the same constants (`src/lib/security/inline-scripts.ts`). A new inline script must be added there or it is blocked.
+* Responses that are not HTML pages carry the same policy without a nonce. `style-src` keeps `'unsafe-inline'`: email bodies, React style props and the Turnstile widget set inline styles.
+* `connect-src` is `'self'` (which covers the same-host realtime WebSocket) plus Turnstile; `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and `frame-ancestors 'none'` (with `X-Frame-Options: DENY`). Attachment previews are the one exception: the attachment route sends its own sandboxed policy with `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`, because the attachment viewer frames PDFs. On Workers a route's own security headers are the ones that ship; `next.config.ts` only fills in headers a route did not set.
+
+The development server keeps `'unsafe-inline'` and `'unsafe-eval'` for Vite's client and hot reload.
+
 ## App passwords
 
 An app password lets a mail app sign in without your account password and without a second step, so it is treated like any other security change:

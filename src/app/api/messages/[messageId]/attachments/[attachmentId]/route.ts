@@ -3,7 +3,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { assessStoredAttachment, getAttachmentForUser } from "@/lib/email/attachments";
 import { getInlineContentType } from "@/lib/http/content-type";
 import type { AttachmentRouteParams } from "./types";
-import { getAttachmentContentDisposition } from "./utils";
+import { ATTACHMENT_RESPONSE_HEADERS, getAttachmentContentDisposition } from "./utils";
 
 export async function GET(request: Request, { params }: AttachmentRouteParams) {
 	const env = getEnv();
@@ -19,8 +19,8 @@ export async function GET(request: Request, { params }: AttachmentRouteParams) {
 	const previewRequested = url.searchParams.get("preview") === "1";
 	const downloadRequested = url.searchParams.get("download") === "1";
 	// The sender chooses both the type and the disposition, so only types that cannot run script ever render here.
-	// The sandbox below is not enough on its own: on the Node runtime Next.js keeps the global CSP from next.config
-	// and drops a route's own Content-Security-Policy.
+	// The sandbox CSP below is a second line: on Workers this route's own policy is the one that ships (vinext only
+	// adds next.config headers a route did not set), but other runtimes have kept the global one instead.
 	const inlineType = downloadRequested ? null : getInlineContentType(attachment.contentType);
 	const inline = inlineType !== null && (attachment.disposition === "inline" || previewRequested);
 	// Types that run code, carry macros or hide other files are downloaded only after the user has seen why.
@@ -38,11 +38,7 @@ export async function GET(request: Request, { params }: AttachmentRouteParams) {
 	headers.set("Content-Type", (inline && inlineType) || "application/octet-stream");
 	headers.set("Content-Length", String(attachment.size));
 	headers.set("Content-Disposition", getAttachmentContentDisposition(attachment.filename, inline));
-	headers.set("X-Content-Type-Options", "nosniff");
-	headers.set(
-		"Content-Security-Policy",
-		"default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'unsafe-inline'; sandbox",
-	);
+	for (const [name, value] of Object.entries(ATTACHMENT_RESPONSE_HEADERS)) headers.set(name, value);
 	headers.set("Cache-Control", "private, max-age=300");
 
 	return new Response(object.body, { headers });
