@@ -23,6 +23,7 @@ import { getSessionTokenFromRequest } from "./src/lib/realtime/utils";
 import { inboundAttachmentLimitReasonFromRaw } from "./src/lib/email/inbound-attachments";
 import { hasValidSessionMutationOrigin } from "./src/lib/auth/origin";
 import { applyDocumentCsp, createCspNonce, withCspNonce } from "./src/lib/security/document-csp";
+import { boundQueuedHeaders } from "./src/lib/email/queued-headers";
 import {
 	getAccountForwardingDestination,
 	isForwardedMarkerValid,
@@ -126,7 +127,8 @@ export default {
 				from: message.from,
 				to: message.to,
 				rawR2Key,
-				headers: headerMap,
+				// Queue messages are capped at 128 KB; huge headers must not make the send fail forever.
+				headers: boundQueuedHeaders(headerMap),
 			};
 			await env.INBOUND_QUEUE.send(payload);
 		} catch (err) {

@@ -1,6 +1,7 @@
 import { forwardedMarker, getAccountForwardingDestination, isForwardedMarkerValid, MYMAILBOX_FORWARDED_HEADER } from "@/lib/email/account-forwarding";
 import { resolveIncomingMail } from "@/lib/email/incoming";
 import { inboundStorageKey } from "@/lib/email/inbound-id";
+import { boundQueuedHeaders } from "@/lib/email/queued-headers";
 import type { InboundQueueMessage } from "@/lib/email/inbound";
 import type { IntakeActions, IntakeInput, IntakeResult } from "@/lib/email/intake-types";
 
@@ -46,7 +47,8 @@ export async function intakeIncomingMail(env: CloudflareEnv, input: IntakeInput,
 		httpMetadata: { contentType: "message/rfc822" },
 		customMetadata: { from: input.from, to: input.to },
 	});
-	const payload: InboundQueueMessage = { from: input.from, to: input.to, rawR2Key, headers: input.headers, verdicts: input.verdicts, senderIp: input.senderIp };
+	// Queue messages are capped at 128 KB; huge headers must not make the send fail forever.
+	const payload: InboundQueueMessage = { from: input.from, to: input.to, rawR2Key, headers: boundQueuedHeaders(input.headers), verdicts: input.verdicts, senderIp: input.senderIp };
 	await env.INBOUND_QUEUE.send(payload);
 	return { action: "store", rawR2Key, forwardedTo };
 }
