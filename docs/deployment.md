@@ -54,17 +54,32 @@ The Worker name, `services[].service` and `CF_EMAIL_WORKER_NAME` (default `mymai
    npx wrangler queues create mymailbox-outbound
    ```
 
-4. Deploy with `npm run deploy`. On the first deploy, Wrangler provisions the D1 database `mymailbox` and the R2 bucket `mymailbox-raw` declared in `wrangler.jsonc`.
+4. Copy `wrangler.install.example.json` to `wrangler.install.json` and fill in this installation's values (see [Installation values](#installation-values)), then deploy with `npm run deploy`. On the first deploy, Wrangler provisions the D1 database `mymailbox` and the R2 bucket `mymailbox-raw` declared in `wrangler.jsonc`.
 5. Store the runtime token as a Worker secret: `npx wrangler secret put CF_TOKEN`.
 6. Store a setup token as a Worker secret: `npx wrangler secret put SETUP_TOKEN`, with a long random value (for example the output of `openssl rand -base64 32`). Keep it until setup is finished. Until an admin account exists, `/setup` and the first-account registration provision DNS with your `CF_TOKEN`, so every setup request must carry this token; without the secret, setup is refused on every host except `localhost` and `127.0.0.1`. The token is compared in constant time, and failed attempts spend the same per-IP budget as sign-in (`LOGIN_RATE_LIMIT`). You can delete it after setup (`npx wrangler secret delete SETUP_TOKEN`); setup stays closed once the admin exists.
-7. Set `APP_URL` to the app's public HTTPS address (for example `https://mail.example.com`) as a variable on the Worker, under **Settings → Variables and Secrets**. `keep_vars` in `wrangler.jsonc` keeps dashboard variables across deploys. Password reset links, read-receipt pixels and download links for large attachments use it.
+7. Check that `APP_URL` in `wrangler.install.json` is the app's public HTTPS address (for example `https://mail.example.com`). Passkeys, password reset links, read-receipt pixels and download links for large attachments use it.
+
+### Installation values
+
+`wrangler.jsonc` is shared by every installation, so it names no host. What belongs to one installation lives in `wrangler.install.json`, which `.gitignore` keeps out of the repository:
+
+```json
+{
+	"routes": [{ "pattern": "mail.example.com", "custom_domain": true }],
+	"vars": { "APP_URL": "https://mail.example.com", "VAPID_SUBJECT": "mailto:you@example.com" }
+}
+```
+
+`npm run deploy` and `npm run upload` build first, then `scripts/apply-install-config.mjs` lays the file over the deploy config the build generated (`dist/server/wrangler.json`) before Wrangler reads it. It accepts `routes`, `vars`, `workers_dev` and `preview_urls`, and refuses an `APP_URL` that is not an https origin or that none of the routes serves. To stay on `workers.dev`, leave `routes` out and set `"workers_dev": true`; a file with neither is refused, so the `workers.dev` address is never turned on by accident.
+
+Without the file the deploy stops: a deploy with no routes turns the `workers.dev` address on, and one without `APP_URL` relies on whatever the dashboard holds. To manage the custom domain and the variables in the Cloudflare dashboard instead, deploy with `MYMAILBOX_SKIP_INSTALL_CONFIG=1`; `keep_vars` in `wrangler.jsonc` keeps dashboard variables, and Wrangler leaves custom domains alone when the config lists none. When the file lists custom domains, Wrangler makes them the Worker's complete set, so list every one the Worker should keep.
 
 ### Optional Web Push configuration
 
 To enable background new-mail notifications, run `npm run push:keys` once and
-store `VAPID_PRIVATE_KEY` as a Worker secret. Configure `VAPID_PUBLIC_KEY` and
-`VAPID_SUBJECT` as Worker variables; the subject must be a `mailto:` URI or the
-public HTTPS URL of the installation. The same VAPID key pair should be kept
+store `VAPID_PRIVATE_KEY` as a Worker secret. Put `VAPID_PUBLIC_KEY` in
+`wrangler.jsonc` and `VAPID_SUBJECT` in `wrangler.install.json`; the subject must
+be a `mailto:` URI or the public HTTPS URL of the installation. The same VAPID key pair should be kept
 across deployments so existing browser subscriptions remain valid.
 
 ## Step 3: Complete MyMailbox setup

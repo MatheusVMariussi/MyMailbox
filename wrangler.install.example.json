@@ -1,0 +1,12 @@
+{
+	"routes": [
+		{
+			"pattern": "mail.example.com",
+			"custom_domain": true
+		}
+	],
+	"vars": {
+		"APP_URL": "https://mail.example.com",
+		"VAPID_SUBJECT": "mailto:you@example.com"
+	}
+}

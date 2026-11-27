@@ -50,6 +50,7 @@ You need a Cloudflare account whose DNS hosts the domain you want to use, and No
    npx wrangler login
    npx wrangler queues create mymailbox-inbound
    npx wrangler queues create mymailbox-outbound
+   cp wrangler.install.example.json wrangler.install.json   # then set your domain and APP_URL
    npm run deploy
    npx wrangler secret put CF_TOKEN
    openssl rand -base64 32          # copy this value: /setup asks for it
@@ -57,7 +58,7 @@ You need a Cloudflare account whose DNS hosts the domain you want to use, and No
    ```
 
    On the first deploy, Wrangler provisions the D1 database and the R2 bucket named in `wrangler.jsonc`. `SETUP_TOKEN` is a secret only you know: `/setup` asks for it before it touches the database or DNS, and refuses to run until it is set.
-3. **Set `APP_URL`.** Add it as a variable on the Worker (Settings, Variables and Secrets) with the app's public HTTPS address, for example `https://mail.example.com`. Read receipts and download links for large attachments use it.
+3. **Set your address.** `wrangler.install.json` (gitignored) holds what is yours: the custom domain the Worker answers on (`routes`) and `APP_URL`, the app's public HTTPS address, for example `https://mail.example.com`. Passkeys, password reset links, read receipts and download links for large attachments use it. `npm run deploy` lays the file over the deploy config and stops if it is missing; to keep these values in the Cloudflare dashboard instead, deploy with `MYMAILBOX_SKIP_INSTALL_CONFIG=1`.
 4. **Finish setup.** Open the app at `/setup` and enter the setup token. It checks the Cloudflare configuration, initializes the D1 database and creates your admin account.
 5. **Connect a domain.** To send from it, first onboard the domain in the Cloudflare dashboard under Compute → Email Service → Email Sending. Then add it from the same Cloudflare account and create your first mailbox.
 

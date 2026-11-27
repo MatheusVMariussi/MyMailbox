@@ -68,4 +68,4 @@ You cannot clean up a service that is turned on.
 |---|---|
 | `CF_TOKEN` | Cloudflare API token: zone permissions for DNS and Email Routing, plus the account-level "Email Sending: Edit" to send |
 | `CF_EMAIL_WORKER_NAME` | Worker name Email Routing rules deliver to (default `mymailbox`) |
-| `APP_URL` | Public HTTPS address, used for password reset links, read receipts and download links for large attachments |
+| `APP_URL` | Public HTTPS address, used for passkeys, password reset links, read receipts and download links for large attachments; set in `wrangler.install.json` (see [Installation values](deployment.md#installation-values)) |

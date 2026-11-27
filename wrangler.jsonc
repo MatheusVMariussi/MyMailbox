@@ -3,17 +3,14 @@
 	"name": "mymailbox",
 	"main": "./worker.ts",
 	"compatibility_date": "2026-05-20",
+	// Variables set in the dashboard (or by an earlier deploy) survive deploys that do not list them.
 	"keep_vars": true,
-	// Matheus's install: the app lives on its own subdomain, and APP_URL pins passkeys,
-	// reset links and provider webhooks to it. Change both for another install.
-	"routes": [
-		{ "pattern": "mymailbox.matheusmariussi.com", "custom_domain": true },
-	],
+	// This installation's custom domain, APP_URL (passkeys, reset links, download links) and VAPID_SUBJECT are
+	// not versioned: they live in wrangler.install.json (gitignored; start from wrangler.install.example.json),
+	// which `npm run deploy` lays over the generated deploy config (scripts/apply-install-config.mjs).
 	"vars": {
-		"APP_URL": "https://mymailbox.matheusmariussi.com",
 		// Web Push: the public half of the VAPID pair (the private half is the VAPID_PRIVATE_KEY secret).
 		"VAPID_PUBLIC_KEY": "BHIEoStcVqFXb0U7l0E0DayQpubWwA2vO3gJEI9r_R-dzOsQJ7w7l6nbPO5490UkU-rYPRj44XMCUPc407NIGgs",
-		"VAPID_SUBJECT": "https://mymailbox.matheusmariussi.com",
 	},
 	"compatibility_flags": [
 		"nodejs_compat",

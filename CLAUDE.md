@@ -19,7 +19,7 @@ npm run db:migrate:local       # wrangler d1 migrations apply DB --local
 npm run db:migrate:remote      # --remote (needs a concrete database_id in wrangler.jsonc)
 npm run db:seed                # POST /api/seed against localhost:3000
 
-npm run deploy                 # vinext build + wrangler deploy; migrate later from Admin settings
+npm run deploy                 # vinext build + install values + wrangler deploy; migrate later from Admin settings
 npm run preview                # build and preview the vinext Worker locally
 npm run cf-typegen             # regenerate cloudflare-env.d.ts from wrangler.jsonc
 ```
@@ -28,7 +28,7 @@ There is no test script in `package.json`; the checks under `tests/` are `node:t
 
 `next.config.ts` sets `typescript.ignoreBuildErrors: true` and `tsconfig.json` sets `noImplicitAny: false`, so the build will not catch type errors. Run `npx tsc --noEmit` if you want real type checking.
 
-`npm run deploy` builds with vinext and uploads with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to it, preserving the custom `worker.ts` entrypoint. It also copies `.dev.vars` (local secrets) into `dist/server/` for preview; `deploy:worker` and `upload` run `scripts/strip-dev-vars.mjs` first to delete it.
+`npm run deploy` builds with vinext and uploads with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to it, preserving the custom `worker.ts` entrypoint. It also copies `.dev.vars` (local secrets) into `dist/server/` for preview; `deploy:worker` and `upload` run `scripts/strip-dev-vars.mjs` first to delete it, then `scripts/apply-install-config.mjs`, which lays `wrangler.install.json` (gitignored: the custom domain, `APP_URL`, `VAPID_SUBJECT`) over that generated config and stops the deploy when the file is missing (`MYMAILBOX_SKIP_INSTALL_CONFIG=1` deploys with the dashboard's values). Never put an installation's host in `wrangler.jsonc` or any other versioned file.
 
 ## Architecture
 
