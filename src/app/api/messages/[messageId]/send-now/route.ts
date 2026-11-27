@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { sendScheduledMessageNow } from "@/lib/email/send";
+import { SendingNotConfiguredError } from "@/lib/email/outbound-provider";
 
 /**
  * Sends a queued message now instead of waiting for its undo window or scheduled time.
@@ -42,6 +43,9 @@ export async function POST(
 			return NextResponse.json({ error: "This message is already on its way" }, { status: 409 });
 		}
 	} catch (error) {
+		if (error instanceof SendingNotConfiguredError) {
+			return NextResponse.json({ error: error.message, code: error.code }, { status: 422 });
+		}
 		const detail = error instanceof Error ? error.message : "Send failed";
 		return NextResponse.json({ error: detail }, { status: 500 });
 	}

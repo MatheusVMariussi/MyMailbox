@@ -8,7 +8,7 @@ import { isPastSchedule, parseSendRequest } from "./utils";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { requestBodyLimit } from "@/lib/email/attachment-limits";
 import { getOutboundAttachmentMaxMb } from "@/lib/email/attachment-policy";
-import { getSendErrorStatus } from "./error-utils";
+import { sendErrorBody } from "./error-utils";
 import { getDb } from "@/db";
 import { messages } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 		return NextResponse.json(result);
 	} catch (err) {
 		if (err instanceof SuppressedRecipientError) return NextResponse.json(suppressedRecipientBody(err), { status: 422 });
-		const message = err instanceof Error ? err.message : "Send failed";
-		return NextResponse.json({ error: message }, { status: getSendErrorStatus(message) });
+		const { status, body } = sendErrorBody(err);
+		return NextResponse.json(body, { status });
 	}
 }

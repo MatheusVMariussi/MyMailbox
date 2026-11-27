@@ -248,6 +248,7 @@
 	"compose.error.emptyBody": "Write a message before sending",
 	"compose.error.draftAttachments": "Could not add attachments to the draft",
 	"compose.error.sendFailed": "Send failed",
+	"compose.error.sendingNotConfigured": "Sending isn't turned on for this domain yet. Turn on Cloudflare Email Sending in Admin, Domains. The message is in Drafts.",
 	"compose.error.deleteDraft": "Could not delete draft",
 	"compose.error.removeAttachment": "Could not remove attachment",
 	"compose.error.maxAttachments": "A message can include at most 10 attachments",

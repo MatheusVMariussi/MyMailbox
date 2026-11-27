@@ -253,6 +253,7 @@
 	"compose.error.emptyBody": "Escreva uma mensagem antes de enviar",
 	"compose.error.draftAttachments": "Não consegui adicionar os anexos ao rascunho",
 	"compose.error.sendFailed": "Não consegui enviar",
+	"compose.error.sendingNotConfigured": "O envio ainda não está ligado neste domínio. Ligue o Cloudflare Email Sending em Admin, Domínios. A mensagem ficou em Rascunhos.",
 	"compose.error.deleteDraft": "Não consegui excluir o rascunho",
 	"compose.error.removeAttachment": "Não consegui remover o anexo",
 	"compose.error.maxAttachments": "Cada mensagem pode ter no máximo 10 anexos",

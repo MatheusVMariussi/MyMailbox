@@ -397,7 +397,9 @@ export function ComposeForm({
 			// A suppressed recipient is the one send error with its own translated sentence.
 			const message = data.code === "SUPPRESSED_RECIPIENT" && data.addresses?.length
 				? t("compose.error.suppressed", { addresses: data.addresses.join(", ") })
-				: data.error ?? t("compose.error.sendFailed");
+				: data.code === "SENDING_NOT_CONFIGURED"
+					? t("compose.error.sendingNotConfigured")
+					: data.error ?? t("compose.error.sendFailed");
 			setToast({ type: "error", message });
 			return;
 		}
@@ -542,9 +544,12 @@ export function ComposeForm({
 				showSendingNotice(messageId, subjectLabel);
 				return;
 			}
-			const result = await response.json().catch(() => ({})) as { error?: string };
+			const result = await response.json().catch(() => ({})) as { error?: string; code?: string };
 			if (!isCurrentNotice(sourceNoticeId)) return;
-			showNotice(result.error ?? t("compose.error.sendFailed"), { tone: "error" });
+			const message = result.code === "SENDING_NOT_CONFIGURED"
+				? t("compose.error.sendingNotConfigured")
+				: result.error ?? t("compose.error.sendFailed");
+			showNotice(message, { tone: "error" });
 		} catch {
 			// A dropped response is ambiguous: the message may still be on its way.
 			if (isCurrentNotice(sourceNoticeId)) showSendingNotice(messageId, subjectLabel);

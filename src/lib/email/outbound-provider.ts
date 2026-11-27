@@ -4,6 +4,18 @@ import { domains } from "@/db/schema";
 import { getEmailAddress } from "@/lib/email/address";
 import type { OutboundProviderMessage } from "@/lib/email/outbound-provider-types";
 
+export const SENDING_NOT_CONFIGURED = "SENDING_NOT_CONFIGURED";
+
+/** The From domain does not send yet: a setup step the user can take, not a server failure. */
+export class SendingNotConfiguredError extends Error {
+	readonly code = SENDING_NOT_CONFIGURED;
+
+	constructor(readonly hostname: string | null) {
+		super(`Sending is not set up for ${hostname ?? "this domain"}. Turn on Cloudflare Email Sending on the Domains page.`);
+		this.name = "SendingNotConfiguredError";
+	}
+}
+
 /**
  * Each domain either sends through Cloudflare Email Sending or not at all
  * (receive-only). Throws when the From domain does not send, so nothing is
@@ -15,7 +27,7 @@ export async function assertSendingConfigured(env: CloudflareEnv, fromAddress: s
 		? await getDb(env).select({ provider: domains.sendingProvider }).from(domains).where(eq(domains.hostname, hostname)).limit(1)
 		: [];
 	if (domain?.provider === "cloudflare") return;
-	throw new Error(`Sending is not set up for ${hostname ?? "this domain"}. Turn on Cloudflare Email Sending on the Domains page.`);
+	throw new SendingNotConfiguredError(hostname ?? null);
 }
 
 /**
