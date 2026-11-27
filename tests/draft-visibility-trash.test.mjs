@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadApp, sharedMailboxSeed } from "./helpers/real-db.mjs";
 
-// A draft stays private to its author wherever the author puts it (Trash, Archive, a folder, the
+// A draft stays private to its author wherever the author puts it (Trash, Archive, a label, the
 // inbox), because messages.private_draft is set when the row is created as a draft. Sent mail that
 // a teammate files or trashes is not a draft and stays visible to the mailbox's readers.
 const mocks = {
@@ -45,7 +45,7 @@ const moves = {
 	trash: "UPDATE messages SET status = 'trash' WHERE id = 'draft-1'",
 	archived: "UPDATE messages SET status = 'archived' WHERE id = 'draft-1'",
 	inbox: "UPDATE messages SET status = 'received' WHERE id = 'draft-1'",
-	folder: "UPDATE messages SET status = 'received', folder_id = 'f-1' WHERE id = 'draft-1'",
+	label: "UPDATE messages SET status = 'received' WHERE id = 'draft-1'; INSERT INTO message_labels (message_id, label_id) VALUES ('draft-1', 'f-1')",
 };
 
 test("the row helper follows private_draft and the author, and fails closed on a missing column", () => {
@@ -70,12 +70,12 @@ for (const [name, sql] of Object.entries(moves)) {
 	});
 }
 
-test("sent mail a teammate trashed, restored or filed in a shared folder stays visible to others", async (t) => {
+test("sent mail a teammate trashed, restored or labelled in a shared mailbox stays visible to others", async (t) => {
 	for (const sql of [
 		"UPDATE messages SET status = 'trash' WHERE id = 'sent-1'",
 		"UPDATE messages SET status = 'trash' WHERE id = 'sent-1'; UPDATE messages SET status = 'received' WHERE id = 'sent-1'",
 		"UPDATE messages SET status = 'archived' WHERE id = 'sent-1'",
-		"UPDATE messages SET folder_id = 'f-1' WHERE id = 'sent-1'",
+		"INSERT INTO message_labels (message_id, label_id) VALUES ('sent-1', 'f-1')",
 	]) {
 		const { env, db } = await setup(t, "delegate", sql);
 		assert.ok(await app.getMessageWithBodyForUser(env, user("delegate"), "sent-1"), sql);

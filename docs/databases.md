@@ -10,13 +10,13 @@ Migrations are plain SQL files in `drizzle/migrations/`, recorded in the `d1_mig
 - **Update database** on the admin overview's database card (the in-app runner, `src/lib/migrations/service.ts`, which applies the bundled copy `src/lib/migrations/bundle.json`),
 - `npm run db:migrate:remote` (or `npm run db:migrate:local` for the local development database).
 
-The history starts from a baseline: `0000_baseline.sql` (tables and indexes, generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (the search index, triggers and seed rows). A new database applies both and is complete. MyMailbox databases created from the old migration history cannot be upgraded in place; move their data with a fresh install (backups from MyMailbox's older format do not restore either).
+The history is a two-file baseline: `0000_baseline.sql` (tables, indexes and foreign keys, generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (triggers, the search index and seed rows). A new database applies both and is complete. Databases created from an earlier, pre-release migration history cannot be upgraded in place; start from a fresh install.
 
-Changing the schema means adding the next migration file:
+Changing the schema means adding the next migration file, starting at `0002`:
 
 ```bash
-npm run db:generate   # drizzle-kit generate -> drizzle/migrations/000N_<name>.sql
-npm run db:bundle     # rebuild src/lib/migrations/bundle.json (commit it)
+npm run db:generate -- --name <name>   # drizzle-kit generate -> drizzle/migrations/0002_<name>.sql (+ snapshot and journal entry)
+npm run db:bundle                      # rebuild src/lib/migrations/bundle.json (commit it)
 ```
 
 A hand-written migration also needs its entry in `drizzle/migrations/meta/_journal.json`, and every statement must end with `--> statement-breakpoint` (never inside a trigger body). Never edit a migration that has already been applied; add a new one. `tests/database-schema.test.mjs` fails when the bundle or journal is stale or when the migrations no longer produce the schema's tables and columns.

@@ -309,7 +309,7 @@ export const jmapMailboxRevisions = sqliteTable("jmap_mailbox_revisions", {
 
 /**
  * JMAP change log, written only by the `jmap_changes_*` triggers
- * (`0001_triggers_and_seeds.sql`): one row per created, updated or destroyed Email (and per folder or
+ * (`0001_triggers_and_seeds.sql`): one row per created, updated or destroyed Email (and per label or
  * mailbox change), so `Email/changes`, `Mailbox/changes` and `Thread/changes`
  * return real deltas. `seq` is the state; rows older than the retention
  * window are pruned and `jmap_change_floor` records the last pruned seq.
@@ -391,12 +391,6 @@ export const messages = sqliteTable(
 		mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "set null" }),
 		direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
 		providerMessageId: text("provider_message_id"),
-		/**
-		 * Dead since labels replaced folders (0002_labels): always null, never read or written. SQLite cannot drop a
-		 * column named by a table-level foreign key, and rebuilding `messages` on D1 would cascade-delete its children.
-		 * Labels live in `message_labels`.
-		 */
-		legacyFolderId: text("folder_id").references(() => labels.id, { onDelete: "set null" }),
 		fromAddr: text("from_addr").notNull(),
 		toAddr: text("to_addr").notNull(),
 		ccAddr: text("cc_addr"),
@@ -435,7 +429,7 @@ export const messages = sqliteTable(
 		category: text("category", { enum: ["promotions", "primary"] }),
 		/** Lower-cased bare From address, grouped on by Subscriptions. Null when longer than 191 characters, never truncated. */
 		senderAddress: text("sender_address"),
-		/** Lower-cased bare envelope recipient the message was delivered to; inbound only, null on mail stored before 0003_projects. */
+		/** Lower-cased bare envelope recipient the message was delivered to; set on inbound mail only. */
 		deliveredTo: text("delivered_to"),
 		/**
 		 * The project of the message's own address (envelope recipient inbound, From otherwise). No foreign key on
@@ -444,7 +438,7 @@ export const messages = sqliteTable(
 		projectId: text("project_id"),
 		/**
 		 * Size in bytes, for `larger:`/`smaller:`: the raw MIME of received and imported mail, text + HTML +
-		 * attachments of sent mail. 0 is unknown (mail stored before 0004_search, drafts).
+		 * attachments of sent mail. 0 is unknown (drafts).
 		 */
 		sizeBytes: integer("size_bytes").notNull().default(0),
 		createdAt: timestamp("created_at")
@@ -454,8 +448,6 @@ export const messages = sqliteTable(
 	(t) => [
 		index("messages_user_created_idx").on(t.userId, t.createdAt),
 		index("messages_mailbox_idx").on(t.mailboxId),
-		// Serves the ON DELETE SET NULL lookup when a label is deleted, so that never scans every message.
-		index("messages_folder_idx").on(t.legacyFolderId),
 		index("messages_thread_idx").on(t.mailboxId, t.threadId),
 		index("messages_provider_message_idx").on(t.mailboxId, t.providerMessageId),
 		index("messages_raw_r2_key_idx").on(t.rawR2Key),

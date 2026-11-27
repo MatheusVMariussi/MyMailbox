@@ -22,7 +22,7 @@ async function fixture(t) {
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ('b', 'u', 'd', 'b', 'personal', 1), ('c', 'u', 'd', 'c', 'personal', 1);
 		INSERT INTO mailbox_promotion_settings (mailbox_id, mode, updated_at) VALUES ('b', 'show', 1);
 	`);
-	const insert = database.db.prepare("INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, status, category, folder_id, snoozed_until, created_at) VALUES (?, 'u', ?, 'inbound', 'x@x.test', 'o@one.test', ?, ?, NULL, ?, ?)");
+	const insert = database.db.prepare("INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, status, category, snoozed_until, created_at) VALUES (?, 'u', ?, 'inbound', 'x@x.test', 'o@one.test', ?, ?, ?, ?)");
 	let at = 100;
 	const add = (id, mailbox, category, { status = "received", snoozed = null } = {}) => insert.run(id, mailbox, status, category, snoozed, at++);
 	add("a-promo", "a", "promotions");

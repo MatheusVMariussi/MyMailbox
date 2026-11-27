@@ -11,7 +11,7 @@ const m = await loadRoutes("jmap-promotion-keyword", `
 	export { messages } from "./src/db/schema/index.ts";
 `);
 
-const row = (overrides = {}) => ({ id: "m", mailboxId: "a", folderId: null, status: "received", direction: "inbound", read: false, starred: false, category: null, ...overrides });
+const row = (overrides = {}) => ({ id: "m", mailboxId: "a", status: "received", direction: "inbound", read: false, starred: false, category: null, ...overrides });
 
 test("the keyword is $promotion", () => assert.equal(m.KEYWORD_PROMOTION, "$promotion"));
 

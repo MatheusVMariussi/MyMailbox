@@ -20,7 +20,7 @@ export function rowConversationKey(row: { id: string; threadId: string | null; s
 
 export function getMessageListColumns(): MessageListColumns {
 	return Object.fromEntries(
-		Object.entries(getTableColumns(messages)).filter(([name]) => name !== "textBody" && name !== "htmlBody" && name !== "legacyFolderId"),
+		Object.entries(getTableColumns(messages)).filter(([name]) => name !== "textBody" && name !== "htmlBody"),
 	) as MessageListColumns;
 }
 

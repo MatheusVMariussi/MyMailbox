@@ -366,20 +366,6 @@ CREATE TABLE `email_templates` (
 );
 --> statement-breakpoint
 CREATE INDEX `email_templates_user_idx` ON `email_templates` (`user_id`);--> statement-breakpoint
-CREATE TABLE `folders` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`mailbox_id` text NOT NULL,
-	`name` text NOT NULL,
-	`color` text DEFAULT '#2563eb' NOT NULL,
-	`created_at` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `folders_mailbox_name_idx` ON `folders` (`mailbox_id`,`name`);--> statement-breakpoint
-CREATE INDEX `folders_user_idx` ON `folders` (`user_id`);--> statement-breakpoint
-CREATE INDEX `folders_mailbox_idx` ON `folders` (`mailbox_id`);--> statement-breakpoint
 CREATE TABLE `follow_ups` (
 	`id` text PRIMARY KEY NOT NULL,
 	`message_id` text NOT NULL,
@@ -415,6 +401,20 @@ CREATE TABLE `jmap_mailbox_revisions` (
 	`revision` integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `labels` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`mailbox_id` text NOT NULL,
+	`name` text NOT NULL,
+	`color` text DEFAULT '#2563eb' NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `labels_mailbox_name_idx` ON `labels` (`mailbox_id`,`name`);--> statement-breakpoint
+CREATE INDEX `labels_user_idx` ON `labels` (`user_id`);--> statement-breakpoint
+CREATE INDEX `labels_mailbox_idx` ON `labels` (`mailbox_id`);--> statement-breakpoint
 CREATE TABLE `login_challenges` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -529,6 +529,16 @@ CREATE TABLE `message_attachments` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `message_attachments_r2_key_unique` ON `message_attachments` (`r2_key`);--> statement-breakpoint
 CREATE INDEX `message_attachments_message_idx` ON `message_attachments` (`message_id`);--> statement-breakpoint
+CREATE TABLE `message_labels` (
+	`message_id` text NOT NULL,
+	`label_id` text NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`message_id`) REFERENCES `messages`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`label_id`) REFERENCES `labels`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `message_labels_message_label_idx` ON `message_labels` (`message_id`,`label_id`);--> statement-breakpoint
+CREATE INDEX `message_labels_label_message_idx` ON `message_labels` (`label_id`,`message_id`);--> statement-breakpoint
 CREATE TABLE `message_opens` (
 	`id` text PRIMARY KEY NOT NULL,
 	`token` text NOT NULL,
@@ -559,7 +569,6 @@ CREATE TABLE `messages` (
 	`mailbox_id` text,
 	`direction` text NOT NULL,
 	`provider_message_id` text,
-	`folder_id` text,
 	`from_addr` text NOT NULL,
 	`to_addr` text NOT NULL,
 	`cc_addr` text,
@@ -588,27 +597,30 @@ CREATE TABLE `messages` (
 	`trashed_at` integer,
 	`category` text,
 	`sender_address` text,
+	`delivered_to` text,
+	`project_id` text,
+	`size_bytes` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE set null,
-	FOREIGN KEY (`folder_id`) REFERENCES `folders`(`id`) ON UPDATE no action ON DELETE set null
+	FOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `messages_user_created_idx` ON `messages` (`user_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `messages_mailbox_idx` ON `messages` (`mailbox_id`);--> statement-breakpoint
-CREATE INDEX `messages_folder_idx` ON `messages` (`folder_id`);--> statement-breakpoint
 CREATE INDEX `messages_thread_idx` ON `messages` (`mailbox_id`,`thread_id`);--> statement-breakpoint
 CREATE INDEX `messages_provider_message_idx` ON `messages` (`mailbox_id`,`provider_message_id`);--> statement-breakpoint
 CREATE INDEX `messages_raw_r2_key_idx` ON `messages` (`raw_r2_key`);--> statement-breakpoint
 CREATE INDEX `messages_trashed_at_idx` ON `messages` (`trashed_at`);--> statement-breakpoint
-CREATE INDEX `messages_category_page_idx` ON `messages` (`mailbox_id`,`category`,`status`,`folder_id`,"created_at" desc,"id" desc);--> statement-breakpoint
-CREATE INDEX `messages_category_count_idx` ON `messages` (`mailbox_id`,`category`,`folder_id`,`direction`,`status`,`read`,`snoozed_until`);--> statement-breakpoint
+CREATE INDEX `messages_category_page_idx` ON `messages` (`mailbox_id`,`category`,`status`,"created_at" desc,"id" desc);--> statement-breakpoint
+CREATE INDEX `messages_category_count_idx` ON `messages` (`mailbox_id`,`category`,`direction`,`status`,`read`,`snoozed_until`,`project_id`);--> statement-breakpoint
 CREATE INDEX `messages_sender_idx` ON `messages` (`mailbox_id`,`sender_address`,`created_at`);--> statement-breakpoint
-CREATE INDEX `messages_inbox_page_idx` ON `messages` (`mailbox_id`,`status`,`folder_id`,"created_at" desc,"id" desc);--> statement-breakpoint
-CREATE INDEX `messages_thread_key_idx` ON `messages` (`mailbox_id`,`status`,`folder_id`,coalesce(`thread_id`, `id`),`created_at`);--> statement-breakpoint
+CREATE INDEX `messages_size_idx` ON `messages` (`mailbox_id`,`size_bytes`);--> statement-breakpoint
+CREATE INDEX `messages_inbox_page_idx` ON `messages` (`mailbox_id`,`status`,"created_at" desc,"id" desc);--> statement-breakpoint
+CREATE INDEX `messages_thread_key_idx` ON `messages` (`mailbox_id`,`status`,coalesce(`thread_id`, `id`),`created_at`);--> statement-breakpoint
 CREATE INDEX `messages_mailbox_thread_key_idx` ON `messages` (`mailbox_id`,coalesce(`thread_id`, `id`));--> statement-breakpoint
-CREATE INDEX `messages_nav_cover_idx` ON `messages` (`mailbox_id`,`status`,`folder_id`,"created_at" desc,"id" desc,`direction`,`read`,`thread_id`,`snoozed_until`,`user_id`,`private_draft`);--> statement-breakpoint
-CREATE INDEX `messages_counts_cover_idx` ON `messages` (`mailbox_id`,`folder_id`,`direction`,`status`,`read`,`starred`,`snoozed_until`,`user_id`,`private_draft`);--> statement-breakpoint
+CREATE INDEX `messages_nav_cover_idx` ON `messages` (`mailbox_id`,`status`,"created_at" desc,"id" desc,`direction`,`read`,`thread_id`,`snoozed_until`,`user_id`,`private_draft`,`project_id`);--> statement-breakpoint
+CREATE INDEX `messages_unified_page_idx` ON `messages` (`status`,"created_at" desc,"id" desc,`mailbox_id`,`direction`,`read`,`thread_id`,`snoozed_until`,`user_id`,`private_draft`,`project_id`);--> statement-breakpoint
+CREATE INDEX `messages_counts_cover_idx` ON `messages` (`mailbox_id`,`direction`,`status`,`read`,`starred`,`snoozed_until`,`user_id`,`private_draft`,`project_id`);--> statement-breakpoint
 CREATE INDEX `messages_conv_cover_idx` ON `messages` (`mailbox_id`,`status`,coalesce(`thread_id`, `id`),`created_at`,`id`,`snoozed_until`);--> statement-breakpoint
 CREATE TABLE `mfa_recovery_codes` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -683,6 +695,29 @@ CREATE TABLE `password_reset_tokens` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `password_reset_tokens_token_hash_unique` ON `password_reset_tokens` (`token_hash`);--> statement-breakpoint
 CREATE INDEX `password_reset_tokens_user_idx` ON `password_reset_tokens` (`user_id`);--> statement-breakpoint
+CREATE TABLE `project_addresses` (
+	`id` text PRIMARY KEY NOT NULL,
+	`project_id` text NOT NULL,
+	`domain_id` text NOT NULL,
+	`local_part` text DEFAULT '' NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`domain_id`) REFERENCES `domains`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `project_addresses_address_idx` ON `project_addresses` (`domain_id`,`local_part`);--> statement-breakpoint
+CREATE INDEX `project_addresses_project_idx` ON `project_addresses` (`project_id`);--> statement-breakpoint
+CREATE TABLE `projects` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`name` text NOT NULL,
+	`color` text DEFAULT '#4f8cff' NOT NULL,
+	`sort_order` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `projects_user_name_idx` ON `projects` (`user_id`,`name`);--> statement-breakpoint
 CREATE TABLE `push_subscriptions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -711,7 +746,8 @@ CREATE TABLE `routing_rules` (
 	`match_operator` text DEFAULT 'contains' NOT NULL,
 	`match_value` text DEFAULT '' NOT NULL,
 	`mailbox_id` text,
-	`folder_id` text,
+	`label_id` text,
+	`skip_inbox` integer DEFAULT false NOT NULL,
 	`action` text DEFAULT 'store' NOT NULL,
 	`forward_to` text,
 	`keep_copy` integer DEFAULT false NOT NULL,
@@ -723,14 +759,14 @@ CREATE TABLE `routing_rules` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`domain_id`) REFERENCES `domains`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`mailbox_id`) REFERENCES `mailboxes`(`id`) ON UPDATE no action ON DELETE set null,
-	FOREIGN KEY (`folder_id`) REFERENCES `folders`(`id`) ON UPDATE no action ON DELETE set null
+	FOREIGN KEY (`label_id`) REFERENCES `labels`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `routing_rules_domain_scope_idx` ON `routing_rules` (`domain_id`,`scope`,`enabled`);--> statement-breakpoint
 CREATE INDEX `routing_rules_mailbox_idx` ON `routing_rules` (`mailbox_id`);--> statement-breakpoint
 CREATE INDEX `routing_rules_priority_idx` ON `routing_rules` (`priority`);--> statement-breakpoint
 CREATE INDEX `routing_rules_user_idx` ON `routing_rules` (`user_id`);--> statement-breakpoint
-CREATE INDEX `routing_rules_folder_idx` ON `routing_rules` (`folder_id`);--> statement-breakpoint
+CREATE INDEX `routing_rules_label_idx` ON `routing_rules` (`label_id`);--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -855,6 +891,7 @@ CREATE TABLE `users` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
 CREATE INDEX `users_created_by_idx` ON `users` (`created_by_user_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `users_one_primary_admin` ON `users` (`is_primary_admin`) WHERE "users"."is_primary_admin" = 1;--> statement-breakpoint
 CREATE TABLE `webauthn_challenges` (
 	`id` text PRIMARY KEY NOT NULL,
 	`ceremony_hash` text NOT NULL,

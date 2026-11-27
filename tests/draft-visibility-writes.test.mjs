@@ -38,7 +38,7 @@ async function setup(t, who) {
 }
 const post = (body) => new Request("http://localhost/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 const ctx = (messageId) => ({ params: Promise.resolve({ messageId }) });
-const stateOf = (sqlite) => sqlite.prepare("SELECT status, read, starred, folder_id FROM messages WHERE id = 'draft-1'").get();
+const stateOf = (sqlite) => sqlite.prepare("SELECT status, read, starred, (SELECT count(*) FROM message_labels WHERE message_id = 'draft-1') AS labels FROM messages WHERE id = 'draft-1'").get();
 
 test("bulk actions skip another user's draft and still act on visible mail", async (t) => {
 	const { sqlite } = await setup(t, "delegate");

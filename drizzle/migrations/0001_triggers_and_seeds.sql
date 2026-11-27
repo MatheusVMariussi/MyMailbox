@@ -1,37 +1,8 @@
--- Everything drizzle-kit does not generate from src/db/schema/index.ts: the FTS5 search index, triggers and seed rows.
+-- Everything drizzle-kit does not generate from src/db/schema/index.ts: triggers, the FTS5 search index and seed rows.
 -- Each statement ends with a statement-breakpoint marker (never inside a trigger body): the bundle splitter
 -- (scripts/generate-migration-bundle.mjs), the test helper (tests/helpers/migrate.ts) and `wrangler d1 migrations apply`
--- all read this file. Triggers keep the creation order of the migration history they replace, so they fire in the same order.
-CREATE VIRTUAL TABLE `messages_fts` USING fts5(
-	`subject`,
-	`from_addr`,
-	`to_addr`,
-	`cc_addr`,
-	`text_body`,
-	`html_body`,
-	content='messages',
-	content_rowid='rowid',
-	tokenize='unicode61 remove_diacritics 2'
-);
---> statement-breakpoint
--- Full-text search: an external-content FTS5 index over messages, kept current by these triggers (no application code writes it).
-CREATE TRIGGER `messages_fts_ai` AFTER INSERT ON `messages` BEGIN
-	INSERT INTO `messages_fts`(`rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `text_body`, `html_body`)
-	VALUES (new.`rowid`, new.`subject`, new.`from_addr`, new.`to_addr`, new.`cc_addr`, new.`text_body`, new.`html_body`);
-END;
---> statement-breakpoint
-CREATE TRIGGER `messages_fts_ad` AFTER DELETE ON `messages` BEGIN
-	INSERT INTO `messages_fts`(`messages_fts`, `rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `text_body`, `html_body`)
-	VALUES ('delete', old.`rowid`, old.`subject`, old.`from_addr`, old.`to_addr`, old.`cc_addr`, old.`text_body`, old.`html_body`);
-END;
---> statement-breakpoint
-CREATE TRIGGER `messages_fts_au` AFTER UPDATE OF `subject`, `from_addr`, `to_addr`, `cc_addr`, `text_body`, `html_body` ON `messages` BEGIN
-	INSERT INTO `messages_fts`(`messages_fts`, `rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `text_body`, `html_body`)
-	VALUES ('delete', old.`rowid`, old.`subject`, old.`from_addr`, old.`to_addr`, old.`cc_addr`, old.`text_body`, old.`html_body`);
-	INSERT INTO `messages_fts`(`rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `text_body`, `html_body`)
-	VALUES (new.`rowid`, new.`subject`, new.`from_addr`, new.`to_addr`, new.`cc_addr`, new.`text_body`, new.`html_body`);
-END;
---> statement-breakpoint
+-- all read this file. Triggers on one table fire in an order that follows their creation order, so keep it when editing.
+--
 -- Trash and Spam retention: trashed_at records when a message entered either status.
 CREATE TRIGGER `messages_trashed_at_ai` AFTER INSERT ON `messages` WHEN new.`status` IN ('trash', 'spam') BEGIN
 	UPDATE `messages` SET `trashed_at` = CAST(strftime('%s', 'now') AS integer) WHERE `rowid` = new.`rowid`;
@@ -41,7 +12,7 @@ CREATE TRIGGER `messages_trashed_at_au` AFTER UPDATE OF `status` ON `messages` W
 	UPDATE `messages` SET `trashed_at` = CASE WHEN new.`status` IN ('trash', 'spam') THEN CAST(strftime('%s', 'now') AS integer) ELSE NULL END WHERE `rowid` = new.`rowid`;
 END;
 --> statement-breakpoint
--- JMAP change log (Email/changes, Mailbox/changes, Thread/changes): one row per created, updated or destroyed message, folder or mailbox.
+-- JMAP change log (Email/changes, Mailbox/changes, Thread/changes): one row per created, updated or destroyed message, label or mailbox.
 CREATE TRIGGER `jmap_changes_messages_ai` AFTER INSERT ON `messages`
 WHEN NEW.mailbox_id IS NOT NULL BEGIN
 	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, thread_id, change)
@@ -66,21 +37,6 @@ CREATE TRIGGER `jmap_changes_messages_ad` AFTER DELETE ON `messages`
 WHEN OLD.mailbox_id IS NOT NULL BEGIN
 	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, thread_id, change)
 	VALUES (OLD.mailbox_id, 'email', OLD.id, coalesce(OLD.thread_id, OLD.id), 'destroyed');
-END;
---> statement-breakpoint
-CREATE TRIGGER `jmap_changes_folders_ai` AFTER INSERT ON `folders` BEGIN
-	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change) VALUES (NEW.mailbox_id, 'mailbox', NEW.id, 'created');
-END;
---> statement-breakpoint
-CREATE TRIGGER `jmap_changes_folders_au` AFTER UPDATE ON `folders` BEGIN
-	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change)
-	SELECT OLD.mailbox_id, 'mailbox', OLD.id, 'destroyed' WHERE OLD.mailbox_id IS NOT NEW.mailbox_id;
-	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change)
-	VALUES (NEW.mailbox_id, 'mailbox', NEW.id, CASE WHEN OLD.mailbox_id IS NEW.mailbox_id THEN 'updated' ELSE 'created' END);
-END;
---> statement-breakpoint
-CREATE TRIGGER `jmap_changes_folders_ad` AFTER DELETE ON `folders` BEGIN
-	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change) VALUES (OLD.mailbox_id, 'mailbox', OLD.id, 'destroyed');
 END;
 --> statement-breakpoint
 CREATE TRIGGER `jmap_changes_mailboxes_au` AFTER UPDATE ON `mailboxes` BEGIN
@@ -119,7 +75,7 @@ BEGIN
 	SELECT RAISE(ABORT, 'second-factor-unavailable');
 END;
 --> statement-breakpoint
--- JMAP mailbox revisions: a per-mailbox counter bumped by every change to its messages, folders, aliases or settings.
+-- JMAP mailbox revisions: a per-mailbox counter bumped by every change to its messages, labels, aliases or settings.
 CREATE TRIGGER `jmap_messages_ai` AFTER INSERT ON `messages`
 WHEN NEW.mailbox_id IS NOT NULL BEGIN
 	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (NEW.mailbox_id, 1)
@@ -140,27 +96,6 @@ END;
 --> statement-breakpoint
 CREATE TRIGGER `jmap_messages_ad` AFTER DELETE ON `messages`
 WHEN OLD.mailbox_id IS NOT NULL BEGIN
-	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)
-	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
-END;
---> statement-breakpoint
-CREATE TRIGGER `jmap_folders_ai` AFTER INSERT ON `folders` BEGIN
-	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (NEW.mailbox_id, 1)
-	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
-END;
---> statement-breakpoint
-CREATE TRIGGER `jmap_folders_au` AFTER UPDATE ON `folders` BEGIN
-	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (NEW.mailbox_id, 1)
-	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
-END;
---> statement-breakpoint
-CREATE TRIGGER `jmap_folders_au_old` AFTER UPDATE OF mailbox_id ON `folders`
-WHEN OLD.mailbox_id IS NOT NEW.mailbox_id BEGIN
-	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)
-	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
-END;
---> statement-breakpoint
-CREATE TRIGGER `jmap_folders_ad` AFTER DELETE ON `folders` BEGIN
 	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)
 	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
 END;
@@ -189,6 +124,106 @@ END;
 CREATE TRIGGER `jmap_mailbox_aliases_ad` AFTER DELETE ON `mailbox_aliases` BEGIN
 	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)
 	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
+END;
+--> statement-breakpoint
+-- Labels: each one is a JMAP Mailbox, so creating, changing or deleting one is a Mailbox change and a revision bump.
+CREATE TRIGGER `jmap_changes_labels_ai` AFTER INSERT ON `labels` BEGIN
+	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change) VALUES (NEW.mailbox_id, 'mailbox', NEW.id, 'created');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_changes_labels_au` AFTER UPDATE ON `labels` BEGIN
+	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change)
+	SELECT OLD.mailbox_id, 'mailbox', OLD.id, 'destroyed' WHERE OLD.mailbox_id IS NOT NEW.mailbox_id;
+	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change)
+	VALUES (NEW.mailbox_id, 'mailbox', NEW.id, CASE WHEN OLD.mailbox_id IS NEW.mailbox_id THEN 'updated' ELSE 'created' END);
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_changes_labels_ad` AFTER DELETE ON `labels` BEGIN
+	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, change) VALUES (OLD.mailbox_id, 'mailbox', OLD.id, 'destroyed');
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_labels_ai` AFTER INSERT ON `labels` BEGIN
+	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (NEW.mailbox_id, 1)
+	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_labels_au` AFTER UPDATE ON `labels` BEGIN
+	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (NEW.mailbox_id, 1)
+	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_labels_au_old` AFTER UPDATE OF mailbox_id ON `labels`
+WHEN OLD.mailbox_id IS NOT NEW.mailbox_id BEGIN
+	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)
+	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_labels_ad` AFTER DELETE ON `labels` BEGIN
+	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision) VALUES (OLD.mailbox_id, 1)
+	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
+END;
+--> statement-breakpoint
+-- A label and its message always share a mailbox; the service checks first, this keeps every other writer honest.
+CREATE TRIGGER `message_labels_same_mailbox_bi` BEFORE INSERT ON `message_labels`
+WHEN (SELECT mailbox_id FROM labels WHERE id = NEW.label_id) IS NOT (SELECT mailbox_id FROM messages WHERE id = NEW.message_id) BEGIN
+	SELECT RAISE(ABORT, 'label-mailbox-mismatch');
+END;
+--> statement-breakpoint
+-- Adding or removing a label updates the Email (its mailboxIds change) and bumps its mailbox revision, which also wakes
+-- the realtime heartbeat. A membership removed because its message is being deleted finds no message row and writes
+-- nothing: the message's own delete trigger already reported it destroyed.
+CREATE TRIGGER `jmap_changes_message_labels_ai` AFTER INSERT ON `message_labels` BEGIN
+	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, thread_id, change)
+	SELECT mailbox_id, 'email', id, coalesce(thread_id, id), 'updated' FROM messages WHERE id = NEW.message_id AND mailbox_id IS NOT NULL;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_changes_message_labels_ad` AFTER DELETE ON `message_labels` BEGIN
+	INSERT INTO jmap_changes (mailbox_id, object_type, object_id, thread_id, change)
+	SELECT mailbox_id, 'email', id, coalesce(thread_id, id), 'updated' FROM messages WHERE id = OLD.message_id AND mailbox_id IS NOT NULL;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_message_labels_ai` AFTER INSERT ON `message_labels` BEGIN
+	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision)
+	SELECT mailbox_id, 1 FROM messages WHERE id = NEW.message_id AND mailbox_id IS NOT NULL
+	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
+END;
+--> statement-breakpoint
+CREATE TRIGGER `jmap_message_labels_ad` AFTER DELETE ON `message_labels` BEGIN
+	INSERT INTO jmap_mailbox_revisions (mailbox_id, revision)
+	SELECT mailbox_id, 1 FROM messages WHERE id = OLD.message_id AND mailbox_id IS NOT NULL
+	ON CONFLICT(mailbox_id) DO UPDATE SET revision = revision + 1;
+END;
+--> statement-breakpoint
+-- Full-text search: an external-content FTS5 index over messages (Bcc included, for bcc:), kept current by these
+-- triggers (no application code writes it).
+CREATE VIRTUAL TABLE `messages_fts` USING fts5(
+	`subject`,
+	`from_addr`,
+	`to_addr`,
+	`cc_addr`,
+	`bcc_addr`,
+	`text_body`,
+	`html_body`,
+	content='messages',
+	content_rowid='rowid',
+	tokenize='unicode61 remove_diacritics 2'
+);
+--> statement-breakpoint
+CREATE TRIGGER `messages_fts_ai` AFTER INSERT ON `messages` BEGIN
+	INSERT INTO `messages_fts`(`rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)
+	VALUES (new.`rowid`, new.`subject`, new.`from_addr`, new.`to_addr`, new.`cc_addr`, new.`bcc_addr`, new.`text_body`, new.`html_body`);
+END;
+--> statement-breakpoint
+CREATE TRIGGER `messages_fts_ad` AFTER DELETE ON `messages` BEGIN
+	INSERT INTO `messages_fts`(`messages_fts`, `rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)
+	VALUES ('delete', old.`rowid`, old.`subject`, old.`from_addr`, old.`to_addr`, old.`cc_addr`, old.`bcc_addr`, old.`text_body`, old.`html_body`);
+END;
+--> statement-breakpoint
+CREATE TRIGGER `messages_fts_au` AFTER UPDATE OF `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body` ON `messages` BEGIN
+	INSERT INTO `messages_fts`(`messages_fts`, `rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)
+	VALUES ('delete', old.`rowid`, old.`subject`, old.`from_addr`, old.`to_addr`, old.`cc_addr`, old.`bcc_addr`, old.`text_body`, old.`html_body`);
+	INSERT INTO `messages_fts`(`rowid`, `subject`, `from_addr`, `to_addr`, `cc_addr`, `bcc_addr`, `text_body`, `html_body`)
+	VALUES (new.`rowid`, new.`subject`, new.`from_addr`, new.`to_addr`, new.`cc_addr`, new.`bcc_addr`, new.`text_body`, new.`html_body`);
 END;
 --> statement-breakpoint
 -- Seed rows: the singleton settings rows and the JMAP change-log floor.

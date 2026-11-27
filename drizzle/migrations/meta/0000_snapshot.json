@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "53d4b97c-e483-48fc-aa5e-072abc7b95cc",
+  "id": "cb6d3712-0fd2-4897-836a-fdb258aa77fc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "api_key_mailboxes": {
@@ -2619,109 +2619,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "folders": {
-      "name": "folders",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "mailbox_id": {
-          "name": "mailbox_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "color": {
-          "name": "color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'#2563eb'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "folders_mailbox_name_idx": {
-          "name": "folders_mailbox_name_idx",
-          "columns": [
-            "mailbox_id",
-            "name"
-          ],
-          "isUnique": true
-        },
-        "folders_user_idx": {
-          "name": "folders_user_idx",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        },
-        "folders_mailbox_idx": {
-          "name": "folders_mailbox_idx",
-          "columns": [
-            "mailbox_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "folders_user_id_users_id_fk": {
-          "name": "folders_user_id_users_id_fk",
-          "tableFrom": "folders",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "folders_mailbox_id_mailboxes_id_fk": {
-          "name": "folders_mailbox_id_mailboxes_id_fk",
-          "tableFrom": "folders",
-          "tableTo": "mailboxes",
-          "columnsFrom": [
-            "mailbox_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "follow_ups": {
       "name": "follow_ups",
       "columns": {
@@ -2941,6 +2838,109 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "labels": {
+      "name": "labels",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mailbox_id": {
+          "name": "mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'#2563eb'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "labels_mailbox_name_idx": {
+          "name": "labels_mailbox_name_idx",
+          "columns": [
+            "mailbox_id",
+            "name"
+          ],
+          "isUnique": true
+        },
+        "labels_user_idx": {
+          "name": "labels_user_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        },
+        "labels_mailbox_idx": {
+          "name": "labels_mailbox_idx",
+          "columns": [
+            "mailbox_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "labels_user_id_users_id_fk": {
+          "name": "labels_user_id_users_id_fk",
+          "tableFrom": "labels",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "labels_mailbox_id_mailboxes_id_fk": {
+          "name": "labels_mailbox_id_mailboxes_id_fk",
+          "tableFrom": "labels",
+          "tableTo": "mailboxes",
+          "columnsFrom": [
+            "mailbox_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -3762,6 +3762,82 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "message_labels": {
+      "name": "message_labels",
+      "columns": {
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label_id": {
+          "name": "label_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "message_labels_message_label_idx": {
+          "name": "message_labels_message_label_idx",
+          "columns": [
+            "message_id",
+            "label_id"
+          ],
+          "isUnique": true
+        },
+        "message_labels_label_message_idx": {
+          "name": "message_labels_label_message_idx",
+          "columns": [
+            "label_id",
+            "message_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "message_labels_message_id_messages_id_fk": {
+          "name": "message_labels_message_id_messages_id_fk",
+          "tableFrom": "message_labels",
+          "tableTo": "messages",
+          "columnsFrom": [
+            "message_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "message_labels_label_id_labels_id_fk": {
+          "name": "message_labels_label_id_labels_id_fk",
+          "tableFrom": "message_labels",
+          "tableTo": "labels",
+          "columnsFrom": [
+            "label_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "message_opens": {
       "name": "message_opens",
       "columns": {
@@ -3960,13 +4036,6 @@
         },
         "provider_message_id": {
           "name": "provider_message_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "folder_id": {
-          "name": "folder_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -4173,6 +4242,28 @@
           "notNull": false,
           "autoincrement": false
         },
+        "delivered_to": {
+          "name": "delivered_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -4194,13 +4285,6 @@
           "name": "messages_mailbox_idx",
           "columns": [
             "mailbox_id"
-          ],
-          "isUnique": false
-        },
-        "messages_folder_idx": {
-          "name": "messages_folder_idx",
-          "columns": [
-            "folder_id"
           ],
           "isUnique": false
         },
@@ -4240,7 +4324,6 @@
             "mailbox_id",
             "category",
             "status",
-            "folder_id",
             "\"created_at\" desc",
             "\"id\" desc"
           ],
@@ -4251,11 +4334,11 @@
           "columns": [
             "mailbox_id",
             "category",
-            "folder_id",
             "direction",
             "status",
             "read",
-            "snoozed_until"
+            "snoozed_until",
+            "project_id"
           ],
           "isUnique": false
         },
@@ -4268,12 +4351,19 @@
           ],
           "isUnique": false
         },
+        "messages_size_idx": {
+          "name": "messages_size_idx",
+          "columns": [
+            "mailbox_id",
+            "size_bytes"
+          ],
+          "isUnique": false
+        },
         "messages_inbox_page_idx": {
           "name": "messages_inbox_page_idx",
           "columns": [
             "mailbox_id",
             "status",
-            "folder_id",
             "\"created_at\" desc",
             "\"id\" desc"
           ],
@@ -4284,7 +4374,6 @@
           "columns": [
             "mailbox_id",
             "status",
-            "folder_id",
             "coalesce(\"thread_id\", \"id\")",
             "created_at"
           ],
@@ -4303,7 +4392,6 @@
           "columns": [
             "mailbox_id",
             "status",
-            "folder_id",
             "\"created_at\" desc",
             "\"id\" desc",
             "direction",
@@ -4311,7 +4399,25 @@
             "thread_id",
             "snoozed_until",
             "user_id",
-            "private_draft"
+            "private_draft",
+            "project_id"
+          ],
+          "isUnique": false
+        },
+        "messages_unified_page_idx": {
+          "name": "messages_unified_page_idx",
+          "columns": [
+            "status",
+            "\"created_at\" desc",
+            "\"id\" desc",
+            "mailbox_id",
+            "direction",
+            "read",
+            "thread_id",
+            "snoozed_until",
+            "user_id",
+            "private_draft",
+            "project_id"
           ],
           "isUnique": false
         },
@@ -4319,14 +4425,14 @@
           "name": "messages_counts_cover_idx",
           "columns": [
             "mailbox_id",
-            "folder_id",
             "direction",
             "status",
             "read",
             "starred",
             "snoozed_until",
             "user_id",
-            "private_draft"
+            "private_draft",
+            "project_id"
           ],
           "isUnique": false
         },
@@ -4363,19 +4469,6 @@
           "tableTo": "mailboxes",
           "columnsFrom": [
             "mailbox_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "messages_folder_id_folders_id_fk": {
-          "name": "messages_folder_id_folders_id_fk",
-          "tableFrom": "messages",
-          "tableTo": "folders",
-          "columnsFrom": [
-            "folder_id"
           ],
           "columnsTo": [
             "id"
@@ -4899,6 +4992,172 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "project_addresses": {
+      "name": "project_addresses",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "domain_id": {
+          "name": "domain_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "local_part": {
+          "name": "local_part",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "project_addresses_address_idx": {
+          "name": "project_addresses_address_idx",
+          "columns": [
+            "domain_id",
+            "local_part"
+          ],
+          "isUnique": true
+        },
+        "project_addresses_project_idx": {
+          "name": "project_addresses_project_idx",
+          "columns": [
+            "project_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "project_addresses_project_id_projects_id_fk": {
+          "name": "project_addresses_project_id_projects_id_fk",
+          "tableFrom": "project_addresses",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_addresses_domain_id_domains_id_fk": {
+          "name": "project_addresses_domain_id_domains_id_fk",
+          "tableFrom": "project_addresses",
+          "tableTo": "domains",
+          "columnsFrom": [
+            "domain_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "projects": {
+      "name": "projects",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'#4f8cff'"
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "projects_user_name_idx": {
+          "name": "projects_user_name_idx",
+          "columns": [
+            "user_id",
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "projects_user_id_users_id_fk": {
+          "name": "projects_user_id_users_id_fk",
+          "tableFrom": "projects",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "push_subscriptions": {
       "name": "push_subscriptions",
       "columns": {
@@ -5099,12 +5358,20 @@
           "notNull": false,
           "autoincrement": false
         },
-        "folder_id": {
-          "name": "folder_id",
+        "label_id": {
+          "name": "label_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "skip_inbox": {
+          "name": "skip_inbox",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "action": {
           "name": "action",
@@ -5198,10 +5465,10 @@
           ],
           "isUnique": false
         },
-        "routing_rules_folder_idx": {
-          "name": "routing_rules_folder_idx",
+        "routing_rules_label_idx": {
+          "name": "routing_rules_label_idx",
           "columns": [
-            "folder_id"
+            "label_id"
           ],
           "isUnique": false
         }
@@ -5246,12 +5513,12 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "routing_rules_folder_id_folders_id_fk": {
-          "name": "routing_rules_folder_id_folders_id_fk",
+        "routing_rules_label_id_labels_id_fk": {
+          "name": "routing_rules_label_id_labels_id_fk",
           "tableFrom": "routing_rules",
-          "tableTo": "folders",
+          "tableTo": "labels",
           "columnsFrom": [
-            "folder_id"
+            "label_id"
           ],
           "columnsTo": [
             "id"
@@ -6129,6 +6396,14 @@
             "created_by_user_id"
           ],
           "isUnique": false
+        },
+        "users_one_primary_admin": {
+          "name": "users_one_primary_admin",
+          "columns": [
+            "is_primary_admin"
+          ],
+          "isUnique": true,
+          "where": "\"users\".\"is_primary_admin\" = 1"
         }
       },
       "foreignKeys": {
@@ -6527,6 +6802,16 @@
         }
       },
       "messages_nav_cover_idx": {
+        "columns": {
+          "\"created_at\" desc": {
+            "isExpression": true
+          },
+          "\"id\" desc": {
+            "isExpression": true
+          }
+        }
+      },
+      "messages_unified_page_idx": {
         "columns": {
           "\"created_at\" desc": {
             "isExpression": true

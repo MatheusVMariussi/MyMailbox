@@ -402,9 +402,8 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 		getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key),
 		loadMessageLabelIds(db, [messageId]),
 	]);
-	const { rawR2Key, textBody, htmlBody, legacyFolderId, ...header } = message;
+	const { rawR2Key, textBody, htmlBody, ...header } = message;
 	void rawR2Key;
-	void legacyFolderId;
 	return {
 		message: { ...header, ...contactNames, labelIds: labelIds.get(messageId) ?? [] },
 		body: { textBody: textBody ?? null, htmlBody: htmlBody ?? null },

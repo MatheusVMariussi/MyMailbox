@@ -166,6 +166,5 @@ test("the reader detail carries the message's labels and no folder", async (t) =
 	await app.actions.POST(send("POST", { op: "apply", action: "label", labelId: work.id, messageIds: ["in-1"] }));
 	const detail = await app.getMessageWithBodyForUser(env, user("admin"), "in-1");
 	assert.deepEqual(detail.message.labelIds, [work.id]);
-	assert.equal("legacyFolderId" in detail.message, false);
 	assert.equal("folderId" in detail.message, false);
 });

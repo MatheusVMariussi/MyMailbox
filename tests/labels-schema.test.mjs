@@ -1,16 +1,10 @@
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import test, { after } from "node:test";
-import { fileURLToPath } from "node:url";
+import test from "node:test";
 import { loadApp } from "./helpers/real-db.mjs";
 
-// 0002_labels turns folders into labels: the table is renamed, memberships move to message_labels, filed mail
-// leaves the inbox through its status, and the new triggers log every membership change for JMAP and realtime.
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const migrationsDir = join(root, "drizzle", "migrations");
-const { app, newDatabase } = await loadApp("labels-migration", "");
+// Labels are a table: messages carry any number through message_labels, and triggers log every label and
+// membership change for JMAP and realtime and keep a label in its message's mailbox.
+const { newDatabase } = await loadApp("labels-schema", "");
 
 const seed = `
 	INSERT INTO users (id, email, password_hash, name, role, created_at) VALUES ('u1', 'u1@example.com', 'hash', 'U1', 'admin', 1);
@@ -18,59 +12,12 @@ const seed = `
 	INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ('mb1', 'u1', 'd1', 'me', 'personal', 1), ('mb2', 'u1', 'd1', 'other', 'personal', 1);
 `;
 
-/** A database at 0001 (folders still exist), seeded, so 0002 runs over real folder data. */
-async function databaseBefore0002(t, data) {
-	const directory = mkdtempSync(join(tmpdir(), "mymailbox-labels-migration-"));
-	after(() => rmSync(directory, { recursive: true, force: true }));
-	mkdirSync(join(directory, "meta"));
-	for (const name of ["0000_baseline.sql", "0001_triggers_and_seeds.sql"]) copyFileSync(join(migrationsDir, name), join(directory, name));
-	writeFileSync(join(directory, "meta", "_journal.json"), JSON.stringify({ entries: [{ tag: "0000_baseline" }, { tag: "0001_triggers_and_seeds" }] }));
-	const database = new app.SqliteDatabase(":memory:");
-	t.after(() => database.db.close());
-	await app.applyMigrations(database, directory);
-	database.db.exec(seed + data);
-	return database;
-}
-
-test("folders become labels and filed mail keeps its place as a label", async (t) => {
-	const database = await databaseBefore0002(t, `
-		INSERT INTO folders (id, user_id, mailbox_id, name, color, created_at) VALUES ('f1', 'u1', 'mb1', 'Clients', '#16a34a', 1);
-		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, status, folder_id, private_draft, created_at) VALUES
-			('in-filed', 'u1', 'mb1', 'inbound', 'a@x.test', 'me@example.com', 'received', 'f1', 0, 1),
-			('sent-filed', 'u1', 'mb1', 'outbound', 'me@example.com', 'a@x.test', 'received', 'f1', 0, 2),
-			('draft-filed', 'u1', 'mb1', 'outbound', 'me@example.com', 'a@x.test', 'received', 'f1', 1, 3),
-			('archived-filed', 'u1', 'mb1', 'inbound', 'a@x.test', 'me@example.com', 'archived', 'f1', 0, 4),
-			('inbox', 'u1', 'mb1', 'inbound', 'a@x.test', 'me@example.com', 'received', NULL, 0, 5);
-		INSERT INTO routing_rules (id, user_id, domain_id, scope, pattern, mailbox_id, folder_id, action, created_at) VALUES ('r1', 'u1', 'd1', 'mailbox', 'x', 'mb1', 'f1', 'store', 1);
-	`);
-	await app.applyMigrations(database, migrationsDir);
-	const sqlite = database.db;
-	const rows = (query) => sqlite.prepare(query).all().map((row) => ({ ...row }));
-
-	assert.equal(sqlite.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'folders'").get(), undefined);
-	assert.deepEqual(rows("SELECT id, mailbox_id, name, color FROM labels"), [{ id: "f1", mailbox_id: "mb1", name: "Clients", color: "#16a34a" }]);
-	assert.deepEqual(rows("SELECT message_id, label_id FROM message_labels ORDER BY message_id"), [
-		{ message_id: "archived-filed", label_id: "f1" },
-		{ message_id: "draft-filed", label_id: "f1" },
-		{ message_id: "in-filed", label_id: "f1" },
-		{ message_id: "sent-filed", label_id: "f1" },
-	]);
-	// Filed inbound mail is archived; sent mail a folder move rewrote to `received` is sent again; a private draft is archived.
-	assert.deepEqual(rows("SELECT id, status FROM messages ORDER BY id"), [
-		{ id: "archived-filed", status: "archived" },
-		{ id: "draft-filed", status: "archived" },
-		{ id: "in-filed", status: "archived" },
-		{ id: "inbox", status: "received" },
-		{ id: "sent-filed", status: "sent" },
-	]);
-	assert.equal(sqlite.prepare("SELECT count(*) AS n FROM messages WHERE folder_id IS NOT NULL").get().n, 0);
-	assert.deepEqual(rows("SELECT id, label_id, skip_inbox FROM routing_rules"), [{ id: "r1", label_id: "f1", skip_inbox: 0 }]);
-});
-
-test("no message index keys on folder_id but the one that serves the label foreign key", async (t) => {
+test("messages have no folder column and keep their list indexes; rules name a label", async (t) => {
 	const { sqlite } = await newDatabase(t);
+	const messageColumns = sqlite.prepare("SELECT name FROM pragma_table_info('messages')").all().map((row) => row.name);
+	assert.ok(!messageColumns.includes("folder_id"));
+	assert.equal(sqlite.prepare("SELECT 1 FROM sqlite_master WHERE name IN ('folders', 'messages_folder_idx')").get(), undefined);
 	const indexes = sqlite.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'messages' AND sql IS NOT NULL").all();
-	assert.deepEqual(indexes.filter((index) => index.sql.includes("folder_id")).map((index) => index.name), ["messages_folder_idx"]);
 	for (const name of ["messages_inbox_page_idx", "messages_thread_key_idx", "messages_nav_cover_idx", "messages_counts_cover_idx", "messages_category_page_idx", "messages_category_count_idx"]) {
 		assert.ok(indexes.some((index) => index.name === name), name);
 	}
