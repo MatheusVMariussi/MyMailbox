@@ -200,3 +200,36 @@ test("a move into Drafts commits the status, the label removal and the hidden ma
 	assert.equal(sqlite.prepare("SELECT private_draft FROM messages WHERE id = 'm-sent'").get().private_draft, 1);
 	assert.equal(sqlite.prepare("SELECT count(*) AS n FROM jmap_changes WHERE object_id = 'm-sent' AND change = 'hidden'").get().n, 1);
 });
+
+test("a delegate without full access may resend unchanged mailboxIds with a flag change, but not move", async (t) => {
+	const teamSeed = `${sharedMailboxSeed("send_on_behalf")}
+		INSERT INTO labels (id, user_id, mailbox_id, name, created_at) VALUES ('l-team', 'admin', 'mb-team', 'Team', 1), ('l-other', 'admin', 'mb-team', 'Other', 1);
+		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, subject, status, read, created_at) VALUES
+			('m-team', 'admin', 'mb-team', 'inbound', 'x@example.net', 'team@example.com', 'Team', 'received', 0, 2);
+		INSERT INTO message_labels (message_id, label_id) VALUES ('m-team', 'l-team');
+	`;
+	const { env, db, sqlite } = await newDatabase(t, teamSeed);
+	const set = (patch) => app.emailSet(context(db, env), { update: { "m-team": patch } });
+	const readOf = () => sqlite.prepare("SELECT read FROM messages WHERE id = 'm-team'").get().read;
+	const same = { "mb-team~inbox": true, "mb-team~f~l-team": true };
+
+	const resent = await set({ mailboxIds: same, "keywords/$seen": true });
+	assert.deepEqual(resent.notUpdated, {});
+	assert.deepEqual(resent.updated, { "m-team": null });
+	assert.equal(readOf(), 1);
+
+	const pointer = await set({ "mailboxIds/mb-team~inbox": true, "keywords/$seen": false });
+	assert.deepEqual(pointer.updated, { "m-team": null });
+	assert.equal(readOf(), 0);
+
+	for (const patch of [
+		{ mailboxIds: { "mb-team~archive": true, "mb-team~f~l-team": true } },
+		{ mailboxIds: { ...same, "mb-team~f~l-other": true } },
+		{ "mailboxIds/mb-team~f~l-team": null },
+	]) {
+		const refused = await set(patch);
+		assert.equal(refused.notUpdated["m-team"]?.type, "forbidden", JSON.stringify(patch));
+	}
+	assert.equal(statusOf(sqlite, "m-team"), "received");
+	assert.deepEqual(labelsOf(sqlite, "m-team"), ["l-team"]);
+});

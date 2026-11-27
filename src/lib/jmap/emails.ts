@@ -334,6 +334,11 @@ async function createDraft(ctx: JmapContext, value: Record<string, unknown>, acc
 	return { id };
 }
 
+/** Whether two lists of distinct ids hold the same ids, in any order. */
+function sameIds(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((id) => right.includes(id));
+}
+
 /**
  * The SetError for one message whose update batch failed (nothing of it committed): a label the
  * database refused is the client's `mailboxIds`, anything else a server failure, logged here and
@@ -392,11 +397,13 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			notUpdated[id] = move.error;
 			continue;
 		}
-		if (move && !manageable.has(row.mailboxId)) {
+		// Clients resend the mailboxIds a message already has alongside a keyword change; that moves nothing.
+		const moves = !!move && (move.status !== row.status || !sameIds(move.labelIds, currentLabelIds));
+		if (moves && !manageable.has(row.mailboxId)) {
 			notUpdated[id] = { type: "forbidden", description: "Moving mail needs full access to the mailbox" };
 			continue;
 		}
-		if (move && move.labelIds.length > 0) {
+		if (moves && move.labelIds.length > 0) {
 			// Label ids in a mailboxIds patch are client input: each must be a label of the message's own mailbox.
 			const known = await loadLabels(ctx.db, move.labelIds);
 			if (move.labelIds.some((labelId) => known.get(labelId)?.mailboxId !== row.mailboxId)) {
