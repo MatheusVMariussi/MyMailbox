@@ -5,6 +5,8 @@ import { mailboxAccess, users } from "@/db/schema";
 import { requireAdminSession } from "@/app/api/accounts/utils";
 import { newId } from "@/lib/ids";
 import { mailboxAccessSchema } from "@/lib/validators";
+import { readJsonBody } from "@/lib/http/request";
+import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import type { MailboxAccessRouteParams } from "./types";
 import { getSharedMailboxForAdmin } from "./utils";
 
@@ -41,7 +43,14 @@ export async function GET(request: Request, { params }: MailboxAccessRouteParams
 export async function POST(request: Request, { params }: MailboxAccessRouteParams) {
 	const access = await requireAdminSession(request);
 	if (access.error) return access.error;
-	const parsed = mailboxAccessSchema.safeParse(await request.json());
+	let body: unknown;
+	try {
+		body = await readJsonBody(request, 16 * 1024);
+	} catch (error) {
+		const status = error instanceof RequestBodyTooLargeError ? 413 : 400;
+		return NextResponse.json({ error: "Invalid access request" }, { status });
+	}
+	const parsed = mailboxAccessSchema.safeParse(body);
 	if (!parsed.success) return NextResponse.json({ error: "Choose a valid account" }, { status: 400 });
 	const { id } = await params;
 	const db = getDb(access.env);
