@@ -48,6 +48,8 @@ export async function generateMetadata(): Promise<Metadata> {
 			title: appName,
 			statusBarStyle: "black-translucent",
 		},
+		// vinext writes `mobile-web-app-capable` for `appleWebApp.capable`; older iOS only knows the prefixed name.
+		other: { "apple-mobile-web-app-capable": "yes" },
 		robots: {
 			index: false,
 			follow: false,
