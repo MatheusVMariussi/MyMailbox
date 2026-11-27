@@ -60,6 +60,8 @@ export function RegisterClient() {
   // The operator's SETUP_TOKEN secret, kept in memory only and sent with every setup request.
   const [setupToken, setSetupToken] = useState("");
   const [needsSetupToken, setNeedsSetupToken] = useState(false);
+  // Set when the account was created but its domain was not: setup is closed, so continue from sign-in.
+  const [finishSetupAt, setFinishSetupAt] = useState<string | null>(null);
 
   useEffect(() => {
     void runPreparation();
@@ -238,6 +240,12 @@ export function RegisterClient() {
         skipDns: setupDomain ? setupSkipDns : undefined,
       });
       if (!ok) {
+        if (data.accountCreated) {
+          const reason = typeof data.error === "string" ? data.error.replace(/[.\s]+$/, "") : t("setup.domainFailed");
+          setFinishSetupAt(data.redirect ?? "/login");
+          setError(t("setup.accountKept", { reason }));
+          return;
+        }
         if (data.code === "MX_RECORDS_CONFLICT") {
           setMxRecordsExist(true);
           setReplaceMxRecords(false);
@@ -572,14 +580,26 @@ export function RegisterClient() {
 							{t("setup.checkMxAgain")}
 						</Button>
 					)}
-          <TurnstileField resetSignal={turnstileReset} />
-					<Button
-						type="submit"
-						className="h-11 w-full rounded-full px-6 active:scale-[0.98] mt-8"
-						disabled={loading || mxChecking || mxRecordsExist === null || (mxRecordsExist && !replaceMxRecords) || hasAdminAccount === null || hasPrimaryDomain === null}
-					>
-						{loading ? t("setup.creating") : t("setup.createAccount")}
-					</Button>
+          {finishSetupAt ? (
+            <Button
+              type="button"
+              className="h-11 w-full rounded-full px-6 active:scale-[0.98] mt-8"
+              onClick={() => window.location.assign(finishSetupAt)}
+            >
+              {t("common.continue")}
+            </Button>
+          ) : (
+            <>
+              <TurnstileField resetSignal={turnstileReset} />
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-full px-6 active:scale-[0.98] mt-8"
+                disabled={loading || mxChecking || mxRecordsExist === null || (mxRecordsExist && !replaceMxRecords) || hasAdminAccount === null || hasPrimaryDomain === null}
+              >
+                {loading ? t("setup.creating") : t("setup.createAccount")}
+              </Button>
+            </>
+          )}
         </form>
       )}
     </AuthShell>

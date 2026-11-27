@@ -42,4 +42,6 @@ export type RegisterResult = {
 	redirect?: string;
 	error?: string;
 	code?: "MX_RECORDS_CONFLICT" | "passkey_unavailable" | SetupErrorCode;
+	/** The admin account exists but the domain step failed; finish it after signing in. */
+	accountCreated?: boolean;
 };

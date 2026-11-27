@@ -946,6 +946,7 @@
 	"setup.tokenRequired": "Digite o token de configuração para continuar.",
 	"setup.tokenInvalid": "Esse token de configuração não está certo.",
 	"setup.tokenUnset": "A configuração fica bloqueada até você definir o segredo SETUP_TOKEN. Rode npx wrangler secret put SETUP_TOKEN e depois recarregue esta página.",
+	"setup.accountKept": "Sua conta foi criada, mas não consegui configurar o domínio: {reason}. Continue, entre e adicione o domínio de novo pela configuração.",
 	"setup.primaryDomain": "Domínio principal",
 	"setup.zoneHint": "O domínio precisa já ser uma zona da Cloudflare nesta conta.",
 	"setup.enableSending": "Ativar envio",

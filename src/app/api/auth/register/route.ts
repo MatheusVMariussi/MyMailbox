@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { mailboxes, users } from "@/db/schema";
+import { domains, mailboxes, users } from "@/db/schema";
 import { hashPassword, PASSWORDLESS_PASSWORD_HASH } from "@/lib/auth/password";
 import { hasAdminAccount } from "@/lib/auth/setup";
 import { SESSION_COOKIE } from "@/lib/auth/session";
@@ -18,7 +18,35 @@ import { readJsonBody } from "@/lib/http/request";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { verifyTurnstileToken } from "@/lib/auth/turnstile";
 import { getDomainProvisioningError } from "@/lib/domains/errors";
+import { isUniqueConstraintError } from "@/lib/database-errors";
 import { guardSetupRequest } from "@/lib/setup/token";
+
+const REGISTRATION_CLOSED = "Registration is closed after the first account is created";
+
+/**
+ * Cookies every registration answer sets: the one-time passkey enrolment grant for a passkey-only
+ * account, and a cleared session (the first sign-in happens on /login or after the passkey).
+ */
+function finishRegistrationResponse(response: NextResponse, setupToken: string | null): NextResponse {
+	response.headers.set("Cache-Control", "no-store");
+	if (setupToken) {
+		response.cookies.set(SETUP_COOKIE, setupToken, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "lax",
+			path: "/",
+			maxAge: 24 * 60 * 60,
+		});
+	}
+	response.cookies.set(SESSION_COOKIE, "", {
+		httpOnly: true,
+		secure: process.env.NODE_ENV === "production",
+		sameSite: "lax",
+		path: "/",
+		maxAge: 0,
+	});
+	return response;
+}
 
 export async function POST(request: Request) {
 	const env = getEnv();
@@ -26,7 +54,7 @@ export async function POST(request: Request) {
 	if (refused) return refused;
 	const db = getDb(env);
 	if (await hasAdminAccount(env)) {
-		return NextResponse.json({ error: "Registration is closed after the first account is created" }, { status: 403 });
+		return NextResponse.json({ error: REGISTRATION_CLOSED }, { status: 403 });
 	}
 
 	let body: unknown;
@@ -57,21 +85,31 @@ export async function POST(request: Request) {
 	}
 
 	const userId = newId("usr");
-	await db.insert(users).values({
-		id: userId,
-		// Opening a message must not tell the sender; the column default predates this and stays "allow".
-		remoteContentMode: "ask",
-		email,
-		resetEmail: firstRunParsed.data.resetEmail,
-		passwordHash: usePasskey ? PASSWORDLESS_PASSWORD_HASH : hashPassword(password!),
-		name,
-		role: "admin",
-		isPrimaryAdmin: true,
-	});
+	try {
+		await db.insert(users).values({
+			id: userId,
+			// Opening a message must not tell the sender; the column default predates this and stays "allow".
+			remoteContentMode: "ask",
+			email,
+			resetEmail: firstRunParsed.data.resetEmail,
+			passwordHash: usePasskey ? PASSWORDLESS_PASSWORD_HASH : hashPassword(password!),
+			name,
+			role: "admin",
+			isPrimaryAdmin: true,
+		});
+	} catch (error) {
+		// `users_one_primary_admin`: a concurrent registration created the primary admin first.
+		if (isUniqueConstraintError(error)) {
+			return NextResponse.json({ error: REGISTRATION_CLOSED }, { status: 403 });
+		}
+		throw error;
+	}
 
 	// Create the setup grant before touching DNS. If it cannot be written, the
 	// account has no usable sign-in method and registration is already closed,
-	// so remove it rather than leaving an unreachable administrator behind.
+	// so remove it rather than leaving an unreachable administrator behind. This
+	// is the one failure that reopens setup: the alternative is an installation
+	// nobody can ever sign in to.
 	let setupToken: string | null = null;
 	if (usePasskey) {
 		try {
@@ -82,6 +120,7 @@ export async function POST(request: Request) {
 			return NextResponse.json({ error: "Could not start passkey setup. Try again.", code: "passkey_unavailable" }, { status: 500 });
 		}
 	}
+	const redirect = setupToken ? "/setup/passkey" : "/login";
 
 	// Tracks what the attempt changed on the Cloudflare zone so a failure can undo
 	// precisely that. The DB is not a reliable source for this: the same errors that
@@ -89,6 +128,8 @@ export async function POST(request: Request) {
 	// domain row from ever being written, which is exactly when the orphaned zone
 	// config would go unnoticed.
 	let changes: DomainProvisioningChanges | null = null;
+	let domainId: string | null = null;
+	let mailboxId: string | null = null;
 	try {
 		const added = await addDomainForUser(env, userId, domainName, {
 			enableRouting: true,
@@ -97,10 +138,11 @@ export async function POST(request: Request) {
 			skipDns: firstRunParsed.data.skipDns,
 		});
 		const domain = added.domain;
+		domainId = domain.id;
 		changes = added.changes;
 		await ensureEmailRoutingRuleToWorker(env, domain.zoneId, email);
 		changes.createdAddressRules.push(email);
-		const mailboxId = newId("mbx");
+		mailboxId = newId("mbx");
 		await db.insert(mailboxes).values({
 			id: mailboxId,
 			userId,
@@ -111,42 +153,33 @@ export async function POST(request: Request) {
 		await ensureMailboxDomainRouting(env, db, { id: mailboxId, domainId: domain.id, localPart: username, useAllDomains: true });
 	} catch (err) {
 		if (changes) await rollbackDomainProvisioning(env, changes);
+		// The admin account stays: deleting it would reopen setup to the next caller. Only the rows this
+		// attempt wrote for the domain go; the admin signs in and finishes the domain in onboarding (the
+		// setup page offers it to an admin without a mailbox), where an MX conflict can be confirmed too.
 		try {
-			// The domain row cascades with the user.
-			await db.delete(users).where(eq(users.id, userId));
+			if (mailboxId) await db.delete(mailboxes).where(eq(mailboxes.id, mailboxId));
+			if (domainId) await db.delete(domains).where(eq(domains.id, domainId));
 		} catch (cleanupError) {
-			console.warn("Failed to remove the partial user after registration failure", cleanupError);
+			console.warn("Failed to remove the partial domain after a registration failure", cleanupError);
 		}
 		const failure = getDomainProvisioningError(err, "Domain setup failed", 502);
-		return NextResponse.json(
-			{ error: failure.message, code: failure.code },
-			{ status: failure.status },
+		return finishRegistrationResponse(
+			NextResponse.json(
+				{ error: failure.message, code: failure.code, accountCreated: true, redirect },
+				{ status: failure.status },
+			),
+			setupToken,
 		);
 	}
 
 	// A passkey-only first account has no password, so it gets a one-time link
 	// that can only enrol a passkey. A session is issued after that succeeds.
-	const response = NextResponse.json({
-		ok: true,
-		redirect: setupToken ? "/setup/passkey" : "/login",
-		...(setupToken ? { requiresPasskeySetup: true } : {}),
-	});
-	response.headers.set("Cache-Control", "no-store");
-	if (setupToken) {
-		response.cookies.set(SETUP_COOKIE, setupToken, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "lax",
-			path: "/",
-			maxAge: 24 * 60 * 60,
-		});
-	}
-	response.cookies.set(SESSION_COOKIE, "", {
-		httpOnly: true,
-		secure: process.env.NODE_ENV === "production",
-		sameSite: "lax",
-		path: "/",
-		maxAge: 0,
-	});
-	return response;
+	return finishRegistrationResponse(
+		NextResponse.json({
+			ok: true,
+			redirect,
+			...(setupToken ? { requiresPasskeySetup: true } : {}),
+		}),
+		setupToken,
+	);
 }

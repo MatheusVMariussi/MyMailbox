@@ -307,6 +307,12 @@
         "ALTER TABLE `messages` ADD `size_bytes` integer DEFAULT 0 NOT NULL;",
         "CREATE INDEX `messages_size_idx` ON `messages` (`mailbox_id`,`size_bytes`);"
       ]
+    },
+    {
+      "name": "0005_security.sql",
+      "statements": [
+        "CREATE UNIQUE INDEX `users_one_primary_admin` ON `users` (`is_primary_admin`) WHERE \"users\".\"is_primary_admin\" = 1;"
+      ]
     }
   ]
 }

@@ -71,6 +71,8 @@ export const users = sqliteTable("users", {
 		.$defaultFn(() => new Date()),
 }, (t) => [
 	index("users_created_by_idx").on(t.createdByUserId),
+	// Setup closes once a primary admin exists; the database keeps two concurrent first registrations from both winning.
+	uniqueIndex("users_one_primary_admin").on(t.isPrimaryAdmin).where(sql`${t.isPrimaryAdmin} = 1`),
 ]);
 
 export const domains = sqliteTable(
