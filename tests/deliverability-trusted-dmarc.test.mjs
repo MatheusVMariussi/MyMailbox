@@ -19,13 +19,6 @@ test("only Cloudflare's authserv-id counts, and a failure anywhere wins", () => 
 	assert.equal(readTrustedDmarcResult({ "authentication-results": "mx.cloudflare.net; dmarc=pass, mx.cloudflare.net; dmarc=fail" }), "fail");
 	assert.equal(readTrustedDmarcResult({ "authentication-results": "mx.cloudflare.net; spf=pass" }), undefined);
 	assert.equal(readTrustedDmarcResult({}), undefined);
-	assert.equal(readTrustedDmarcResult(undefined, undefined), undefined);
+	assert.equal(readTrustedDmarcResult(undefined), undefined);
 });
 
-test("provider verdicts outrank the header, as for spam analysis", () => {
-	const forged = { "authentication-results": "mx.cloudflare.net; dmarc=pass" };
-	assert.equal(readTrustedDmarcResult(forged, { dmarc: "FAIL" }), "fail");
-	assert.equal(readTrustedDmarcResult(forged, { dmarc: "PASS" }), "pass");
-	assert.equal(readTrustedDmarcResult(forged, { spf: "PASS" }), undefined, "verdicts present but no DMARC verdict: the header is not consulted");
-	assert.equal(readTrustedDmarcResult(forged, { dmarc: "GRAY" }), undefined);
-});

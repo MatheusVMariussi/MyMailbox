@@ -59,7 +59,6 @@ test("the account switcher uses the same strict check, with no bearer or missing
 const EXEMPT = {
 	"v1/": "API-key bearer surface (authenticateApiKey / authenticateAdminApiKey); browsers never attach the key",
 	"accounts/[id]/mailbox-access/route.ts": "stub that answers 410 and does nothing",
-	"inbound/resend/route.ts": "Svix-signed provider webhook",
 	"auth/login/route.ts": "pre-session credential endpoint (Turnstile and password), no cookie authority to ride",
 	"auth/register/route.ts": "pre-session sign-up (Turnstile / setup token)",
 	"auth/password-reset/request/route.ts": "pre-session, Turnstile protected",

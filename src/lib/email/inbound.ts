@@ -28,7 +28,6 @@ import type { SessionUser } from "@/lib/auth/types";
 import { analyzeSpam } from "@/lib/spam/engine";
 import { ExternalSpamIntelligenceProvider } from "@/lib/spam/providers/external";
 import { getSpamIntelligenceConfig } from "@/lib/spam/settings";
-import type { ProviderVerdicts } from "@/lib/spam/types";
 import { getReputationKeys } from "@/lib/spam/analyzers/reputation";
 import { recordReputationObservation } from "@/lib/spam/repository";
 import {
@@ -46,8 +45,6 @@ export type InboundQueueMessage = {
 	to: string;
 	rawR2Key: string;
 	headers?: Record<string, string>;
-	verdicts?: ProviderVerdicts;
-	senderIp?: string;
 };
 
 /** True when the address is a mailbox or alias owned by the user, so their own mail never counts as unread. */
@@ -62,7 +59,7 @@ export async function processInboundMessage(
 	if (reportTarget) {
 		// The From header, not the envelope sender: it is what the DMARC verdict aligned to.
 		const from = Object.entries(payload.headers ?? {}).find(([name]) => name.toLowerCase() === "from")?.[1] ?? null;
-		await ingestReportMail(env, reportTarget, { rawR2Key: payload.rawR2Key, authenticated: readTrustedDmarcResult(payload.headers, payload.verdicts) === "pass", from }, { batchBudget: options.reportBudget });
+		await ingestReportMail(env, reportTarget, { rawR2Key: payload.rawR2Key, authenticated: readTrustedDmarcResult(payload.headers) === "pass", from }, { batchBudget: options.reportBudget });
 		return;
 	}
 	// The sender is passed so that sender-based block rules resolve the same way here as they
@@ -148,8 +145,6 @@ export async function processInboundMessage(
 				userId: decision.mailbox.userId,
 				envelopeFrom: payload.from,
 				headers: payload.headers,
-				verdicts: payload.verdicts,
-				senderIp: payload.senderIp,
 				brands: intelligence.brands,
 				strictness: owner?.strictness,
 				message: parsed,

@@ -14,7 +14,7 @@ import { mtaStsBlockedResponse } from "@/lib/deliverability/mta-sts-block-respon
 
 type Params = { params: Promise<{ id: string }> };
 
-/** Chooses which provider receives mail for this domain. DNS is changed by that provider's own Setup. */
+/** Chooses whether Cloudflare Email Routing receives mail for this domain (`cloudflare`) or nothing does (`none`). DNS is changed by Setup. */
 export async function PUT(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
@@ -23,7 +23,7 @@ export async function PUT(request: Request, { params }: Params) {
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const domain = await getDomainForUser(env, user.id, id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
-	const parsed = z.object({ provider: z.enum(["none", "cloudflare", "resend"]) }).safeParse(await request.json().catch(() => null));
+	const parsed = z.object({ provider: z.enum(["none", "cloudflare"]) }).safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Unknown receiving provider" }, { status: 400 });
 	// Switching who receives mail moves the MX; enforce senders would refuse the new host.
 	if (parsed.data.provider !== domain.receivingProvider) {
@@ -38,17 +38,17 @@ export async function PUT(request: Request, { params }: Params) {
 	return NextResponse.json({ domain: await getDomainForUser(env, user.id, id) }, { headers: { "Cache-Control": "no-store" } });
 }
 
-/** Which providers still have receiving configuration for this domain. */
+/** Whether Cloudflare Email Routing is still configured for this domain. */
 export async function GET(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
 	const user = await requireUser(env, request);
 	const domain = await getDomainForUser(env, user.id, id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
-	return NextResponse.json(await receivingPresence(env, domain), { headers: { "Cache-Control": "no-store" } });
+	return NextResponse.json(receivingPresence(domain), { headers: { "Cache-Control": "no-store" } });
 }
 
-/** Removes the configuration of a provider this domain is not receiving through. */
+/** Removes Cloudflare Email Routing from a domain that no longer receives through it. */
 export async function DELETE(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
@@ -57,11 +57,11 @@ export async function DELETE(request: Request, { params }: Params) {
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const domain = await getDomainForUser(env, user.id, id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
-	const parsed = z.object({ target: z.enum(["cloudflare", "resend"]) }).safeParse(await request.json().catch(() => null));
+	const parsed = z.object({ target: z.enum(["cloudflare"]) }).safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
 	if (parsed.data.target === domain.receivingProvider) return NextResponse.json({ error: "Switch to another provider before removing this one" }, { status: 400 });
 	try {
-		await removeReceiving(env, domain, parsed.data.target);
+		await removeReceiving(env, domain);
 		return NextResponse.json({ ok: true });
 	} catch (error) {
 		const blocked = await mtaStsBlockedResponse(error);

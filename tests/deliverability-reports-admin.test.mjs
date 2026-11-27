@@ -185,13 +185,6 @@ test("a manual zone reads DNS over DoH, edits nothing and returns the value to p
 	assert.equal(f.row().reports_enabled, 1);
 });
 
-test("receiving through Resend needs no routing rule", async (t) => {
-	const f = await fixture(t, { record: "v=DMARC1; p=none", receivingProvider: "resend" });
-	await apply(f, true);
-	assert.ok(!f.calls.some((call) => call.startsWith("route")));
-	assert.equal(f.row().reports_enabled, 1);
-});
-
 test("turning off removes only our uri, deletes the routing rule and keeps stored data", async (t) => {
 	const f = await fixture(t, { record: `v=DMARC1; p=none; rua=mailto:a@x.org,mailto:${ADDRESS}` });
 	await apply(f, true);

@@ -11,23 +11,11 @@ export type SpamSignal = {
 	metadata?: Record<string, unknown>;
 };
 
-/** Verdicts the receiving provider computed itself (SES receipt), trusted over any header in the message. */
-export type ProviderVerdicts = {
-	spf?: string;
-	dkim?: string;
-	dmarc?: string;
-	spam?: string;
-	virus?: string;
-};
-
 export type SpamAnalysisInput = {
 	mailboxId: string;
 	userId: string;
 	envelopeFrom: string;
 	headers?: Record<string, string>;
-	verdicts?: ProviderVerdicts;
-	/** Connecting IP recorded by the provider; otherwise read from the topmost Received header. */
-	senderIp?: string;
 	/** Brands added in the admin spam filter settings, checked alongside the built-in list. */
 	brands?: SpamBrand[];
 	/** How readily mail moves to Spam for this user; an omitted value uses "normal" (score 70); the column default is "strict". */

@@ -198,7 +198,7 @@ export async function POST(request: Request, { params }: MailboxRouteParams) {
 	}
 
 	// Worker routes only matter when Cloudflare is what receives this domain's
-	// mail; for Resend/SES domains the alias resolves inside provider intake.
+	// mail; a domain that does not receive needs none.
 	if (domain.receivingProvider === "cloudflare") {
 		try {
 			await ensureEmailRoutingRuleToWorker(env, domain.zoneId, `${createdLocalPart}@${domain.hostname}`);

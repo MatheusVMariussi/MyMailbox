@@ -1,9 +1,6 @@
-import type { ProviderVerdicts } from "@/lib/spam/types";
 import type { MessageAuthentication, MessageAuthenticationMethod } from "@/lib/email/authentication-types";
 import { isSameOrSubdomain } from "@/lib/email/domain-match";
 import { extractSenderIp } from "@/lib/spam/domain-utils";
-
-export type ProviderTrace = { verdicts?: ProviderVerdicts; senderIp?: string };
 
 const HEADER_SCAN_BYTES = 64 * 1024;
 /** Headers SES prepends when it accepts a message; the trace ends at the first header it did not write. */
@@ -40,30 +37,6 @@ function readSesHeaders(raw: ArrayBuffer): { name: string; value: string }[] | n
 
 function headerValue(headers: { name: string; value: string }[], name: string): string | undefined {
 	return headers.find((header) => header.name === name)?.value;
-}
-
-/**
- * The verdicts and connecting IP SES recorded in the headers it prepended (Resend receives through SES too).
- * Without an `X-SES-Receipt` in that leading run nothing is trusted.
- */
-export function readSesTrace(raw: ArrayBuffer): ProviderTrace {
-	const leading = readSesHeaders(raw);
-	if (!leading) return {};
-	const verdicts: ProviderVerdicts = {};
-	const results = headerValue(leading, "authentication-results");
-	if (results && /^amazonses\.com\s*;/i.test(results)) {
-		for (const method of ["spf", "dkim", "dmarc"] as const) {
-			const value = results.match(new RegExp(`(?:^|[;\\s])${method}=([a-z]+)`, "i"))?.[1];
-			if (value) verdicts[method] = value.toUpperCase();
-		}
-	}
-	const spam = headerValue(leading, "x-ses-spam-verdict");
-	const virus = headerValue(leading, "x-ses-virus-verdict");
-	if (spam) verdicts.spam = spam.toUpperCase();
-	if (virus) verdicts.virus = virus.toUpperCase();
-	const received = headerValue(leading, "received");
-	const senderIp = received ? extractSenderIp({ received }) ?? undefined : undefined;
-	return { verdicts: Object.keys(verdicts).length ? verdicts : undefined, senderIp };
 }
 
 /** Split an Authentication-Results value on semicolons outside comment parentheses. */
@@ -201,8 +174,9 @@ const MAX_HEADER_ENTRIES = 200;
 const MAX_HEADER_VALUE = 2000;
 
 /**
- * A bounded header map (lower-case names, first value wins) for providers that do not hand one over,
- * so auto-reply suppression and spam analysis can see Auto-Submitted, Precedence, List-Id and similar.
+ * A bounded header map (lower-case names, first value wins) read from the raw message, for a queued
+ * message that carries none and for the promotions backfill, so auto-reply suppression, spam analysis
+ * and bulk-mail detection can see Auto-Submitted, Precedence, List-Id and similar.
  */
 export function readHeaderMap(raw: ArrayBuffer): Record<string, string> {
 	const map: Record<string, string> = {};

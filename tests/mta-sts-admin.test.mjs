@@ -85,7 +85,7 @@ test("it refuses when the domain has no MX hosts, when the lookup fails, and war
 	assert.equal(none.row(), undefined);
 	const failing = await fixture(t, { mx: new Error("doh down") });
 	assert.deepEqual(await put(failing, { mode: "testing" }).then((r) => [r.status, r.code]), [502, "DNS_FAILED"]);
-	const own = await fixture(t, { mx: ["10 mail.selfhosted.test.", "20 inbound-smtp.us-east-1.amazonaws.com."] });
+	const own = await fixture(t, { mx: ["10 mail.selfhosted.test.", "20 route1.mx.cloudflare.net."] });
 	const result = await put(own, { mode: "testing" });
 	assert.deepEqual(result.state.unverifiedMx, ["mail.selfhosted.test"]);
 	const many = await fixture(t, { mx: Array.from({ length: 21 }, (_, index) => `10 mx${index}.example.net.`) });

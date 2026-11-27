@@ -1,20 +1,17 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import { loadApp } from "./helpers/real-db.mjs";
+import { emailMessage, loadWorker, mailBindings } from "./helpers/worker-email.mjs";
 
 /**
  * Queue messages are limited to 128 KB, so the header map an inbound message carries is bounded: the
  * headers the pipeline reads are kept first, the rest are truncated or left out. A message with huge
  * headers can then still be enqueued instead of failing (and being retried by the sender) forever.
  */
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { app, newDatabase } = await loadApp("inbound-queued-headers", `
+const { app } = await loadApp("inbound-queued-headers", `
 	export { boundQueuedHeaders, MAX_QUEUED_HEADERS_BYTES } from "./src/lib/email/queued-headers.ts";
-	export { intakeIncomingMail } from "./src/lib/email/intake.ts";
 `);
+const { worker, newDatabase } = await loadWorker("inbound-queued-headers-worker");
 
 const QUEUE_MESSAGE_LIMIT = 128 * 1024;
 const bytes = (value) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
@@ -49,29 +46,21 @@ test("an ordinary header map passes through unchanged", () => {
 	assert.deepEqual(app.boundQueuedHeaders(headers), headers);
 });
 
-test("provider intake enqueues a bounded header map", async (t) => {
+test("the Worker email handler enqueues a bounded header map", async (t) => {
 	const { env } = await newDatabase(t, `
 		INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES ('u', 'u@one.test', 'h', 'U', 'admin', 1, 1);
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('d', 'u', 'one.test', 'z', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at) VALUES ('m', 'u', 'd', 'me', 1);
 	`);
-	const sent = [];
-	Object.assign(env, {
-		BUCKET: { put: async () => {}, get: async () => null, head: async () => null, delete: async () => {} },
-		INBOUND_QUEUE: { send: async (payload) => { sent.push(payload); } },
-	});
+	const bindings = mailBindings();
+	Object.assign(env, { BUCKET: bindings.BUCKET, INBOUND_QUEUE: bindings.INBOUND_QUEUE });
 	globalThis.__testEnv = env;
 	t.after(() => { delete globalThis.__testEnv; });
-	const raw = new TextEncoder().encode("From: friend@x.test\r\nTo: me@one.test\r\nSubject: Hello\r\n\r\nhi\r\n").buffer;
-	const result = await app.intakeIncomingMail(env, { from: "friend@x.test", to: "me@one.test", raw, headers: hugeHeaders() }, { forward: async () => false });
-	assert.equal(result.action, "store");
-	assert.equal(sent.length, 1);
-	assert.ok(bytes(sent[0]) < QUEUE_MESSAGE_LIMIT, `${bytes(sent[0])} bytes`);
-	assert.equal(sent[0].headers.from, "Friend <friend@x.test>");
-});
-
-test("the Worker email handler bounds the headers it enqueues", () => {
-	const source = readFileSync(join(root, "worker.ts"), "utf8");
-	const handler = source.slice(source.indexOf("async email("), source.indexOf("async queue("));
-	assert.match(handler, /headers: boundQueuedHeaders\(headerMap\)/);
+	const message = emailMessage({ from: "friend@x.test", to: "me@one.test", raw: "From: friend@x.test\r\nTo: me@one.test\r\nSubject: Hello\r\n\r\nhi\r\n", headers: hugeHeaders() });
+	await worker.email(message, env, {});
+	assert.deepEqual(message.rejected, []);
+	assert.equal(bindings.queued.length, 1);
+	assert.ok(bytes(bindings.queued[0]) < QUEUE_MESSAGE_LIMIT, `${bytes(bindings.queued[0])} bytes`);
+	assert.equal(bindings.queued[0].headers.from, "Friend <friend@x.test>");
+	assert.equal(bindings.queued[0].headers["authentication-results"], hugeHeaders()["authentication-results"]);
 });

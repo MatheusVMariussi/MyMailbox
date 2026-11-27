@@ -3,19 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { confirmDestructive } from "@/components/ui/confirm-dialog";
 import { useLanguage } from "@/components/language-provider";
-import type { TranslationKey } from "@/lib/i18n/types";
 import { requestJson } from "./api";
 import ProviderCard from "./ProviderCard";
-import ReceivingProviderConfig from "./ReceivingProviderConfig";
 import type { Domain, ReceivingProvider } from "./types";
-
-type Option = Exclude<ReceivingProvider, "none">;
-type Present = Record<Option, boolean | null>;
-
-const OPTIONS: { id: Option; titleKey: TranslationKey; descriptionKey: TranslationKey }[] = [
-	{ id: "cloudflare", titleKey: "domains.opt.cfRouting", descriptionKey: "domains.opt.cfRoutingDesc" },
-	{ id: "resend", titleKey: "domains.providerResend", descriptionKey: "domains.opt.resendReceiveDesc" },
-];
 
 type Props = {
 	domain: Domain;
@@ -27,32 +17,35 @@ type Props = {
 	cloudflareOk: boolean;
 };
 
+/** Cloudflare Email Routing is the only receiving service: on receives through it, off makes the domain send-only. */
 export default function ReceivingSetupSection({ domain, onChange, busy, message, cloudflareConfig, cloudflareOk }: Props) {
 	const { t } = useLanguage();
-	const [present, setPresent] = useState<Present>({ cloudflare: null, resend: null });
-	const [resendReady, setResendReady] = useState<boolean | null>(null);
+	const [present, setPresent] = useState<boolean | null>(null);
 	const [reload, setReload] = useState(0);
-	const [removing, setRemoving] = useState<Option | null>(null);
+	const [removing, setRemoving] = useState(false);
 	const [error, setError] = useState("");
 
 	useEffect(() => {
 		let active = true;
-		requestJson<Present>(`/api/domains/${domain.id}/receiving`, "GET")
-			.then((data) => { if (active) setPresent({ cloudflare: data.cloudflare ?? null, resend: data.resend ?? null }); })
-			.catch(() => { if (active) setPresent({ cloudflare: null, resend: null }); });
+		requestJson<{ cloudflare?: boolean }>(`/api/domains/${domain.id}/receiving`, "GET")
+			.then((data) => { if (active) setPresent(data.cloudflare ?? null); })
+			.catch(() => { if (active) setPresent(null); });
 		return () => { active = false; };
 	}, [domain.id, domain.receivingProvider, reload]);
 
-	async function cleanUp(option: Option, title: string) {
+	const title = t("domains.opt.cfRouting");
+	const selected = domain.receivingProvider === "cloudflare";
+
+	async function cleanUp() {
 		if (!await confirmDestructive(t("domains.removeReceivingConfirm", { title, host: domain.hostname }))) return;
-		setRemoving(option);
+		setRemoving(true);
 		setError("");
 		try {
-			await requestJson(`/api/domains/${domain.id}/receiving`, "DELETE", { target: option });
+			await requestJson(`/api/domains/${domain.id}/receiving`, "DELETE", { target: "cloudflare" });
 			setReload((value) => value + 1);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("domains.removeConfigFailed"));
-		} finally { setRemoving(null); }
+		} finally { setRemoving(false); }
 	}
 
 	return (
@@ -62,26 +55,17 @@ export default function ReceivingSetupSection({ domain, onChange, busy, message,
 				{t("domains.setupReceivingDescription")}
 			</p>
 			<ul className="mt-3 space-y-2">
-				{OPTIONS.map((option) => {
-					const selected = domain.receivingProvider === option.id;
-					const ok = !selected ? null : option.id === "cloudflare" ? cloudflareOk : resendReady;
-					return (
-						<ProviderCard
-							key={option.id}
-							title={t(option.titleKey)}
-							description={t(option.descriptionKey)}
-							ok={ok}
-							selected={selected}
-							disabled={busy}
-							onToggle={(on) => onChange?.(on ? option.id : "none")}
-							cleanup={{ present: !!present[option.id], busy: removing === option.id, disabled: removing !== null, onClick: () => void cleanUp(option.id, t(option.titleKey)) }}
-						>
-							{option.id === "cloudflare"
-								? cloudflareConfig
-								: <ReceivingProviderConfig domainId={domain.id} onReady={setResendReady} />}
-						</ProviderCard>
-					);
-				})}
+				<ProviderCard
+					title={title}
+					description={t("domains.opt.cfRoutingDesc")}
+					ok={selected ? cloudflareOk : null}
+					selected={selected}
+					disabled={busy}
+					onToggle={(on) => onChange?.(on ? "cloudflare" : "none")}
+					cleanup={{ present: !!present, busy: removing, disabled: removing, onClick: () => void cleanUp() }}
+				>
+					{cloudflareConfig}
+				</ProviderCard>
 			</ul>
 			{domain.receivingProvider === "none" && <p className="mt-2 text-xs text-neutral-500">{t("domains.noReceiving")}</p>}
 			{message && <p role="alert" className="mt-2 text-xs text-red-600">{message}</p>}

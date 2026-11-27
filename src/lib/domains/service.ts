@@ -45,7 +45,7 @@ export async function addDomainForUser(
 	env: CloudflareEnv,
 	userId: string,
 	hostname: string,
-	options?: { enableRouting?: boolean; enableSending?: boolean; replaceMxRecords?: boolean; skipDns?: boolean; receivingProvider?: "none" | "cloudflare" | "resend"; sendingProvider?: "none" | "cloudflare" | "resend" },
+	options?: { enableRouting?: boolean; enableSending?: boolean; replaceMxRecords?: boolean; skipDns?: boolean; receivingProvider?: "none" | "cloudflare"; sendingProvider?: "none" | "cloudflare" | "resend" },
 ): Promise<{
 	domain: typeof domains.$inferSelect;
 	dns: DomainDnsView;
@@ -69,8 +69,7 @@ export async function addDomainForUser(
 			throw new Error("Cloudflare zone is already registered to another account");
 		}
 	}
-	// Email Routing is Cloudflare's way of receiving; another provider brings its own MX,
-	// which its setup in the domain page creates once credentials exist.
+	// Email Routing is how a domain receives; `none` makes it send-only.
 	// A skipped-DNS domain is recorded only: nothing receives or sends until the operator picks providers.
 	const skipDns = options?.skipDns === true;
 	const receivingProvider = skipDns ? "none" : (options?.receivingProvider ?? "cloudflare");
@@ -80,7 +79,7 @@ export async function addDomainForUser(
 		...options,
 		enableSending: requestedSending === "cloudflare",
 		enableRouting: receivingProvider === "cloudflare" ? (options?.enableRouting ?? true) : false,
-		// Routing is skipped for other receivers, so this only reaches the sending step then.
+		// Routing is skipped for a send-only domain, so this only reaches the sending step then.
 		replaceMxRecords: options?.replaceMxRecords,
 	});
 	let insertedDomainId: string | null = null;

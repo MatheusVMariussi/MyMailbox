@@ -5,6 +5,7 @@ import test, { after } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
+import { emailMessage, loadWorker, mailBindings } from "./helpers/worker-email.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = mkdtempSync(join(root, "tests", ".tmp-report-routing-"));
@@ -14,7 +15,6 @@ await build({
 	entryPoints: {
 		incoming: join(root, "src/lib/email/incoming.ts"),
 		inbound: join(root, "src/lib/email/inbound.ts"),
-		intake: join(root, "src/lib/email/intake.ts"),
 		database: join(root, "tests/helpers/sqlite-database.ts"),
 		migrate: join(root, "tests/helpers/migrate.ts"),
 	},
@@ -31,7 +31,7 @@ await build({
 const load = (name) => import(pathToFileURL(join(outDir, `${name}.mjs`)).href);
 const { resolveIncomingMail } = await load("incoming");
 const { processInboundMessage } = await load("inbound");
-const { intakeIncomingMail } = await load("intake");
+const { worker, newDatabase } = await loadWorker("report-routing-worker");
 const { SqliteDatabase } = await load("database");
 const { applyMigrations } = await load("migrate");
 
@@ -66,42 +66,48 @@ test("a catch-all reject rule does not swallow the report address, but still rej
 	assert.equal((await resolveIncomingMail(env, "noreply@google.com", "nobody@example.com"))?.action, "reject");
 });
 
+/** The same domain as `fixture`, on the database the Worker test harness provides, with the given routing rule. */
+async function workerFixture(t, ruleSql, extraSql = "") {
+	const now = seconds(new Date());
+	const { env } = await newDatabase(t, `
+		INSERT INTO users (id, email, name, password_hash, created_at) VALUES ('u1', 'kevin@example.com', 'Kevin', 'x', ${now});
+		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('d1', 'u1', 'example.com', 'zone', 'active', ${now});
+		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at) VALUES ('mb1', 'u1', 'd1', 'kevin', ${now});
+		INSERT INTO domain_deliverability (domain_id, reports_enabled, updated_at) VALUES ('d1', 1, ${now});
+		${ruleSql}
+		${extraSql}
+	`);
+	const bindings = mailBindings();
+	Object.assign(env, { BUCKET: bindings.BUCKET, INBOUND_QUEUE: bindings.INBOUND_QUEUE });
+	globalThis.__testEnv = env;
+	t.after(() => { delete globalThis.__testEnv; });
+	const deliver = async (to) => {
+		const message = emailMessage({ from: "noreply-dmarc-support@google.com", to, raw: "From: noreply-dmarc-support@google.com\r\nSubject: Report\r\n\r\nraw\r\n", headers: { from: "noreply-dmarc-support@google.com" } });
+		await worker.email(message, env, {});
+		return message;
+	};
+	return { env, bindings, deliver };
+}
+
 test("report mail is stored and queued for the report consumer but never forwarded, even with a catch-all forward rule", async (t) => {
-	const { env, raw } = await fixture(t);
-	raw.prepare("DELETE FROM routing_rules").run();
-	raw.prepare("INSERT INTO routing_rules (id, user_id, domain_id, scope, pattern, match_value, action, forward_to, created_at) VALUES ('f1', 'u1', 'd1', 'domain', '*', '*', 'forward', 'elsewhere@example.net', 1)").run();
-	const forwards = [];
-	const queued = [];
-	const stored = [];
-	env.INBOUND_QUEUE = { send: async (message) => { queued.push(message); } };
-	env.BUCKET.put = async (key) => { stored.push(key); };
-	const actions = { forward: async (destination) => { forwards.push(destination); return true; } };
-	const input = (to) => ({ from: "noreply-dmarc-support@google.com", to, raw: new TextEncoder().encode("raw").buffer, headers: { from: "noreply-dmarc-support@google.com" } });
-	const result = await intakeIncomingMail(env, input("mymailbox-reports@example.com"), actions);
-	assert.equal(result.action, "store");
-	assert.deepEqual(forwards, []);
-	assert.deepEqual([stored.length, queued.length, queued[0].to], [1, 1, "mymailbox-reports@example.com"]);
+	const { bindings, deliver } = await workerFixture(t, "INSERT INTO routing_rules (id, user_id, domain_id, scope, pattern, match_value, action, forward_to, created_at) VALUES ('f1', 'u1', 'd1', 'domain', '*', '*', 'forward', 'elsewhere@example.net', 1);");
+	const report = await deliver("mymailbox-reports@example.com");
+	assert.deepEqual([report.forwarded, report.rejected], [[], []]);
+	assert.deepEqual([bindings.objects.size, bindings.queued.length, bindings.queued[0].to], [1, 1, "mymailbox-reports@example.com"]);
 	// Any other unknown address still follows the catch-all forward rule.
-	const other = await intakeIncomingMail(env, input("nobody@example.com"), actions);
-	assert.equal(other.action, "forward");
-	assert.deepEqual(forwards, ["elsewhere@example.net"]);
+	const other = await deliver("nobody@example.com");
+	assert.deepEqual(other.forwarded, ["elsewhere@example.net"]);
+	assert.equal(bindings.queued.length, 1, "the forwarded message is not kept");
 });
 
 test("report mail is not sent to an account's forwarding address when a catch-all lands on that mailbox", async (t) => {
-	const { env, raw } = await fixture(t);
-	raw.prepare("DELETE FROM routing_rules").run();
-	raw.prepare("INSERT INTO routing_rules (id, user_id, domain_id, mailbox_id, scope, pattern, match_value, action, created_at) VALUES ('c1', 'u1', 'd1', 'mb1', 'domain', '*', '*', 'store', 1)").run();
-	raw.prepare("UPDATE users SET forwarding_email = 'kevin@gmail.example'").run();
-	env.INBOUND_QUEUE = { send: async () => {} };
-	env.BUCKET.put = async () => {};
-	const forwards = [];
-	const actions = { forward: async (destination) => { forwards.push(destination); return true; } };
-	const input = (to) => ({ from: "noreply-dmarc-support@google.com", to, raw: new TextEncoder().encode("raw").buffer, headers: {} });
-	await intakeIncomingMail(env, input("somebody@example.com"), actions);
-	assert.deepEqual(forwards, ["kevin@gmail.example"], "the account forwarding is real for ordinary mail");
-	forwards.length = 0;
-	await intakeIncomingMail(env, input("mymailbox-reports@example.com"), actions);
-	assert.deepEqual(forwards, []);
+	const { deliver } = await workerFixture(
+		t,
+		"INSERT INTO routing_rules (id, user_id, domain_id, mailbox_id, scope, pattern, match_value, action, created_at) VALUES ('c1', 'u1', 'd1', 'mb1', 'domain', '*', '*', 'store', 1);",
+		"UPDATE users SET forwarding_email = 'kevin@gmail.example';",
+	);
+	assert.deepEqual((await deliver("somebody@example.com")).forwarded, ["kevin@gmail.example"], "the account forwarding is real for ordinary mail");
+	assert.deepEqual((await deliver("mymailbox-reports@example.com")).forwarded, []);
 });
 
 test("with reporting off the reserved address routes like any other address", async (t) => {

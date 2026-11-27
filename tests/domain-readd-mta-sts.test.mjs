@@ -50,7 +50,7 @@ async function fixture(t, mode) {
 	await applyMigrations(database, join(root, "drizzle/migrations"));
 	const now = 1_700_000_000;
 	database.db.prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES ('u1', 'k@example.com', 'K', 'x', ?)").run(now);
-	database.db.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, receiving_provider, created_at) VALUES ('d1', 'u1', 'example.com', 'zone1', 'resend', ?)").run(now);
+	database.db.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, receiving_provider, created_at) VALUES ('d1', 'u1', 'example.com', 'zone1', 'none', ?)").run(now);
 	database.db.prepare("INSERT INTO domain_deliverability (domain_id, updated_at, mta_sts_mode, mta_sts_policy_id, mta_sts_mx, mta_sts_max_age) VALUES ('d1', ?, ?, '20251119000000', '[\"old.mx.cloudflare.net\"]', 604800)").run(now, mode);
 	return { env: { DB: database }, raw: database.db };
 }
@@ -59,7 +59,7 @@ test("re-adding a domain whose policy is enforced is refused before Cloudflare o
 	const f = await fixture(t, "enforce");
 	await assert.rejects(service.addDomainForUser(f.env, "u1", "example.com", { replaceMxRecords: true }), (error) => error instanceof service.MtaStsBlockedError && error.status === 409 && error.code === "MTA_STS_ENFORCED");
 	assert.equal(globalThis.__provisioned, 0);
-	assert.equal(f.raw.prepare("SELECT receiving_provider AS p FROM domains WHERE id = 'd1'").get().p, "resend");
+	assert.equal(f.raw.prepare("SELECT receiving_provider AS p FROM domains WHERE id = 'd1'").get().p, "none");
 	assert.deepEqual(globalThis.__dns, []);
 });
 

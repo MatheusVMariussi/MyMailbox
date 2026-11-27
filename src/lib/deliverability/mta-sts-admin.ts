@@ -23,7 +23,7 @@ export type MtaStsState = {
 	status: MtaStsStatus;
 	policyId: string | null;
 	mx: string[];
-	/** MX hosts that are neither Cloudflare Email Routing nor the SES inbound hosts Resend receives through: MyMailbox cannot vouch for their certificates. */
+	/** MX hosts that are not Cloudflare Email Routing: MyMailbox cannot vouch for their certificates. */
 	unverifiedMx: string[];
 	maxAge: number;
 	/** The exact body served at `policyUrl`, so the browser can compare it with what the host returns. */
@@ -39,7 +39,7 @@ export type MtaStsResult =
 
 const fail = (status: number, code: string, message: string): MtaStsResult => ({ kind: "error", status, code, message });
 const isStsRecord = (content: string) => /^\s*v=STSv1\s*(?:;|$)/i.test(content);
-const KNOWN_MX = [/\.mx\.cloudflare\.net$/, /^inbound-smtp\.[a-z0-9-]+\.amazonaws\.com$/];
+const KNOWN_MX = [/\.mx\.cloudflare\.net$/];
 const unverified = (mx: string[]) => mx.filter((host) => !KNOWN_MX.some((pattern) => pattern.test(host)));
 
 type Row = { mode: MtaStsMode; policyId: string | null; mx: string | null; maxAge: number; servedMaxAge: number | null; verifiedAt: Date | null; retireAfter: Date | null };

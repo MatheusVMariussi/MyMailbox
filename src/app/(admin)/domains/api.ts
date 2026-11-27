@@ -41,13 +41,13 @@ export function isMxConflictError(error: unknown): boolean {
 }
 
 /**
- * Runs a receiving provider's setup. Other MX records would shadow the new one,
+ * Runs the Cloudflare Email Routing setup. Other MX records would shadow the new one,
  * so the server refuses (409) until the user agrees to replace them.
  * Returns false when the user declined.
  */
-export async function runReceivingSetup(domainId: string, provider: "cloudflare" | "resend"): Promise<boolean> {
+export async function runReceivingSetup(domainId: string): Promise<boolean> {
 	const call = async (replaceMx: boolean) => {
-		const response = await authFetch(`/api/domains/${domainId}/receiving/${provider}`, {
+		const response = await authFetch(`/api/domains/${domainId}/receiving/cloudflare`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ replaceMx }),
@@ -70,7 +70,7 @@ export type CreateDomainInput = {
 	replaceMxRecords?: boolean;
 	skipDns?: boolean;
 	sendingProvider?: "none" | "cloudflare" | "resend";
-	receivingProvider?: "none" | "cloudflare" | "resend";
+	receivingProvider?: "none" | "cloudflare";
 };
 
 export type DomainCreateResponse = SetupResponse & { domain?: unknown; [key: string]: unknown };

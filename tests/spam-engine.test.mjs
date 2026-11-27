@@ -35,6 +35,11 @@ const { createDb } = await load("db");
 
 const seconds = (date) => Math.floor(date.getTime() / 1000);
 const PASS = { spf: "pass", dkim: "pass", dmarc: "pass" };
+/** The Authentication-Results header Cloudflare Email Routing writes for these results. */
+const authenticationHeader = (results) => {
+	const clauses = Object.entries(results ?? {}).map(([method, result]) => `${method}=${result}`);
+	return clauses.length ? { "authentication-results": `mx.cloudflare.net; ${clauses.join(" ")}` } : {};
+};
 
 async function createFixture(t) {
 	const database = new SqliteDatabase(join(outDir, `${crypto.randomUUID()}.sqlite`));
@@ -48,8 +53,9 @@ async function createFixture(t) {
 	const addReputation = (type, key, spamCount, hamCount, seen = spamCount + hamCount) => database.db.prepare(
 		"INSERT INTO spam_reputation (mailbox_id, type, key, messages_seen, spam_count, ham_count, first_seen_at, last_seen_at) VALUES ('mb1', ?, ?, ?, ?, ?, ?, ?)",
 	).run(type, key, seen, spamCount, hamCount, now, now);
-	const analyze = (from, overrides = {}, verdicts = PASS, intelligenceProvider, headers, strictness) => analyzeSpam(createDb(database), {
-		mailboxId: "mb1", userId: "u1", envelopeFrom: from, verdicts, intelligenceProvider, headers, strictness,
+	const analyze = (from, overrides = {}, authentication = PASS, intelligenceProvider, headers, strictness) => analyzeSpam(createDb(database), {
+		mailboxId: "mb1", userId: "u1", envelopeFrom: from, intelligenceProvider, strictness,
+		headers: { ...authenticationHeader(authentication), ...headers },
 		message: {
 			subject: "Hello", text: "Plain note.", html: null, messageId: null, fromAddr: from, toAddr: "kevin@example.com",
 			ccAddr: null, bccAddr: null, replyTo: null, inReplyTo: null, references: [], date: null, attachments: [],

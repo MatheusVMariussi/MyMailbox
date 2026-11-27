@@ -45,8 +45,8 @@ await build({
 });
 const { addDomainForUser } = await import(pathToFileURL(join(outDir, "service.mjs")).href);
 
-test("confirming the MX replacement reaches the sending step when another service receives mail", async () => {
-	await assert.rejects(addDomainForUser({}, "u1", "example.com", { receivingProvider: "resend", sendingProvider: "cloudflare", replaceMxRecords: true }), /stop/);
+test("confirming the MX replacement reaches the sending step for a send-only domain", async () => {
+	await assert.rejects(addDomainForUser({}, "u1", "example.com", { receivingProvider: "none", sendingProvider: "cloudflare", replaceMxRecords: true }), /stop/);
 	assert.equal(globalThis.__provisionOptions.enableSending, true);
 	assert.equal(globalThis.__provisionOptions.enableRouting, false);
 	assert.equal(globalThis.__provisionOptions.replaceMxRecords, true);

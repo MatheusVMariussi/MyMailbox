@@ -39,7 +39,7 @@ export async function analyzeSpam(db: AppDatabase, input: SpamAnalysisInput): Pr
 	const fingerprint = buildFingerprint(input.message, prepared);
 	const sender = getEmailAddress(input.message.fromAddr ?? input.envelopeFrom).toLowerCase();
 	const signals: SpamSignal[] = [
-		...analyzeAuthentication(input.headers, input.verdicts),
+		...analyzeAuthentication(input.headers),
 		...analyzeUrls(input.message, prepared),
 		...analyzeStructure(input.message, input.headers, prepared),
 		...analyzeImpersonation(input.message.fromAddr ?? input.envelopeFrom, await listKnownDomains(db, input.userId), input.brands),
@@ -49,7 +49,7 @@ export async function analyzeSpam(db: AppDatabase, input: SpamAnalysisInput): Pr
 		senderDomain: getDomain(sender),
 		urlDomains: prepared.urlDomains,
 		fingerprint,
-		senderIp: input.senderIp ?? extractSenderIp(input.headers),
+		senderIp: extractSenderIp(input.headers),
 	}).catch(() => []));
 
 	// Relationship trust must not offset a failed authentication: a spoofed known contact is the attack.
@@ -58,9 +58,7 @@ export async function analyzeSpam(db: AppDatabase, input: SpamAnalysisInput): Pr
 		? "DMARC authentication failed"
 		: failed.has("spf_failed") && failed.has("dkim_failed")
 			? "Both SPF and DKIM authentication failed"
-			: failed.has("provider_spam_verdict")
-				? "The receiving mail provider classified this message as spam"
-				: null;
+			: null;
 
 	const [contact] = sender ? await db.select().from(contacts).where(and(eq(contacts.userId, input.userId), eq(contacts.email, sender))).limit(1) : [];
 	if (contact?.blocked) {

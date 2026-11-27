@@ -82,13 +82,9 @@ export default function DomainItemCard({
                 <StatusIcon ok={item.routingEnabled} className="h-3 w-3" />
                 {t("domains.badge.routing")}
               </Badge>
-            ) : item.receivingProvider === "none" ? (
+            ) : (
               <Badge variant="secondary" className="gap-1 opacity-50">
                 {t("domains.badge.sendingOnly")}
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="gap-1">
-                {t("domains.badge.receivingVia", { provider: "Resend" })}
               </Badge>
             )}
             {item.sendingProvider === "resend" ? (

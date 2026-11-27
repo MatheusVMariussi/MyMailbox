@@ -74,11 +74,3 @@ test("readJsonBody and readFormDataBody enforce the cap on undeclared lengths", 
 	assert.deepEqual(await readJsonBody(new Request("http://localhost/x", { method: "POST", body: '{"a":1}' }), 1000), { a: 1 });
 });
 
-test("the public inbound route reads its body through the capped reader", async () => {
-	const { readFileSync } = await import("node:fs");
-	for (const file of ["src/app/api/inbound/resend/route.ts"]) {
-		const source = readFileSync(join(root, file), "utf8");
-		assert.match(source, /readRawBody\(request/, file);
-		assert.doesNotMatch(source, /request\.(arrayBuffer|text|json)\(\)/, file);
-	}
-});

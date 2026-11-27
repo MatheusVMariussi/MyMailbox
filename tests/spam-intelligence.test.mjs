@@ -17,7 +17,6 @@ await build({
 			`export { analyzeImpersonation } from "./src/lib/spam/analyzers/impersonation";`,
 			`export { extractSenderIp, isLookalikeDomain, registrableDomain } from "./src/lib/spam/domain-utils";`,
 			`export { ExternalSpamIntelligenceProvider } from "./src/lib/spam/providers/external";`,
-			`export { readSesTrace } from "./src/lib/email/provider-trace";`,
 			`export { getSpamIntelligenceConfig } from "./src/lib/spam/settings";`,
 			`export { formatBrandLines, parseBrandLines } from "./src/app/(admin)/spam-filter/utils";`,
 		].join("\n"),
@@ -34,38 +33,13 @@ await build({
 
 const spam = await import(pathToFileURL(join(outDir, "entry.mjs")).href);
 const ids = (signals) => signals.map((signal) => signal.id).sort();
-const encoder = new TextEncoder();
 
-test("SES verdicts drive authentication signals and outrank headers in the message", () => {
-	const forged = { "authentication-results": "mx.cloudflare.net; spf=pass dkim=pass dmarc=pass" };
-	const signals = spam.analyzeAuthentication(forged, { spf: "PASS", dkim: "FAIL", dmarc: "FAIL", spam: "FAIL", virus: "PASS" });
-	assert.deepEqual(ids(signals), ["dkim_failed", "dmarc_failed", "provider_spam_verdict", "spf_passed"]);
+test("only Cloudflare's own Authentication-Results drive authentication signals", () => {
+	const cloudflare = { "authentication-results": "mx.cloudflare.net; spf=pass dkim=fail dmarc=fail" };
+	assert.deepEqual(ids(spam.analyzeAuthentication(cloudflare)), ["dkim_failed", "dmarc_failed", "spf_passed"]);
 	assert.deepEqual(ids(spam.analyzeAuthentication({ "authentication-results": "attacker.example; dmarc=pass" })), []);
-	assert.deepEqual(ids(spam.analyzeAuthentication(forged, { spf: undefined })), ["dkim_passed", "dmarc_passed", "spf_passed"]);
-});
-
-test("only the leading SES header block is trusted for verdicts and the connecting IP", () => {
-	const raw = (head) => encoder.encode(`${head}\r\nSubject: hi\r\n\r\nbody`).buffer;
-	const trace = spam.readSesTrace(raw([
-		"Return-Path: <a@example.com>",
-		"Received: from mail.example.com (mail.example.com [203.0.113.9])",
-		"\tby inbound-smtp.eu-west-1.amazonaws.com with SMTP id x; Fri, 23 Oct 2026 10:00:00 +0000 (UTC)",
-		"X-SES-Spam-Verdict: FAIL",
-		"X-SES-Virus-Verdict: PASS",
-		"Received-SPF: pass",
-		"Authentication-Results: amazonses.com; spf=pass smtp.mailfrom=example.com; dkim=fail header.i=@example.com; dmarc=fail header.from=example.com;",
-		"X-SES-RECEIPT: abc",
-		"From: a@example.com",
-		"X-SES-Spam-Verdict: PASS",
-		"Authentication-Results: amazonses.com; dmarc=pass",
-	].join("\r\n")));
-	assert.equal(trace.senderIp, "203.0.113.9");
-	assert.deepEqual(trace.verdicts, { spf: "PASS", dkim: "FAIL", dmarc: "FAIL", spam: "FAIL", virus: "PASS" });
-
-	const noReceipt = spam.readSesTrace(raw("Authentication-Results: amazonses.com; dmarc=pass\r\nX-SES-Spam-Verdict: PASS"));
-	assert.deepEqual(noReceipt, {});
-	const afterOther = spam.readSesTrace(raw("From: a@example.com\r\nX-SES-RECEIPT: abc\r\nAuthentication-Results: amazonses.com; dmarc=pass"));
-	assert.deepEqual(afterOther, {});
+	const forgedPass = { "authentication-results": "attacker.example; spf=pass dkim=pass dmarc=pass, mx.cloudflare.net; spf=pass dkim=fail dmarc=fail" };
+	assert.deepEqual(ids(spam.analyzeAuthentication(forgedPass)), ["dkim_failed", "dmarc_failed", "spf_passed"]);
 });
 
 test("the sending IP comes from the topmost Received hop and skips private addresses", () => {

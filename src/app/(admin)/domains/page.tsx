@@ -372,9 +372,7 @@ export default function DomainsPage() {
                   <p className="mt-1 text-xs leading-5 text-neutral-500">
                     {receivingProvider === "cloudflare"
                       ? t("domains.receiveHintCloudflare")
-                      : receivingProvider === "none"
-                        ? t("domains.receiveHintNone")
-                        : t("domains.providerHintLater")}
+                      : t("domains.receiveHintNone")}
                   </p>
                 </div>
                 <Select
@@ -385,7 +383,6 @@ export default function DomainsPage() {
                   className="px-3 text-sm"
                 >
                   <option value="cloudflare">{t("domains.cloudflareRouting")}</option>
-                  <option value="resend">Resend</option>
                   <option value="none">{t("domains.notSelected")}</option>
                 </Select>
               </div>

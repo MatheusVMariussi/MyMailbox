@@ -1,4 +1,4 @@
-import type { ProviderVerdicts, SpamSignal } from "../types";
+import type { SpamSignal } from "../types";
 import { SPAM_WEIGHTS } from "../weights";
 import { findHeader } from "./utils";
 
@@ -40,31 +40,13 @@ function trustedHeaderResults(headers?: Record<string, string>): Record<Method, 
 }
 
 /** The receiving side's own DMARC verdict for a message, by the same trust rules spam analysis uses. */
-export function readTrustedDmarcResult(headers?: Record<string, string>, verdicts?: ProviderVerdicts): "pass" | "fail" | undefined {
-	if (verdicts && (verdicts.spf || verdicts.dkim || verdicts.dmarc || verdicts.spam)) {
-		const result = verdicts.dmarc?.toLowerCase();
-		return result === "pass" || result === "fail" ? result : undefined;
-	}
+export function readTrustedDmarcResult(headers?: Record<string, string>): "pass" | "fail" | undefined {
 	return trustedHeaderResults(headers).dmarc;
 }
 
-/**
- * SPF, DKIM and DMARC results. Verdicts from the receiving provider (SES) win; otherwise only an
- * Authentication-Results clause written by Cloudflare is read.
- */
-export function analyzeAuthentication(headers?: Record<string, string>, verdicts?: ProviderVerdicts): SpamSignal[] {
+/** SPF, DKIM and DMARC results; only an Authentication-Results clause written by Cloudflare is read. */
+export function analyzeAuthentication(headers?: Record<string, string>): SpamSignal[] {
 	const signals: SpamSignal[] = [];
-	if (verdicts && (verdicts.spf || verdicts.dkim || verdicts.dmarc || verdicts.spam)) {
-		for (const method of METHODS) {
-			const signal = methodSignal(method, verdicts[method]?.toLowerCase());
-			if (signal) signals.push(signal);
-		}
-		if (verdicts.spam?.toLowerCase() === "fail") {
-			signals.push({ id: "provider_spam_verdict", score: SPAM_WEIGHTS.provider.spamVerdict, reason: "The receiving mail provider classified this message as spam" });
-		}
-		return signals;
-	}
-
 	const results = trustedHeaderResults(headers);
 	for (const method of METHODS) {
 		const signal = methodSignal(method, results[method]);

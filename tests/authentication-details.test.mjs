@@ -13,7 +13,7 @@ after(() => rmSync(outDir, { recursive: true, force: true }));
 await build({
 	stdin: {
 		contents: [
-			`export { readSesAuthentication, readSesTrace } from "./src/lib/email/provider-trace";`,
+			`export { readSesAuthentication } from "./src/lib/email/provider-trace";`,
 			`export { getSenderWarning } from "./src/components/messages/message-details-utils";`,
 		].join("\n"),
 		resolveDir: root,
@@ -131,15 +131,6 @@ From: no-reply@example.com
 
 Body`);
 	assert.equal(provider.readSesAuthentication(otherProvider, "no-reply@example.com"), null);
-});
-
-test("the existing SES trace keeps the same verdicts and sender IP", () => {
-	const trace = provider.readSesTrace(raw(`${sesHeaders}
-From: no-reply@example.com
-
-Body`));
-	assert.deepEqual(trace.verdicts, { spf: "PASS", dkim: "PASS", dmarc: "PASS", spam: "PASS", virus: "PASS" });
-	assert.equal(trace.senderIp, "203.0.113.5");
 });
 
 test("DMARC-passing mail across sibling subdomains does not raise a sender warning", () => {

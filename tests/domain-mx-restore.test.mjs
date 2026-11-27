@@ -7,7 +7,7 @@ import { build } from "esbuild";
 
 // Replacing another service's MX records must not leave the domain without MX:
 // Cloudflare-managed paths delete first and restore on failure (and report a failed
-// restore); publishMx creates the new record before deleting anything.
+// restore).
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = mkdtempSync(join(root, "tests", ".tmp-domain-mx-restore-"));
@@ -53,31 +53,17 @@ const flow = await bundle(
 		"@/lib/domains/cloudflare-cleanup": "export async function deleteEmailRoutingRulesForDomain(){}",
 		"@/lib/domains/adopt-zone": "export async function adoptCloudflareZone(env,d){return d;}",
 		"@/lib/domains/receiving-dns": "export async function listDomainMx(){return globalThis.__mx}export class MxConflictError extends Error{}",
-		"@/lib/domains/resend-receiving": "export async function setupResendReceiving(){}export async function removeResendReceiving(){}export async function hasResendReceivingConfig(){return false}",
 		"@/lib/mailboxes/domain-addresses": "export async function ensureMailboxDomainRouting(){}",
-	},
-);
-
-const publish = await bundle(
-	"publish",
-	"export { publishMx } from './src/lib/domains/receiving-dns';",
-	{
-		"@/lib/dns-query": "export async function queryDns(){return []}",
-		"@/lib/cloudflare-dns": "export async function listMxRecords(){return [globalThis.__oldMx]}export async function deleteDnsRecord(env,zone,id){globalThis.__log.push('delete '+id)}export async function createDnsRecord(env,zone,input){globalThis.__log.push('create '+input.content);if(globalThis.__createFails)throw new Error('create rejected')}",
-		"@/lib/domains/provision": "export const isManualZone=(z)=>z==='manual';",
 	},
 );
 
 const domain = { id: "d1", userId: "u1", hostname: "example.com", zoneId: "zone-1", routingEnabled: false, routingStatus: null };
 
 beforeEach(() => {
-	globalThis.__oldMx = oldMx;
 	globalThis.__mx = [oldMx];
 	globalThis.__restored = [];
 	globalThis.__deleted = [];
-	globalThis.__log = [];
 	globalThis.__failRestore = false;
-	globalThis.__createFails = false;
 });
 
 test("replacing MX restores the old records and drops the half-created Cloudflare MX when routing fails", async () => {
@@ -101,15 +87,4 @@ test("a failed restore is raised, naming the records and carrying the original e
 test("replacing MX restores the old records when the sending subdomain cannot be created", async () => {
 	await assert.rejects(flow.setupDomainDnsRecord({}, domain, "dkim", { replaceMx: true }), /sending failed/);
 	assert.deepEqual(globalThis.__restored.map((record) => record.id ?? record.content), ["mx.old-provider.test"]);
-});
-
-test("publishMx creates the new MX before deleting the old one", async () => {
-	await publish.publishMx({}, domain, "inbound.new-provider.test", { replace: true });
-	assert.deepEqual(globalThis.__log, ["create inbound.new-provider.test", "delete mx1"]);
-});
-
-test("publishMx deletes nothing when the new record is rejected", async () => {
-	globalThis.__createFails = true;
-	await assert.rejects(publish.publishMx({}, domain, "inbound.new-provider.test", { replace: true }), /create rejected/);
-	assert.deepEqual(globalThis.__log, ["create inbound.new-provider.test"]);
 });

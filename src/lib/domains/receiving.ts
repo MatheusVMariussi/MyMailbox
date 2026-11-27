@@ -9,14 +9,10 @@ import { setupDomainDnsRecord } from "@/lib/domains/dns-setup";
 import { adoptCloudflareZone } from "@/lib/domains/adopt-zone";
 import { isManualZone } from "@/lib/domains/provision";
 import { listDomainMx, MxConflictError } from "@/lib/domains/receiving-dns";
-import { removeResendReceiving, setupResendReceiving, hasResendReceivingConfig } from "@/lib/domains/resend-receiving";
 import { ensureMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
 import { assertMxChangeAllowed, republishMtaStsAfterMxChange } from "@/lib/deliverability/mta-sts-guard";
 import type { CfDnsRecord } from "@/lib/cloudflare-api.types";
 import type { DomainRow } from "@/lib/domains/types";
-
-export type ReceivingProviderId = "none" | "cloudflare" | "resend";
-export type ConfigurableReceiving = Exclude<ReceivingProviderId, "none">;
 
 const isCloudflareMx = (content: string) => content.toLowerCase().replace(/\.$/, "").endsWith(".mx.cloudflare.net");
 
@@ -76,33 +72,22 @@ async function removeCloudflareMx(env: CloudflareEnv, domain: DomainRow): Promis
 	}
 }
 
-export async function setupReceiving(
-	env: CloudflareEnv,
-	domain: DomainRow,
-	provider: ConfigurableReceiving,
-	origin: string,
-	options: { replaceMx: boolean },
-): Promise<void> {
+/** Sets up Cloudflare Email Routing for the domain; a 409 MX_CONFLICT asks before replacing another service's MX. */
+export async function setupReceiving(env: CloudflareEnv, domain: DomainRow, options: { replaceMx: boolean }): Promise<void> {
 	// Enforce refuses before anything is touched; a testing policy is republished with the new MX list afterwards.
 	await assertMxChangeAllowed(env, domain);
-	if (provider === "cloudflare") await setupCloudflareReceiving(env, domain, options);
-	else await setupResendReceiving(env, domain, origin, options);
+	await setupCloudflareReceiving(env, domain, options);
 	await republishMtaStsAfterMxChange(env, domain);
-	if (provider === "cloudflare") return;
-	// Same as a domain created with DNS: once receiving works, inbound routing
-	// (which only resolves active domains) must see this domain.
-	await getDb(env).update(domains).set({ status: "active" }).where(eq(domains.id, domain.id));
 }
 
-export async function removeReceiving(env: CloudflareEnv, domain: DomainRow, provider: ConfigurableReceiving): Promise<void> {
-	// Removing a provider's setup deletes its MX records.
+/** Removes Cloudflare Email Routing for a domain that no longer receives through it; this deletes its MX records. */
+export async function removeReceiving(env: CloudflareEnv, domain: DomainRow): Promise<void> {
 	await assertMxChangeAllowed(env, domain);
-	if (provider === "cloudflare") await removeCloudflareReceiving(env, domain);
-	else await removeResendReceiving(env, domain);
+	await removeCloudflareReceiving(env, domain);
 	await republishMtaStsAfterMxChange(env, domain);
 }
 
-/** Which providers have leftover receiving configuration (null = could not tell). */
-export async function receivingPresence(env: CloudflareEnv, domain: DomainRow): Promise<Record<ConfigurableReceiving, boolean | null>> {
-	return { cloudflare: domain.routingEnabled, resend: await hasResendReceivingConfig(env, domain) };
+/** Whether Cloudflare Email Routing is still configured for the domain. */
+export function receivingPresence(domain: DomainRow): { cloudflare: boolean } {
+	return { cloudflare: domain.routingEnabled };
 }
