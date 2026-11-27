@@ -63,6 +63,13 @@ test("confirmation text says how much is lost and that it is irreversible", () =
 	assert.equal(m.getEmptyFolderConfirmText("trash"), "Permanently delete every message in Trash? This cannot be undone.");
 });
 
+test("emptying from the unified view says it empties every mailbox the user manages", () => {
+	assert.equal(m.getEmptyFolderConfirmText("trash", 12, undefined, 3), "Permanently delete all 12 messages in Trash? This empties Trash in every mailbox you manage (3) and cannot be undone.");
+	assert.equal(m.getEmptyFolderConfirmText("spam", 1, undefined, 2), "Permanently delete the 1 message in Spam? This empties Spam in every mailbox you manage (2) and cannot be undone.");
+	assert.equal(m.getEmptyFolderConfirmText("spam", undefined, undefined, 2), "Permanently delete every message in Spam? This empties Spam in every mailbox you manage (2) and cannot be undone.");
+	assert.equal(m.getEmptyFolderConfirmText("trash", 4, undefined, 1), "Permanently delete all 4 messages in Trash? This cannot be undone.");
+});
+
 test("retention cutoff is the given number of days before now", () => {
 	const now = new Date("2026-10-31T12:00:00Z");
 	assert.equal(m.getTrashRetentionCutoff(now, 30).toISOString(), "2026-10-01T12:00:00.000Z");

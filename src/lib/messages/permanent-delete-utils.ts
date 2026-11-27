@@ -20,8 +20,16 @@ export function getPermanentDeleteConfirmText(count: number, t: Translator = def
 	return t("delete.confirm", { count });
 }
 
-export function getEmptyFolderConfirmText(folder: PermanentDeleteFolder, total?: number, t: Translator = defaultTranslator): string {
-	const vars = { count: total ?? 0, folder: getPermanentDeleteFolderLabel(folder, t) };
+/**
+ * The confirmation for emptying Trash or Spam. From the unified view (`mailboxCount` above one) it empties
+ * that folder in every mailbox the user manages, and the text says so.
+ */
+export function getEmptyFolderConfirmText(folder: PermanentDeleteFolder, total?: number, t: Translator = defaultTranslator, mailboxCount = 1): string {
+	const vars = { count: total ?? 0, folder: getPermanentDeleteFolderLabel(folder, t), mailboxes: mailboxCount };
+	if (mailboxCount > 1) {
+		if (total === 1) return t("empty.confirm.everyMailbox.single", vars);
+		return total && total > 1 ? t("empty.confirm.everyMailbox.multiple", vars) : t("empty.confirm.everyMailbox.all", vars);
+	}
 	if (total === 1) return t("empty.confirm.single", vars);
 	return total && total > 1 ? t("empty.confirm.multiple", vars) : t("empty.confirm.all", vars);
 }

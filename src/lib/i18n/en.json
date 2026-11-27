@@ -2229,9 +2229,13 @@
 	"projects.removeAddress": "Remove address {index}",
 	"projects.addAddress": "Add domain or address",
 	"projects.saveAddresses": "Save addresses",
-	"projects.addressesSaved": "Addresses saved. Apply them to existing mail to update older messages.",
-	"projects.restamp": "Apply to existing mail",
-	"projects.restampHint": "Recompute the project of the mail already stored, after changing addresses",
+	"projects.restamp": "Re-apply to existing mail",
+	"projects.restampHint": "Saving the addresses already updates existing mail. Run it again if something looks out of date.",
 	"projects.restamping": "Applying...",
-	"projects.restamped": "Messages updated: {count}"
+	"projects.restamped": "Messages updated: {count}",
+	"projects.addressesSavedRestamped": "Addresses saved. Existing mail updated: {count}.",
+	"projects.addressesSavedRestampFailed": "Addresses saved, but existing mail was not updated. Use Re-apply to try again.",
+	"empty.confirm.everyMailbox.single": "Permanently delete the 1 message in {folder}? This empties {folder} in every mailbox you manage ({mailboxes}) and cannot be undone.",
+	"empty.confirm.everyMailbox.multiple": "Permanently delete all {count} messages in {folder}? This empties {folder} in every mailbox you manage ({mailboxes}) and cannot be undone.",
+	"empty.confirm.everyMailbox.all": "Permanently delete every message in {folder}? This empties {folder} in every mailbox you manage ({mailboxes}) and cannot be undone."
 }

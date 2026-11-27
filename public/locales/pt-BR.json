@@ -2243,9 +2243,13 @@
 	"projects.removeAddress": "Remover endereço {index}",
 	"projects.addAddress": "Adicionar domínio ou endereço",
 	"projects.saveAddresses": "Salvar endereços",
-	"projects.addressesSaved": "Endereços salvos. Aplique aos e-mails existentes para atualizar as mensagens antigas.",
-	"projects.restamp": "Aplicar aos e-mails existentes",
-	"projects.restampHint": "Recalcula o projeto dos e-mails já guardados, depois de mudar os endereços",
+	"projects.restamp": "Reaplicar aos e-mails existentes",
+	"projects.restampHint": "Salvar os endereços já atualiza os e-mails existentes. Roda de novo se algo parecer desatualizado.",
 	"projects.restamping": "Aplicando...",
-	"projects.restamped": "Mensagens atualizadas: {count}"
+	"projects.restamped": "Mensagens atualizadas: {count}",
+	"projects.addressesSavedRestamped": "Endereços salvos. E-mails existentes atualizados: {count}.",
+	"projects.addressesSavedRestampFailed": "Endereços salvos, mas os e-mails existentes não foram atualizados. Usa Reaplicar pra tentar de novo.",
+	"empty.confirm.everyMailbox.single": "Excluir de vez a única mensagem em {folder}? Isso esvazia {folder} em todas as caixas que você gerencia ({mailboxes}) e não dá pra desfazer.",
+	"empty.confirm.everyMailbox.multiple": "Excluir de vez as {count} mensagens em {folder}? Isso esvazia {folder} em todas as caixas que você gerencia ({mailboxes}) e não dá pra desfazer.",
+	"empty.confirm.everyMailbox.all": "Excluir de vez todas as mensagens em {folder}? Isso esvazia {folder} em todas as caixas que você gerencia ({mailboxes}) e não dá pra desfazer."
 }

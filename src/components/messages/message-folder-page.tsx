@@ -665,7 +665,7 @@ export function MessageFolderPage({
 		: accessibleMailboxes.filter((mailbox) => !mailbox.permission || mailbox.permission === "full_access").map((mailbox) => mailbox.id);
 	async function emptyFolder() {
 		if (!permanentDeleteFolder || emptyTargets.length === 0) return;
-		if (!await confirmDestructive(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
+		if (!await confirmDestructive(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t, emptyTargets.length))) return;
 		setEmptyingFolder(true);
 		try {
 			for (const mailboxId of emptyTargets) await emptyMessageFolder(mailboxId, permanentDeleteFolder);

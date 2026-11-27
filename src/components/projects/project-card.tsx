@@ -62,10 +62,17 @@ export function ProjectCard({ project, domains }: Props) {
 		return t("projects.saved");
 	});
 
+	// Saving the addresses also re-stamps the mail already stored, so lists follow the new mapping at once;
+	// "Re-apply" below runs the same re-stamp again on demand.
 	const saveAddresses = () => run("addresses", async () => {
 		await setProjectAddressesRequest(project.id, rows.filter((row) => row.domainId).map(({ domainId, localPart }) => ({ domainId, localPart })));
 		invalidateProjectsCache();
-		return t("projects.addressesSaved");
+		try {
+			const updated = await restampProjectMessages(project.id);
+			return t("projects.addressesSavedRestamped", { count: updated });
+		} catch {
+			return t("projects.addressesSavedRestampFailed");
+		}
 	});
 
 	const restamp = () => run("restamp", async () => {
