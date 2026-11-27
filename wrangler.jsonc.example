@@ -25,6 +25,24 @@
 			"service": "mymailbox",
 		},
 	],
+	// Realtime updates: one RealtimeHub per user (worker.ts routes /api/realtime to it). The class must stay
+	// exported from worker.ts, and the migration tag that created it must never be removed.
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "REALTIME",
+				"class_name": "RealtimeHub",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"RealtimeHub",
+			],
+		},
+	],
 	"triggers": {
 		"crons": ["0 2 * * *", "*/5 * * * *"],
 	},
