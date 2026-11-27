@@ -112,42 +112,90 @@ export async function deleteLabel(db: AppDatabase, labelId: string, maxBatches =
 }
 
 /**
- * Adds memberships, idempotently, and returns the pairs that were new. The caller has checked that
- * each label belongs to its message's mailbox; a trigger refuses any pair that does not.
+ * What a chunked membership write committed: `committed` are the pairs that really changed, `failed` the
+ * pairs of statements that threw (each statement is atomic, so none of those changed), `error` the first
+ * error. Pairs that were already in the requested state are in neither list.
  */
-export async function addMessageLabels(db: AppDatabase, pairs: readonly LabelPair[]): Promise<LabelPair[]> {
-	const added: LabelPair[] = [];
-	for (const part of chunk(uniquePairs(pairs), LABEL_PAIR_CHUNK)) {
-		try {
-			const rows = await db
-				.insert(messageLabels)
-				.values(part.map((pair) => ({ messageId: pair.messageId, labelId: pair.labelId })))
-				.onConflictDoNothing()
-				.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId });
-			added.push(...rows);
-		} catch (error) {
-			if (isLabelMailboxMismatchError(error)) {
-				throw new LabelError("A label can only be applied to mail in its own mailbox", 400);
+export type LabelWriteResult = { committed: LabelPair[]; failed: LabelPair[]; error: unknown };
+
+type LabelWriteStep = { pairs: LabelPair[]; run: () => Promise<LabelPair[]> };
+
+function insertStep(db: AppDatabase, part: LabelPair[]): LabelWriteStep {
+	return {
+		pairs: part,
+		run: async () => {
+			try {
+				return await db
+					.insert(messageLabels)
+					.values(part.map((pair) => ({ messageId: pair.messageId, labelId: pair.labelId })))
+					.onConflictDoNothing()
+					.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId });
+			} catch (error) {
+				if (isLabelMailboxMismatchError(error)) {
+					throw new LabelError("A label can only be applied to mail in its own mailbox", 400);
+				}
+				throw error;
 			}
-			throw error;
+		},
+	};
+}
+
+function insertSteps(db: AppDatabase, pairs: readonly LabelPair[]): LabelWriteStep[] {
+	return chunk(uniquePairs(pairs), LABEL_PAIR_CHUNK).map((part) => insertStep(db, part));
+}
+
+function deleteSteps(db: AppDatabase, pairs: readonly LabelPair[]): LabelWriteStep[] {
+	return [...groupPairsByLabel(pairs)].flatMap(([labelId, messageIds]) => chunk(messageIds, LABEL_PAIR_CHUNK).map((part) => ({
+		pairs: part.map((messageId) => ({ messageId, labelId })),
+		run: () => db
+			.delete(messageLabels)
+			.where(and(eq(messageLabels.labelId, labelId), inArray(messageLabels.messageId, part)))
+			.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId }),
+	})));
+}
+
+/** Runs every step even when one fails, so the result names exactly what committed. */
+async function runStepsSettled(steps: LabelWriteStep[]): Promise<LabelWriteResult> {
+	const result: LabelWriteResult = { committed: [], failed: [], error: undefined };
+	for (const step of steps) {
+		try {
+			result.committed.push(...(await step.run()));
+		} catch (error) {
+			result.failed.push(...step.pairs);
+			result.error ??= error;
 		}
 	}
-	return added;
+	return result;
+}
+
+async function runSteps(steps: LabelWriteStep[]): Promise<LabelPair[]> {
+	const changed: LabelPair[] = [];
+	for (const step of steps) changed.push(...(await step.run()));
+	return changed;
+}
+
+/**
+ * Adds memberships, idempotently, and returns the pairs that were new. The caller has checked that
+ * each label belongs to its message's mailbox; a trigger refuses any pair that does not. Throws on the
+ * first failed statement, after earlier statements committed: use `addMessageLabelsSettled` to know which.
+ */
+export async function addMessageLabels(db: AppDatabase, pairs: readonly LabelPair[]): Promise<LabelPair[]> {
+	return runSteps(insertSteps(db, pairs));
+}
+
+/** `addMessageLabels` that never throws: every statement runs and the result separates committed from failed pairs. */
+export async function addMessageLabelsSettled(db: AppDatabase, pairs: readonly LabelPair[]): Promise<LabelWriteResult> {
+	return runStepsSettled(insertSteps(db, pairs));
 }
 
 /** Removes memberships and returns the pairs that existed. */
 export async function removeMessageLabels(db: AppDatabase, pairs: readonly LabelPair[]): Promise<LabelPair[]> {
-	const removed: LabelPair[] = [];
-	for (const [labelId, messageIds] of groupPairsByLabel(pairs)) {
-		for (const part of chunk(messageIds, LABEL_PAIR_CHUNK)) {
-			const rows = await db
-				.delete(messageLabels)
-				.where(and(eq(messageLabels.labelId, labelId), inArray(messageLabels.messageId, part)))
-				.returning({ messageId: messageLabels.messageId, labelId: messageLabels.labelId });
-			removed.push(...rows);
-		}
-	}
-	return removed;
+	return runSteps(deleteSteps(db, pairs));
+}
+
+/** `removeMessageLabels` that never throws: every statement runs and the result separates committed from failed pairs. */
+export async function removeMessageLabelsSettled(db: AppDatabase, pairs: readonly LabelPair[]): Promise<LabelWriteResult> {
+	return runStepsSettled(deleteSteps(db, pairs));
 }
 
 /** Label ids per message, oldest membership first; messages without labels are absent. */

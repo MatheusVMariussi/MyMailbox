@@ -481,6 +481,151 @@ test("unlabel removes the label, and undo puts it back only while the label exis
 	assert.deepEqual(labels(), []);
 });
 
+function withTrigger(sql, name, run) {
+	sqlite.exec(sql);
+	const originalError = console.error;
+	console.error = () => undefined;
+	return run().finally(() => {
+		console.error = originalError;
+		sqlite.exec(`DROP TRIGGER IF EXISTS ${name}`);
+	});
+}
+
+function insertPadded(count) {
+	sqlite.exec("DELETE FROM messages");
+	const insert = sqlite.prepare("INSERT INTO messages (id, mailbox_id, direction, status, read, starred, snoozed_until) VALUES (?, 'mb1', 'inbound', 'received', 0, 0, NULL)");
+	const ids = [];
+	for (let index = 1; index <= count; index += 1) {
+		const id = `m${String(index).padStart(3, "0")}`;
+		ids.push(id);
+		insert.run(id);
+	}
+	return ids;
+}
+
+test("a label chunk that fails mid-way reports exactly the committed messages, and undo reverts only those", async () => {
+	reset();
+	addLabel("work");
+	const ids = insertPadded(100);
+	// Pairs go out 45 per statement: the second statement (m046..m090) aborts as a whole.
+	const applied = await withTrigger(`
+		CREATE TRIGGER fail_label_chunk BEFORE INSERT ON message_labels
+		WHEN NEW.message_id = 'm050'
+		BEGIN
+			SELECT RAISE(ABORT, 'injected label failure');
+		END;
+	`, "fail_label_chunk", () => m.applyMessageActionForUser({}, user, { action: "label", messageIds: ids, labelId: "work" }));
+
+	const labelled = sqlite.prepare("SELECT message_id FROM message_labels WHERE label_id = 'work' ORDER BY message_id").all().map((row) => row.message_id);
+	assert.equal(labelled.length, 55);
+	assert.ok(!labelled.includes("m050"));
+	assert.deepEqual(applied.applied.map((record) => record.id).sort(), labelled);
+	for (const record of applied.applied) assert.deepEqual(record.labels, { added: ["work"], removed: [] });
+	const failed = applied.skipped.filter((item) => item.reason === "failed").map((item) => item.id).sort();
+	assert.deepEqual(failed, ids.filter((id) => !labelled.includes(id)));
+	assert.ok(applied.undoToken);
+
+	const undo = await m.undoMessageActionForUser({}, user, applied.undoToken);
+	assert.deepEqual(undo.restored.sort(), labelled);
+	assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM message_labels").get().count, 0);
+});
+
+test("an undo whose label chunk fails mid-way reports the committed restores and the failed ones", async () => {
+	reset();
+	addLabel("work");
+	const ids = insertPadded(100);
+	const applied = await m.applyMessageActionForUser({}, user, { action: "label", messageIds: ids, labelId: "work" });
+	assert.equal(applied.applied.length, 100);
+	const undo = await withTrigger(`
+		CREATE TRIGGER fail_unlabel_chunk BEFORE DELETE ON message_labels
+		WHEN OLD.message_id = 'm050'
+		BEGIN
+			SELECT RAISE(ABORT, 'injected label failure');
+		END;
+	`, "fail_unlabel_chunk", () => m.undoMessageActionForUser({}, user, applied.undoToken));
+	const remaining = sqlite.prepare("SELECT message_id FROM message_labels ORDER BY message_id").all().map((row) => row.message_id);
+	assert.equal(remaining.length, 45);
+	assert.deepEqual(undo.skipped.map((item) => item.id).sort(), remaining);
+	assert.ok(undo.skipped.every((item) => item.reason === "failed"));
+	assert.deepEqual(undo.restored.sort(), ids.filter((id) => !remaining.includes(id)));
+});
+
+test("a move whose label insert fails reverts its status and reports the message failed", async () => {
+	reset();
+	addLabel("work");
+	await withTrigger(`
+		CREATE TRIGGER fail_move_label BEFORE INSERT ON message_labels
+		WHEN NEW.message_id = 'm1'
+		BEGIN
+			SELECT RAISE(ABORT, 'injected label failure');
+		END;
+	`, "fail_move_label", () => assert.rejects(
+		m.applyMessageActionForUser({}, user, { action: "move", messageIds: ["m1"], labelId: "work" }),
+		(error) => error instanceof m.MessageActionError && error.status === 500,
+	));
+	assert.equal(rowState().status, "received");
+	assert.deepEqual(labels(), []);
+});
+
+test("a partly failed move reports the failed messages and signs undo for the moved ones", async () => {
+	reset();
+	addLabel("work");
+	const ids = insertPadded(50);
+	const applied = await withTrigger(`
+		CREATE TRIGGER fail_move_chunk BEFORE INSERT ON message_labels
+		WHEN NEW.message_id = 'm046'
+		BEGIN
+			SELECT RAISE(ABORT, 'injected label failure');
+		END;
+	`, "fail_move_chunk", () => m.applyMessageActionForUser({}, user, { action: "move", messageIds: ids, labelId: "work" }));
+	const moved = ids.slice(0, 45);
+	const failed = ids.slice(45);
+	assert.deepEqual(applied.applied.map((record) => record.id).sort(), moved);
+	assert.deepEqual(applied.skipped, failed.map((id) => ({ id, reason: "failed" })));
+	for (const id of failed) {
+		assert.equal(rowState(id).status, "received", id);
+		assert.deepEqual(labels(id), [], id);
+	}
+	for (const id of moved) assert.equal(rowState(id).status, "archived", id);
+
+	const undo = await m.undoMessageActionForUser({}, user, applied.undoToken);
+	assert.deepEqual(undo.restored.sort(), moved);
+	assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM messages WHERE status = 'received'").get().count, 50);
+	assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM message_labels").get().count, 0);
+});
+
+test("a move whose label and status revert both fail keeps the committed status undoable", async () => {
+	reset();
+	addLabel("work");
+	sqlite.exec(`
+		CREATE TRIGGER fail_move_revert BEFORE UPDATE OF status ON messages
+		WHEN OLD.id = 'm1' AND OLD.status = 'archived' AND NEW.status = 'received'
+		BEGIN
+			SELECT RAISE(ABORT, 'injected revert failure');
+		END;
+	`);
+	let applied;
+	try {
+		applied = await withTrigger(`
+			CREATE TRIGGER fail_move_label BEFORE INSERT ON message_labels
+			WHEN NEW.message_id = 'm1'
+			BEGIN
+				SELECT RAISE(ABORT, 'injected label failure');
+			END;
+		`, "fail_move_label", () => m.applyMessageActionForUser({}, user, { action: "move", messageIds: ["m1"], labelId: "work" }));
+	} finally {
+		sqlite.exec("DROP TRIGGER fail_move_revert");
+	}
+	assert.equal(rowState().status, "archived");
+	assert.equal(applied.applied.length, 1);
+	assert.equal(applied.applied[0].applied.status, "archived");
+	assert.equal(applied.applied[0].labels, undefined);
+	assert.ok(applied.undoToken);
+	const undo = await m.undoMessageActionForUser({}, user, applied.undoToken);
+	assert.deepEqual(undo.restored, ["m1"]);
+	assert.equal(rowState().status, "received");
+});
+
 test("a label never applies to mail of another mailbox, and an unknown label is refused", async () => {
 	reset();
 	addLabel("elsewhere", "mb2");

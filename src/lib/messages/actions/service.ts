@@ -3,7 +3,7 @@ import type { AppDatabase } from "@/db";
 import { getDb } from "@/db";
 import { messages } from "@/db/schema";
 import { isEmptyLabelDelta } from "@/lib/labels/label-utils";
-import { addMessageLabels, getLabel, loadLabels, loadMessageLabelIds, loadSameNamedLabels, removeMessageLabels } from "@/lib/labels/service";
+import { addMessageLabelsSettled, getLabel, loadLabels, loadMessageLabelIds, loadSameNamedLabels, removeMessageLabelsSettled } from "@/lib/labels/service";
 import type { LabelPair, LabelRecord, MessageLabelDelta } from "@/lib/labels/types";
 import type { SessionUser } from "@/lib/auth/types";
 import { isOthersDraft } from "@/lib/email/draft-access";
@@ -257,7 +257,8 @@ async function loadActionLabel(
 	return label;
 }
 
-type LabelChanges = { added: Map<string, string[]>; removed: Map<string, string[]> };
+/** The pairs that really changed, per message, and the messages with a pair whose statement failed. */
+type LabelChanges = { added: Map<string, string[]>; removed: Map<string, string[]>; failed: Set<string> };
 
 function byMessage(pairs: LabelPair[]): Map<string, string[]> {
 	const result = new Map<string, string[]>();
@@ -265,13 +266,42 @@ function byMessage(pairs: LabelPair[]): Map<string, string[]> {
 	return result;
 }
 
-/** Applies label deltas and reports the pairs that really changed, per message. */
+/**
+ * Applies label deltas statement by statement and reports exactly what committed: a failed statement
+ * (D1 error, a label deleted meanwhile) marks its messages failed without hiding the statements that
+ * committed before or after it.
+ */
 async function applyLabelDeltas(db: AppDatabase, entries: Array<{ id: string; labels: MessageLabelDelta }>): Promise<LabelChanges> {
 	const add = entries.flatMap((entry) => entry.labels.added.map((labelId) => ({ messageId: entry.id, labelId })));
 	const remove = entries.flatMap((entry) => entry.labels.removed.map((labelId) => ({ messageId: entry.id, labelId })));
-	const added = add.length ? await addMessageLabels(db, add) : [];
-	const removed = remove.length ? await removeMessageLabels(db, remove) : [];
-	return { added: byMessage(added), removed: byMessage(removed) };
+	const added = await addMessageLabelsSettled(db, add);
+	const removed = await removeMessageLabelsSettled(db, remove);
+	const failed = [...added.failed, ...removed.failed];
+	if (failed.length > 0) console.error("Message label update failed", added.error ?? removed.error);
+	return {
+		added: byMessage(added.committed),
+		removed: byMessage(removed.committed),
+		failed: new Set(failed.map((pair) => pair.messageId)),
+	};
+}
+
+/** The plan that puts a committed update back: same fields, from its values to its condition. */
+function reversePlan(plan: PlannedUpdate): PlannedUpdate {
+	return { id: plan.id, fields: plan.fields, condition: plan.values as MessageStateSnapshot, values: plan.condition };
+}
+
+/**
+ * Reverts the committed status change of every entry whose label write failed and committed no
+ * label, so the message is reported failed as a whole instead of half-moved. Returns the ids whose
+ * change no longer stands: reverted, or changed again by someone else since (stale).
+ */
+async function revertFailedLabelEntries(db: AppDatabase, entries: ApplyEntry[], changes: LabelChanges): Promise<Set<string>> {
+	const plans = entries.flatMap((entry) => entry.plan && changes.failed.has(entry.record.id) && !labelChangesOf(changes, entry.record.id)
+		? [reversePlan(entry.plan)]
+		: []);
+	if (plans.length === 0) return new Set();
+	const reverted = await runPlannedUpdates(db, plans);
+	return new Set([...reverted.applied, ...reverted.skipped.flatMap((item) => item.reason === "stale" ? [item.id] : [])]);
 }
 
 function labelChangesOf(changes: LabelChanges, id: string): MessageLabelDelta | undefined {
@@ -391,16 +421,18 @@ export async function applyMessageActionForUser(
 	// Labels follow a status change only when it committed, so a stale move adds nothing.
 	const committed = entries.filter((entry) => !entry.plan || updates.applied.has(entry.plan.id));
 	const labelled = committed.flatMap((entry) => entry.labels ? [{ id: entry.record.id, labels: entry.labels }] : []);
-	let labelChanges: LabelChanges = { added: new Map(), removed: new Map() };
-	try {
-		labelChanges = await applyLabelDeltas(db, labelled);
-	} catch (error) {
-		console.error("Message label update failed", error);
-		for (const entry of committed) if (!entry.plan && entry.labels) skipped.push({ id: entry.record.id, reason: "failed" });
-	}
+	const labelChanges = await applyLabelDeltas(db, labelled);
+	const undone = await revertFailedLabelEntries(db, committed, labelChanges);
 	for (const entry of committed) {
-		const labels = labelChangesOf(labelChanges, entry.record.id);
-		const record = labels ? { ...entry.record, labels } : entry.record;
+		const id = entry.record.id;
+		const labels = labelChangesOf(labelChanges, id);
+		const statusStands = !!entry.plan && !undone.has(id);
+		if (labelChanges.failed.has(id) && !labels && !statusStands) {
+			skipped.push({ id, reason: "failed" });
+			continue;
+		}
+		// Exactly what committed: undo reverts these pairs, and a status the revert could not put back.
+		const record = { ...entry.record, applied: statusStands ? entry.record.applied : entry.record.previous, ...(labels ? { labels } : {}) };
 		if (recordHasChanges(record)) applied.push(record);
 	}
 	for (const missing of ids.filter((id) => !seen.has(id))) {
@@ -525,15 +557,12 @@ async function performUndoMessageAction(
 	const updates = await runPlannedUpdates(db, plans.flatMap((entry) => entry.plan ? [entry.plan] : []));
 	skipped.push(...updates.skipped);
 	// A stale status keeps its labels too: the undo of that message is skipped as a whole.
-	const committed = plans.filter((entry) => !entry.plan || updates.applied.has(entry.plan.id));
-	try {
-		await applyLabelDeltas(db, committed.flatMap((entry) => entry.labels ? [{ id: entry.record.id, labels: entry.labels }] : []));
-	} catch (error) {
-		console.error("Message label undo failed", error);
-		const failed = committed.filter((entry) => !entry.plan && entry.labels);
-		for (const entry of failed) skipped.push({ id: entry.record.id, reason: "failed" });
-		committed.splice(0, committed.length, ...committed.filter((entry) => !failed.includes(entry)));
-	}
+	const statusCommitted = plans.filter((entry) => !entry.plan || updates.applied.has(entry.plan.id));
+	const labelChanges = await applyLabelDeltas(db, statusCommitted.flatMap((entry) => entry.labels ? [{ id: entry.record.id, labels: entry.labels }] : []));
+	// A record restored nothing only when it had no status to restore and none of its label pairs committed.
+	const failed = statusCommitted.filter((entry) => !entry.plan && labelChanges.failed.has(entry.record.id) && !labelChangesOf(labelChanges, entry.record.id));
+	for (const entry of failed) skipped.push({ id: entry.record.id, reason: "failed" });
+	const committed = statusCommitted.filter((entry) => !failed.includes(entry));
 	const restored = committed.map((entry) => entry.record.id);
 	progress.restored += restored.length;
 
