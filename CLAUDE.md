@@ -28,7 +28,7 @@ There is no test script in `package.json`; the checks under `tests/` are `node:t
 
 `next.config.ts` sets `typescript.ignoreBuildErrors: true` and `tsconfig.json` sets `noImplicitAny: false`, so the build will not catch type errors. Run `npx tsc --noEmit` if you want real type checking.
 
-`npm run deploy` builds with vinext and uploads with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to it, preserving the custom `worker.ts` entrypoint.
+`npm run deploy` builds with vinext and uploads with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to it, preserving the custom `worker.ts` entrypoint. It also copies `.dev.vars` (local secrets) into `dist/server/` for preview; `deploy:worker` and `upload` run `scripts/strip-dev-vars.mjs` first to delete it.
 
 ## Architecture
 

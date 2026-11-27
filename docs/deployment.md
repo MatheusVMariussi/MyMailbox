@@ -123,7 +123,7 @@ my domain there.
 
 ## Manual recovery
 
-The deploy command builds with vinext and uploads the complete Worker with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to that build. It does not modify D1. The complete Worker is required because `worker.ts` also handles inbound email, queues, scheduled backups, and the real-time Durable Object.
+The deploy command builds with vinext and uploads the complete Worker with Wrangler. The Cloudflare Vite plugin generates `dist/server/wrangler.json` and redirects Wrangler to that build. The plugin also copies your local `.dev.vars` into `dist/server/` for `npm run preview`; Wrangler never uploads it (only the `*.js` modules and `dist/client` assets, whose `.assetsignore` lists it), and `npm run deploy` and `npm run upload` delete it from `dist/` before Wrangler runs (`scripts/strip-dev-vars.mjs`). Do not copy or archive `dist/` after a preview without running that script. It does not modify D1. The complete Worker is required because `worker.ts` also handles inbound email, queues, scheduled backups, and the real-time Durable Object.
 
 Pending migrations can also be applied with Wrangler:
 
