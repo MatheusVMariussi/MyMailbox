@@ -4,6 +4,14 @@
 	"main": "./worker.ts",
 	"compatibility_date": "2026-05-20",
 	"keep_vars": true,
+	// Matheus's install: the app lives on its own subdomain, and APP_URL pins passkeys,
+	// reset links and provider webhooks to it. Change both for another install.
+	"routes": [
+		{ "pattern": "mymailbox.matheusmariussi.com", "custom_domain": true },
+	],
+	"vars": {
+		"APP_URL": "https://mymailbox.matheusmariussi.com",
+	},
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public"
