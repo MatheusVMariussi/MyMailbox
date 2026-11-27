@@ -3,7 +3,9 @@ import { getEnv } from "@/lib/cloudflare";
 import { requireSessionUser } from "@/lib/api/auth";
 import { readJsonBody } from "@/lib/http/request";
 import { passkeyStepUpSchema } from "@/lib/validators";
-import { verifyPassword } from "@/lib/auth/password";
+import { verifyPasswordInConstantTime } from "@/lib/auth/password";
+import { clearPasswordAttempt, PASSWORD_LOCKOUT_RETRY_AFTER, reservePasswordAttempt } from "@/lib/auth/password-attempts";
+import { clearSecondFactorAttempt, reserveSecondFactorAttempt } from "@/lib/auth/second-factor-attempts";
 import { allowLoginAttempt } from "@/lib/auth/rate-limit";
 import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { createStepUpGrant, StaleStepUpProofError } from "@/lib/auth/webauthn/grants";
@@ -24,9 +26,13 @@ export async function POST(request: Request) {
 	const { action, targetUserId } = parsed.data;
 	if (targetUserId && !action.startsWith("admin.")) return authError("invalid_request", 400);
 	if (action.startsWith("admin.") && auth.user.role !== "admin") return authError("verification_failed", 403);
-	if (!verifyPassword(parsed.data.password, auth.user.passwordHash)) {
+	// A stolen session must not become a password oracle: step-up spends the account's sign-in budget.
+	const passwordAttempt = await reservePasswordAttempt(env, auth.user.id, request);
+	if (!passwordAttempt) return authError("rate_limited", 429, { "Retry-After": PASSWORD_LOCKOUT_RETRY_AFTER });
+	if (!verifyPasswordInConstantTime(parsed.data.password, auth.user.passwordHash)) {
 		return authError("password_incorrect", 400);
 	}
+	await clearPasswordAttempt(env, passwordAttempt);
 	// A password alone is not enough when password sign-ins require a second
 	// factor. Disabling the authenticator also always needs one of its codes,
 	// even when the second-step policy is currently off. A passkey step-up is
@@ -34,9 +40,12 @@ export async function POST(request: Request) {
 	const actionRequiresCode = auth.user.requireSecondFactor || (action === "mfa.disable" && auth.user.totpEnabled);
 	if (actionRequiresCode) {
 		if (!parsed.data.code) return authError("verification_required", 401);
+		const codeAttempt = await reserveSecondFactorAttempt(env, auth.user.id, request);
+		if (!codeAttempt) return authError("rate_limited", 429, { "Retry-After": "900" });
 		if (!(await verifySecondFactor(env, auth.user, parsed.data.code))) {
 			return authError("code_mismatch", 401);
 		}
+		await clearSecondFactorAttempt(env, codeAttempt);
 	}
 	const token = getSessionTokenFromRequestHeaders(request);
 	if (!token) return authError("session_expired", 401);

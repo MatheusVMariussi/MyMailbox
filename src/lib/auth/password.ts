@@ -20,3 +20,22 @@ export function verifyPassword(password: string, hash: string | null | undefined
 	if (!hasPasswordHash(hash)) return false;
 	return bcrypt.compareSync(password, hash);
 }
+
+/**
+ * A cost-12 hash (the cost hashPassword uses) of a random value nobody knows. Comparing against it
+ * costs what a real check costs and never matches.
+ */
+const DUMMY_PASSWORD_HASH = "$2b$12$cJyuQJNME.3WTQ50z1jXMOZnIKEa61/tMOpT7gMJeKBvXJ6Ppj3Lm";
+
+/**
+ * verifyPassword for sign-in paths that must not reveal whether an account exists or has a
+ * password: an unknown email or a passkey-only account still pays for one bcrypt comparison, so
+ * the response time is the same as for a wrong password.
+ */
+export function verifyPasswordInConstantTime(password: string, hash: string | null | undefined): boolean {
+	if (!hasPasswordHash(hash)) {
+		bcrypt.compareSync(password, DUMMY_PASSWORD_HASH);
+		return false;
+	}
+	return bcrypt.compareSync(password, hash);
+}

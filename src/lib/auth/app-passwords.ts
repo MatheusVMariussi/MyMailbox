@@ -6,6 +6,7 @@ import { APP_PASSWORD_PROTOCOLS, type AppPasswordScope } from "@/lib/api/scopes"
 import { apiKeyLookupPrefix } from "@/lib/api-keys";
 import { isListedAsAppPassword } from "@/lib/auth/app-password-utils";
 import { getClientIp } from "@/lib/auth/client-ip";
+import { spendRateLimit } from "@/lib/auth/rate-limit";
 
 /** The scopes a new app password may carry on this server. */
 export function availableAppPasswordProtocols(): AppPasswordScope[] {
@@ -53,18 +54,16 @@ export function appPasswordGuessKey(ip: string | null, secret: string): string {
 /**
  * Spend one guess from the budget unless this isolate verified the secret
  * recently (a working client hits the cache and never spends). False when the
- * budget is spent. A limiter that is missing or throws lets the request through.
+ * budget is spent, or when no limiter is bound in production (spendRateLimit);
+ * a limiter that throws lets the request through and is logged.
  */
 export async function allowAppPasswordGuess(env: CloudflareEnv, request: Request, password: string): Promise<boolean> {
 	if (await isApiKeyVerificationCached(password)) return true;
-	const limiter = env.DEVICE_LOGIN_RATE_LIMIT ?? env.LOGIN_RATE_LIMIT;
-	if (!limiter) return true;
-	try {
-		return (await limiter.limit({ key: appPasswordGuessKey(getClientIp(request), password) })).success;
-	} catch (error) {
-		console.warn("App password rate limiter unavailable", error);
-		return true;
-	}
+	return spendRateLimit(
+		env.DEVICE_LOGIN_RATE_LIMIT ?? env.LOGIN_RATE_LIMIT,
+		appPasswordGuessKey(getClientIp(request), password),
+		"DEVICE_LOGIN_RATE_LIMIT (or LOGIN_RATE_LIMIT)",
+	);
 }
 
 /**
