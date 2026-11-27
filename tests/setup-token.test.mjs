@@ -193,3 +193,16 @@ test("a failed database preparation does not echo the database error", async (t)
 	assert.equal(response.status, 500);
 	assert.doesNotMatch(text, /secret|SQLITE|D1_ERROR/i);
 });
+
+test("the public setup status answers on a brand-new, unmigrated database", async (t) => {
+	// A fresh D1 has no tables at all until /setup applies the migrations, so the status must report an
+	// open setup with no domain instead of failing on the missing domains table.
+	const database = new SqliteDatabase(":memory:");
+	t.after(() => database.db.close());
+	globalThis.__testEnv = { DB: database, SETUP_TOKEN: TOKEN };
+	t.after(() => { delete globalThis.__testEnv; });
+	t.mock.method(console, "error", () => {});
+	const response = await routes.status(new Request("https://mail.example.com/api/setup/status"));
+	assert.equal(response.status, 200);
+	assert.deepEqual(await response.json(), { hasAdminAccount: false, hasPrimaryDomain: false });
+});

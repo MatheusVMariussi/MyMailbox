@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
 import { hasAdminAccount } from "@/lib/auth/setup";
 import { getEnv } from "@/lib/cloudflare";
+import { isMissingTableError } from "@/lib/database-errors";
 import { getPrimaryDomain } from "@/lib/user";
+
+/**
+ * Whether a primary domain exists. Before /setup applies the migrations a new install's database has no
+ * tables at all; while setup is still open, a missing domains table simply means "no domain yet".
+ */
+async function hasPrimaryDomain(env: CloudflareEnv, setupOpen: boolean): Promise<boolean> {
+	try {
+		return !!(await getPrimaryDomain(env));
+	} catch (error) {
+		if (setupOpen && isMissingTableError(error)) return false;
+		throw error;
+	}
+}
 
 /**
  * Public: whether first-run setup is closed and whether its domain step is done, which is all the setup page
@@ -11,13 +25,10 @@ import { getPrimaryDomain } from "@/lib/user";
 export async function GET() {
 	const env = getEnv();
 	try {
-		const [adminAccountExists, domain] = await Promise.all([
-			hasAdminAccount(env),
-			getPrimaryDomain(env),
-		]);
+		const adminAccountExists = await hasAdminAccount(env);
 		return NextResponse.json({
 			hasAdminAccount: adminAccountExists,
-			hasPrimaryDomain: !!domain,
+			hasPrimaryDomain: await hasPrimaryDomain(env, !adminAccountExists),
 		}, {
 			headers: { "Cache-Control": "no-store" },
 		});
