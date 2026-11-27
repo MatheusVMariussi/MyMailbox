@@ -223,18 +223,17 @@ export function MessageInviteCard({ messageId, hasCalendarAttachment, className 
 			pendingRef.current = null;
 			if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
 			try {
+				// The session cookie authenticates this same-origin keepalive request.
 				const headers: Record<string, string> = { "Content-Type": "application/json" };
 				try {
-					const token = window.localStorage.getItem("mymailbox-session-token");
-					if (token) headers["Authorization"] = `Bearer ${token}`;
 					headers["X-Time-Zone"] = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
-				} catch { /* private mode */ }
+				} catch { /* no Intl time zone */ }
 				void fetch(`/api/messages/${messageId}/invite`, {
 					method: "POST",
 					headers,
 					body: JSON.stringify(buildIntentBody(pending)),
 					keepalive: true,
-					credentials: "include",
+					credentials: "same-origin",
 				});
 			} catch { /* best-effort */ }
 			try { window.sessionStorage.removeItem(storageKey); } catch { /* private mode */ }

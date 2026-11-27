@@ -93,7 +93,10 @@ async function fixture(t, { rules = [], failAddress, slowAddress } = {}) {
 		const handler = kind === "dashboard" ? dashboardCreate : apiCreate;
 		return handler(new Request(`https://mymailbox.test/api/${kind === "dashboard" ? "" : "v1/"}accounts`, {
 			method: "POST",
-			headers: { Authorization: `Bearer ${token ?? (kind === "dashboard" ? session : key.fullKey)}`, "Content-Type": "application/json" },
+			// The dashboard authenticates with the session cookie (same origin); the API with a Bearer key.
+			headers: kind === "dashboard"
+				? { Cookie: `ep_session=${token ?? session}`, Origin: "https://mymailbox.test", "Content-Type": "application/json" }
+				: { Authorization: `Bearer ${token ?? key.fullKey}`, "Content-Type": "application/json" },
 			body: JSON.stringify({ username: "sam", domainId: "one", password: "test-password", ...overrides }),
 		}));
 	};

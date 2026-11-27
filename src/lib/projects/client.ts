@@ -1,6 +1,6 @@
 "use client";
 
-import { AUTH_SESSION_CHANGED_EVENT, authFetch, getClientSessionToken } from "@/lib/auth/client";
+import { AUTH_SESSION_CHANGED_EVENT, authFetch, getClientSessionKey } from "@/lib/auth/client";
 import type { ProjectListResponse } from "./client-types";
 import type { ProjectRestampResult } from "./types";
 
@@ -29,7 +29,7 @@ function installListeners(): void {
 /** The user's projects and mappable domains, cached for the session and shared between callers. */
 export async function fetchProjects(): Promise<ProjectListResponse> {
 	installListeners();
-	const sessionToken = getClientSessionToken();
+	const sessionToken = getClientSessionKey();
 	if (cached?.sessionToken === sessionToken) return cached.data;
 	if (request?.sessionToken === sessionToken) return request.promise;
 	const requestEpoch = epoch;
@@ -48,7 +48,7 @@ export async function fetchProjects(): Promise<ProjectListResponse> {
 
 /** The cached list, if any, so a first render can paint without waiting. */
 export function peekProjects(): ProjectListResponse | null {
-	return cached?.sessionToken === getClientSessionToken() ? cached.data : null;
+	return cached?.sessionToken === getClientSessionKey() ? cached.data : null;
 }
 
 /** Drops the cached list and tells every consumer (sidebar, rows, composer, settings) to reload. */

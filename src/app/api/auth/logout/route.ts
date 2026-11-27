@@ -10,9 +10,7 @@ export async function POST(request: Request) {
 	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const env = getEnv();
 	const jar = await cookies();
-	const authorization = request.headers.get("Authorization");
-	const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice(7).trim() : undefined;
-	const token = bearerToken || jar.get(SESSION_COOKIE)?.value;
+	const token = jar.get(SESSION_COOKIE)?.value;
 	if (token) {
 		const user = await getUserFromSession(env, token);
 		if (user) await recordAuthActivity(env, { action: "auth.logout", userId: user.id, request });
@@ -25,7 +23,8 @@ export async function POST(request: Request) {
 		parseAccountTokens(jar.get(ACCOUNTS_COOKIE)?.value).filter((entry) => entry !== token),
 	);
 	const next = remaining[remaining.length - 1];
-	const response = NextResponse.json({ ok: true, ...(next ? { token: next.token, redirect: "/inbox" } : {}) });
+	// The next account's token travels only in the cookie; `switched` tells the client one took over.
+	const response = NextResponse.json({ ok: true, ...(next ? { switched: true, redirect: "/inbox" } : {}) });
 	response.headers.set("Cache-Control", "no-store");
 	response.cookies.set(SESSION_COOKIE, next?.token ?? "", cookieOptions(next ? undefined : 0));
 	response.cookies.set(

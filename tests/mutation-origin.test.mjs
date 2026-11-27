@@ -9,16 +9,17 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const api = join(root, "src", "app", "api");
 
 // Every cookie-authenticated handler resolves its user through getCurrentUser (src/lib/auth/cookies.ts),
-// which refuses a state-changing request whose origin is not the app's own. Bearer tokens are exempt.
+// which refuses a state-changing request whose origin is not the app's own. Sessions are cookie only, so a
+// Bearer header neither authenticates nor exempts the request.
 const { app } = await loadApp("mutation-origin", `
 	export { getCurrentUser, requireUser } from "./src/lib/auth/cookies.ts";
 	export { isSameOriginRequest } from "./src/lib/auth/origin.ts";`, {
 	mocks: {
 		"next/headers": "export async function cookies(){return {get:(name)=>name==='ep_session'?{value:'tok'}:undefined}}",
-		"@/lib/auth/session": "export const SESSION_COOKIE='ep_session'; export async function getUserFromSession(env, token){return token==='tok'||token==='bearer'?{id:'u1',disabled:false}:null}",
+		"@/lib/auth/session": "export const SESSION_COOKIE='ep_session'; export function getSessionTokenFromRequestHeaders(request){const m=(request.headers.get('Cookie')??'').match(/(?:^|;\\s*)ep_session=([^;]+)/);return m?m[1]:undefined} export async function getUserFromSession(env, token){return token==='tok'||token==='bearer'?{id:'u1',disabled:false}:null}",
 	},
 });
-const call = (method, headers = {}) => app.getCurrentUser({}, new Request("https://mail.example.com/api/x", { method, headers }));
+const call = (method, headers = {}) => app.getCurrentUser({}, new Request("https://mail.example.com/api/x", { method, headers: { Cookie: "ep_session=tok", ...headers } }));
 
 test("a cookie session is refused on a mutation from another origin", async () => {
 	for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
@@ -31,10 +32,12 @@ test("a cookie session is refused on a mutation from another origin", async () =
 	}
 });
 
-test("reads and bearer-token requests are unaffected", async () => {
+test("reads are unaffected; a Bearer header is neither a session nor an exemption", async () => {
 	assert.ok(await call("GET"));
 	assert.ok(await call("GET", { "Sec-Fetch-Site": "cross-site" }));
-	assert.ok(await call("POST", { Authorization: "Bearer bearer" }));
+	assert.equal(await call("POST", { Authorization: "Bearer bearer" }), null, "a cookie mutation still needs its origin");
+	const bearerOnly = new Request("https://mail.example.com/api/x", { headers: { Authorization: "Bearer bearer" } });
+	assert.equal(await app.getCurrentUser({}, bearerOnly), null, "a Bearer session token does not authenticate");
 	await assert.rejects(app.requireUser({}, new Request("https://mail.example.com/api/x", { method: "POST" })));
 });
 

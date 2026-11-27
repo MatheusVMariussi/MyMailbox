@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getClientSessionToken } from "@/lib/auth/client";
+import { getClientSessionKey } from "@/lib/auth/client";
 import { EMPTY_PROJECT_LIST, fetchProjects, peekProjects, PROJECTS_CHANGED_EVENT } from "@/lib/projects/client";
 import type { ProjectListResponse } from "@/lib/projects/client-types";
 
@@ -11,7 +11,7 @@ type ProjectsState = ProjectListResponse & { isLoading: boolean };
 export function useProjects(): ProjectsState {
 	const [fetched, setFetched] = useState<{ sessionToken: string | null; data: ProjectListResponse } | null>(() => {
 		const data = peekProjects();
-		return data ? { sessionToken: getClientSessionToken(), data } : null;
+		return data ? { sessionToken: getClientSessionKey(), data } : null;
 	});
 	const [version, setVersion] = useState(0);
 
@@ -23,7 +23,7 @@ export function useProjects(): ProjectsState {
 
 	useEffect(() => {
 		let cancelled = false;
-		const sessionToken = getClientSessionToken();
+		const sessionToken = getClientSessionKey();
 		fetchProjects()
 			.then((data) => {
 				if (!cancelled) setFetched({ sessionToken, data });
@@ -34,6 +34,6 @@ export function useProjects(): ProjectsState {
 		return () => { cancelled = true; };
 	}, [version]);
 
-	const current = fetched && fetched.sessionToken === getClientSessionToken() ? fetched.data : null;
+	const current = fetched && fetched.sessionToken === getClientSessionKey() ? fetched.data : null;
 	return { ...(current ?? EMPTY_PROJECT_LIST), isLoading: !current };
 }

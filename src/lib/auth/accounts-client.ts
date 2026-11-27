@@ -1,6 +1,6 @@
 "use client";
 
-import { authFetch, setClientSessionToken } from "@/lib/auth/client";
+import { authFetch, markClientSessionChanged } from "@/lib/auth/client";
 
 export type BrowserAccount = {
 	userId: string;
@@ -28,9 +28,9 @@ export async function switchBrowserAccount(userId: string): Promise<string | nul
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ userId }),
 	});
-	const data = (await res.json().catch(() => ({}))) as { token?: string; error?: string };
-	if (!res.ok || !data.token) return data.error ?? "Could not switch account";
-	setClientSessionToken(data.token);
+	const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+	if (!res.ok || !data.ok) return data.error ?? "Could not switch account";
+	markClientSessionChanged();
 	return null;
 }
 

@@ -90,11 +90,14 @@ export async function deleteUserSessions(env: CloudflareEnv, userId: string, kee
 	await db.delete(sessions).where(eq(sessions.userId, userId));
 }
 
-/** The session token a request carries, from the Bearer header or the cookie. */
+/** The session token a request carries in its HttpOnly cookie. A Bearer header is never a session. */
 export function getSessionTokenFromRequestHeaders(request: Request): string | undefined {
-	const authorization = request.headers.get("Authorization");
-	if (authorization?.startsWith("Bearer ")) return authorization.slice(7).trim() || undefined;
 	const cookie = request.headers.get("Cookie") ?? "";
 	const match = cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
-	return match ? decodeURIComponent(match[1]) : undefined;
+	if (!match) return undefined;
+	try {
+		return decodeURIComponent(match[1]) || undefined;
+	} catch {
+		return undefined;
+	}
 }

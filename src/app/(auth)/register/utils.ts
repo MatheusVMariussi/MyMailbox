@@ -1,5 +1,5 @@
 import { readResponseJson } from "@/lib/http/response";
-import { clearClientSessionToken } from "@/lib/auth/client";
+import { clearClientSession } from "@/lib/auth/client";
 import { SETUP_TOKEN_HEADER } from "@/lib/setup/token-utils";
 import type {
 	DomainSetupResult,
@@ -88,6 +88,6 @@ export async function submitRegistration(
 	});
 
 	const data = (await readResponseJson(res)) as RegisterResult;
-	if (res.ok) clearClientSessionToken();
+	if (res.ok) clearClientSession();
 	return { ok: res.ok, data };
 }

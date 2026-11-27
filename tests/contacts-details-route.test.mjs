@@ -49,7 +49,7 @@ async function fixture(t) {
 	t.after(() => { delete globalThis.__testEnv; });
 	const sessions = new Map();
 	for (const id of ["owner", "manager", "reader"]) sessions.set(id, await createSession(env, id));
-	return (actor, mailboxId) => contactsRoute.GET(new Request(`https://mail.test/api/contacts?mailboxId=${mailboxId}&address=jane%40x.test`, { headers: { Authorization: `Bearer ${sessions.get(actor)}` } }));
+	return (actor, mailboxId) => contactsRoute.GET(new Request(`https://mail.test/api/contacts?mailboxId=${mailboxId}&address=jane%40x.test`, { headers: { Cookie: `ep_session=${sessions.get(actor)}` } }));
 }
 
 test("the contact lookup returns the stored contact to the owner and to delegates of the shared mailbox", async (t) => {

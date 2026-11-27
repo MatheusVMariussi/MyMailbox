@@ -1,4 +1,4 @@
-import { authFetch, getClientSessionToken } from "@/lib/auth/client";
+import { authFetch, getClientSessionKey } from "@/lib/auth/client";
 import type { MailboxOption } from "./mailbox-provider";
 
 let mailboxesCache: MailboxOption[] | null = null;
@@ -32,7 +32,7 @@ export function clearMailboxClientState() {
 }
 
 export async function fetchMailboxOptions(force = false): Promise<MailboxOption[]> {
-	const sessionToken = getClientSessionToken();
+	const sessionToken = getClientSessionKey();
 	if (!force && mailboxesCache && mailboxesCacheSessionToken === sessionToken) return mailboxesCache;
 	if (!force && mailboxesRequest && mailboxesRequestSessionToken === sessionToken) return mailboxesRequest;
 

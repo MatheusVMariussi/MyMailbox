@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getMailboxLabels, LABELS_CHANGED_EVENT } from "@/lib/labels/client";
-import { getClientSessionToken } from "@/lib/auth/client";
+import { getClientSessionKey } from "@/lib/auth/client";
 import type { NavLabel } from "@/components/dashboard-nav-types";
 
 /** The labels of one mailbox, reloaded whenever a label changes. */
@@ -21,12 +21,12 @@ export function useMailboxLabels(mailboxId: string | undefined): NavLabel[] {
 		let cancelled = false;
 		getMailboxLabels<{ labels?: NavLabel[] }>(mailboxId)
 			.then((data) => {
-				if (!cancelled) setFetched({ mailboxId, sessionToken: getClientSessionToken(), labels: data.labels ?? [] });
+				if (!cancelled) setFetched({ mailboxId, sessionToken: getClientSessionKey(), labels: data.labels ?? [] });
 			})
 			.catch(() => undefined);
 		return () => { cancelled = true; };
 	}, [mailboxId, version]);
 
 	if (!mailboxId) return [];
-	return fetched?.mailboxId === mailboxId && fetched.sessionToken === getClientSessionToken() ? fetched.labels : [];
+	return fetched?.mailboxId === mailboxId && fetched.sessionToken === getClientSessionKey() ? fetched.labels : [];
 }

@@ -13,7 +13,10 @@ let totpSecret = "";
  * already exists, which also means the database is initialized.
  */
 async function prepareDatabase(request: APIRequestContext) {
-	const response = await request.post("/api/setup/prepare");
+	// On localhost setup runs without a token; a dev server with SETUP_TOKEN set needs it here too.
+	const response = await request.post("/api/setup/prepare", {
+		headers: process.env.SETUP_TOKEN ? { "X-MyMailbox-Setup-Token": process.env.SETUP_TOKEN } : {},
+	});
 	if (response.status() === 403) return;
 	const body = await response.json().catch(() => null);
 	expect(response.ok(), `POST /api/setup/prepare returned ${response.status()}: ${JSON.stringify(body)}`).toBe(true);
@@ -235,9 +238,10 @@ test("passkey lifecycle: add, rename, sign in, second step, password removal", a
 	await expect(page.getByRole("switch", { name: "Require a second step after password sign-in" })).toHaveAttribute("aria-checked", "true");
 
 	// A password alone cannot mint a step-up grant once a second step is required.
-	const sessionToken = await page.evaluate(() => localStorage.getItem("mymailbox-session-token"));
-	const passwordOnlyStepUp = await request.post("/api/auth/step-up", {
-		headers: { Authorization: `Bearer ${sessionToken}` },
+	// The session is the HttpOnly cookie, which page.request shares; mutations carry the page origin.
+	const sameOrigin = { Origin: new URL(page.url()).origin };
+	const passwordOnlyStepUp = await page.request.post("/api/auth/step-up", {
+		headers: sameOrigin,
 		data: { password: PASSWORD, action: "passkey.add" },
 	});
 	expect(passwordOnlyStepUp.status()).toBe(401);
@@ -369,9 +373,10 @@ test("adding a password chooses its second-factor policy with one passkey scan",
 	expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
 	expect(bounds.y + bounds.height).toBeLessThanOrEqual(844);
 	await page.screenshot({ path: test.info().outputPath("password-policy-mobile.png"), animations: "disabled" });
-	const sessionToken = await page.evaluate(() => localStorage.getItem("mymailbox-session-token"));
-	const unverified = await request.post("/api/settings/password", {
-		headers: { Authorization: `Bearer ${sessionToken}` },
+	// The session is the HttpOnly cookie, which page.request shares; mutations carry the page origin.
+	const sameOrigin = { Origin: new URL(page.url()).origin };
+	const unverified = await page.request.post("/api/settings/password", {
+		headers: sameOrigin,
 		data: { newPassword: PASSWORD, stepUpToken: "invalid-proof", requireSecondFactor: false },
 	});
 	expect(unverified.status()).toBe(401);
@@ -431,19 +436,20 @@ test("removing the last passkey warns and disables its second-factor requirement
 	await expect(page.getByText("Playwright passkey", { exact: true })).toBeVisible();
 	await expect(toggle).toHaveAttribute("aria-checked", "true");
 	await page.getByRole("button", { name: "Remove Playwright passkey", exact: true }).click();
-	const sessionToken = await page.evaluate(() => localStorage.getItem("mymailbox-session-token"));
-	const passkeysResponse = await request.get("/api/settings/security", {
-		headers: { Authorization: `Bearer ${sessionToken}` },
+	// The session is the HttpOnly cookie, which page.request shares; mutations carry the page origin.
+	const sameOrigin = { Origin: new URL(page.url()).origin };
+	const passkeysResponse = await page.request.get("/api/settings/security", {
+		headers: sameOrigin,
 	});
 	expect(passkeysResponse.ok()).toBe(true);
 	const security = await passkeysResponse.json();
-	const unverified = await request.delete(`/api/settings/passkeys/${security.passkeys[0].id}`, {
-		headers: { Authorization: `Bearer ${sessionToken}` },
+	const unverified = await page.request.delete(`/api/settings/passkeys/${security.passkeys[0].id}`, {
+		headers: sameOrigin,
 		data: { stepUpToken: "invalid-proof" },
 	});
 	expect(unverified.status()).toBe(401);
-	const unchanged = await request.get("/api/settings/security", {
-		headers: { Authorization: `Bearer ${sessionToken}` },
+	const unchanged = await page.request.get("/api/settings/security", {
+		headers: sameOrigin,
 	});
 	const unchangedSecurity = await unchanged.json();
 	expect(unchangedSecurity.requireSecondFactor).toBe(true);

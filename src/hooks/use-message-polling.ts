@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
 	AUTH_SESSION_CHANGED_EVENT,
-	getClientSessionToken,
+	getClientSessionKey,
 } from "@/lib/auth/client";
 import type {
 	MessageRealtimeState,
@@ -36,7 +36,7 @@ export function useMessagePolling(): MessageRealtimeState {
 		let hadConnection = false;
 		let lastForegroundRefreshAt = 0;
 		let leader = false;
-		let sessionToken = getClientSessionToken();
+		let sessionToken = getClientSessionKey();
 		let stopped = false;
 
 		function dispatchMessagesChanged(detail?: Record<string, unknown>) {
@@ -98,7 +98,7 @@ export function useMessagePolling(): MessageRealtimeState {
 
 		function scheduleReconnect() {
 			setConnected(false);
-			if (stopped || !leader || !getClientSessionToken()) return;
+			if (stopped || !leader || !getClientSessionKey()) return;
 			const delay = getReconnectDelay(reconnectAttempt);
 			reconnectAttempt += 1;
 			reconnectTimer = window.setTimeout(connect, delay);
@@ -106,7 +106,7 @@ export function useMessagePolling(): MessageRealtimeState {
 
 		function connect() {
 			clearConnectionTimers();
-			if (stopped || !leader || !getClientSessionToken()) return;
+			if (stopped || !leader || !getClientSessionKey()) return;
 
 			socket = new WebSocket(getRealtimeWebSocketUrl());
 			socket.onopen = () => {
@@ -131,7 +131,7 @@ export function useMessagePolling(): MessageRealtimeState {
 		}
 
 		function requestLeadership() {
-			if (stopped || !getClientSessionToken()) return;
+			if (stopped || !getClientSessionKey()) return;
 			if (!channel || !navigator.locks) {
 				leader = true;
 				connect();
@@ -139,7 +139,7 @@ export function useMessagePolling(): MessageRealtimeState {
 			}
 			lockAbort = new AbortController();
 			void navigator.locks.request("mymailbox:realtime", { signal: lockAbort.signal }, async () => {
-				if (stopped || !getClientSessionToken()) return;
+				if (stopped || !getClientSessionKey()) return;
 				await new Promise<void>((resolve) => {
 					releaseLeader = resolve;
 					leader = true;
@@ -151,7 +151,7 @@ export function useMessagePolling(): MessageRealtimeState {
 		}
 
 		function restartForSessionChange() {
-			sessionToken = getClientSessionToken();
+			sessionToken = getClientSessionKey();
 			if (socket) {
 				socket.onclose = null;
 				socket.close(1000, "Session changed");
@@ -210,7 +210,7 @@ export function useMessagePolling(): MessageRealtimeState {
 		}
 
 		function onStorageChange() {
-			if (sessionToken !== getClientSessionToken()) restartForSessionChange();
+			if (sessionToken !== getClientSessionKey()) restartForSessionChange();
 		}
 
 		if (typeof BroadcastChannel !== "undefined") {

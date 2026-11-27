@@ -25,7 +25,7 @@ async function request(t, userId, path) {
 	globalThis.__testEnv = fixture.env;
 	t.after(() => { delete globalThis.__testEnv; });
 	const token = await app.createSession(fixture.env, userId);
-	return { ...fixture, get: (handler, query) => handler(new Request(`http://localhost${path}?${query}`, { headers: { authorization: `Bearer ${token}` } })) };
+	return { ...fixture, get: (handler, query) => handler(new Request(`http://localhost${path}?${query}`, { headers: { cookie: `ep_session=${token}` } })) };
 }
 
 test("a delegate lists only contacts whose address is on the shared mailbox's mail", async (t) => {

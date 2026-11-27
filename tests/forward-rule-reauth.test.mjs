@@ -24,7 +24,7 @@ async function setup(t) {
 	t.after(() => { delete globalThis.__testEnv; });
 	const token = await app.createSession(fixture.env, "u1");
 	const send = (handler, body, id = "x", method = "POST") => handler(new Request("http://localhost/api/routing-rules", {
-		method, headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(body),
+		method, headers: { "content-type": "application/json", cookie: `ep_session=${token}`, origin: "http://localhost" }, body: JSON.stringify(body),
 	}), { params: Promise.resolve({ id }) });
 	return { ...fixture, send };
 }

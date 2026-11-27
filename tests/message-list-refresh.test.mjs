@@ -102,9 +102,9 @@ export function DueFollowUps() { return null; }
 	["@/lib/auth/client", `
 export const AUTH_SESSION_CHANGED_EVENT = "mymailbox:test-auth";
 export function authFetch(...args) { return globalThis.__testAuthFetch(...args); }
-export function getClientSessionToken() { return null; }
-export function setClientSessionToken() {}
-export function clearClientSessionToken() {}
+export function getClientSessionKey() { return null; }
+export function markClientSessionChanged() {}
+export function clearClientSession() {}
 export function persistAuthSession() { return Promise.resolve({}); }
 export function getAuthHeaders(headers) { return new Headers(headers); }
 `],

@@ -6,8 +6,10 @@ import { recordAuthActivity } from "@/lib/auth/activity";
 import type { AuthActivityAction } from "@/lib/auth/activity-types";
 
 /**
- * The one place a verified sign-in turns into a session: cookie, Bearer token
- * for the client, account switcher entry, and audit log.
+ * The one place a verified sign-in turns into a session: the HttpOnly cookie,
+ * account switcher entry, and audit log. The token itself never goes in the
+ * body, so page scripts cannot read it; `authenticated` tells the client a
+ * session was issued.
  */
 export async function completeLogin(
 	env: CloudflareEnv,
@@ -19,7 +21,7 @@ export async function completeLogin(
 	await recordAuthActivity(env, { action: options.activity ?? "auth.login", userId, request });
 	const response = NextResponse.json({
 		ok: true,
-		token,
+		authenticated: true,
 		redirect: "/inbox",
 		...options.body,
 	});

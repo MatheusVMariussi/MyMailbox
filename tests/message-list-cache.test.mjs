@@ -15,7 +15,7 @@ await build({
 	plugins: [{ name: "mock-auth", setup(builder) {
 		builder.onResolve({ filter: /^@\/lib\/auth\/client$/ }, () => ({ path: "auth", namespace: "mock" }));
 		builder.onLoad({ filter: /.*/, namespace: "mock" }, () => ({
-			contents: `export const AUTH_SESSION_CHANGED_EVENT = "auth-changed"; export function getClientSessionToken(){return null;} export function authFetch(...args){return globalThis.listFetch(...args);}`,
+			contents: `export const AUTH_SESSION_CHANGED_EVENT = "auth-changed"; export function getClientSessionKey(){return null;} export function authFetch(...args){return globalThis.listFetch(...args);}`,
 			loader: "js",
 		}));
 	} }],

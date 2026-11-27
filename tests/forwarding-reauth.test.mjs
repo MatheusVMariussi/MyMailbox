@@ -26,7 +26,7 @@ async function setup(t) {
 	const body = (extra) => ({ name: "Member", role: "user", disabled: false, canManageMailboxes: false, ...extra });
 	const send = (handler, id, extra, headers = {}) => handler(new Request(`http://localhost/api/accounts/${id}`, {
 		method: "PATCH",
-		headers: { "content-type": "application/json", authorization: `Bearer ${token}`, ...headers },
+		headers: { "content-type": "application/json", cookie: `ep_session=${token}`, origin: "http://localhost", ...headers },
 		body: JSON.stringify(body(extra)),
 	}), { params: Promise.resolve({ id }) });
 	return { ...fixture, token, send };

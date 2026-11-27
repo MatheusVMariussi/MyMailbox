@@ -55,6 +55,10 @@ This stops one-click downloads of things that are dangerous by design. It does n
 malware in an ordinary-looking PDF or image; put ClamAV or a provider scan in front of the
 server if you need that.
 
+## Web sessions
+
+The web app signs in with the `ep_session` cookie only: it is `HttpOnly`, `SameSite=Lax` and `Secure` on HTTPS, and the session token never appears in a response body or in browser storage, so a script injected into a page cannot read it. A session token sent as `Authorization: Bearer` is not accepted anywhere; API keys and app passwords keep their own Bearer and Basic authentication. Every state-changing request that authenticates with the cookie must come from the app's own origin (`Sec-Fetch-Site: same-origin`, or a matching `Origin`), whatever other headers it carries.
+
 ## App passwords
 
 An app password lets a mail app sign in without your account password and without a second step, so it is treated like any other security change:

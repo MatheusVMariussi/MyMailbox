@@ -19,7 +19,7 @@ async function setup(t) {
 	const token = await app.createSession(fixture.env, "u1");
 	const send = (handler, body) => handler(new Request("http://localhost/api/settings/x", {
 		method: "PATCH",
-		headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+		headers: { "content-type": "application/json", cookie: `ep_session=${token}`, origin: "http://localhost" },
 		body: JSON.stringify(body),
 	}));
 	return { ...fixture, send };

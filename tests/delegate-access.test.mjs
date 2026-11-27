@@ -64,7 +64,7 @@ async function fixture(t, permission) {
 		deleted,
 		sam: () => getUserFromSession(env, token),
 		request: (path, method = "GET") => new Request(`https://mail.test${path}`, {
-			method, headers: { Authorization: `Bearer ${token}`, Origin: "https://mail.test" },
+			method, headers: { Cookie: `ep_session=${token}`, Origin: "https://mail.test" },
 		}),
 	};
 }

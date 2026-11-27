@@ -4,7 +4,9 @@ const EMAIL = "admin@example.com";
 const PASSWORD = "demo-password-change-me";
 
 async function prepareDatabase(request: APIRequestContext) {
-	const response = await request.post("/api/setup/prepare");
+	const response = await request.post("/api/setup/prepare", {
+		headers: process.env.SETUP_TOKEN ? { "X-MyMailbox-Setup-Token": process.env.SETUP_TOKEN } : {},
+	});
 	// A configured installation answers 403. A local dev server without
 	// Cloudflare API credentials answers 503 even after the D1 migrations have
 	// been applied; the seed call below still proves the schema is usable.

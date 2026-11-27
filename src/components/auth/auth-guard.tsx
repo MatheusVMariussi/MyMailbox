@@ -6,6 +6,7 @@ import { fetchSessionInfo, peekSessionInfo } from "@/hooks/use-current-user";
 import type { AuthGuardProps } from "./auth-guard-types";
 import { LoadingTransition } from "@/components/loading-transition";
 import { saveUserTimeZonePreference } from "@/lib/time/client";
+import { ensureClientSessionKey } from "@/lib/auth/client";
 
 export function AuthGuard({ children, mode = "protected", requireMailbox, requireRole, requirePrimary, requireFeature, allowAuthenticated }: AuthGuardProps) {
 	const pathname = usePathname();
@@ -35,7 +36,11 @@ export function AuthGuard({ children, mode = "protected", requireMailbox, requir
 				}
 
 				const data = response;
-				if (data.user?.id) saveUserTimeZonePreference(data.user.id, data.user.timeZone ?? null);
+				if (data.user?.id) {
+					// A cookie session the client last saw signed out (another tab signed in again) gets a fresh cache key.
+					ensureClientSessionKey();
+					saveUserTimeZonePreference(data.user.id, data.user.timeZone ?? null);
+				}
 				if (mode === "public") {
 					if (!allowAuthenticated) router.replace("/inbox");
 					return;

@@ -105,7 +105,7 @@ async function fixture(t) {
 		return Response.json({ success: true, result: rule });
 	});
 	const request = (actor, path, method = "GET", body) => new Request(`https://mail.test${path}`, {
-		method, headers: { Authorization: `Bearer ${sessions.get(actor)}`, Origin: "https://mail.test", ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }) },
+		method, headers: { Cookie: `ep_session=${sessions.get(actor)}`, Origin: "https://mail.test", ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }) },
 		...(body === undefined ? {} : { body: body instanceof FormData ? body : JSON.stringify(body) }),
 	});
 	const read = (actor, id) => detail.GET(request(actor, `/api/mailboxes/${id}`), context(id));

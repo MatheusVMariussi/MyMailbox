@@ -1,6 +1,6 @@
 "use client";
 
-import { AUTH_SESSION_CHANGED_EVENT, authFetch, getClientSessionToken } from "@/lib/auth/client";
+import { AUTH_SESSION_CHANGED_EVENT, authFetch, getClientSessionKey } from "@/lib/auth/client";
 
 const CACHE_TTL_MS = 15_000;
 const MAX_CACHE_ENTRIES = 32;
@@ -49,11 +49,11 @@ export async function getMailboxLabels<T extends LabelListResponse = LabelListRe
 	mailboxId: string,
 ): Promise<T> {
 	installInvalidationListeners();
-	const sessionToken = getClientSessionToken();
+	const sessionToken = getClientSessionKey();
 	const requestSessionEpoch = sessionEpoch;
 	const key = `${sessionToken ?? ""}\u0000${mailboxId}`;
 	for (let retries = 0; ; retries++) {
-		if (sessionEpoch !== requestSessionEpoch || sessionToken !== getClientSessionToken()) {
+		if (sessionEpoch !== requestSessionEpoch || sessionToken !== getClientSessionKey()) {
 			throw new Error("Label request was invalidated");
 		}
 		const now = Date.now();
@@ -75,7 +75,7 @@ export async function getMailboxLabels<T extends LabelListResponse = LabelListRe
 				const data = (await response.json()) as LabelListResponse;
 				if (!response.ok) throw new Error(data.error ?? "Unable to load labels");
 				if (requestEpoch !== epoch || sessionEpoch !== requestSessionEpoch ||
-					sessionToken !== getClientSessionToken() || requests.get(key) !== request) {
+					sessionToken !== getClientSessionKey() || requests.get(key) !== request) {
 					throw new Error("Label request was invalidated");
 				}
 				cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
@@ -86,7 +86,7 @@ export async function getMailboxLabels<T extends LabelListResponse = LabelListRe
 		}
 		try {
 			const data = await request;
-			if (sessionEpoch !== requestSessionEpoch || sessionToken !== getClientSessionToken()) {
+			if (sessionEpoch !== requestSessionEpoch || sessionToken !== getClientSessionKey()) {
 				throw new Error("Label request was invalidated");
 			}
 			if (requestEpoch !== epoch) {
@@ -95,7 +95,7 @@ export async function getMailboxLabels<T extends LabelListResponse = LabelListRe
 			}
 			return data as T;
 		} catch (error) {
-			if (sessionEpoch !== requestSessionEpoch || sessionToken !== getClientSessionToken()) {
+			if (sessionEpoch !== requestSessionEpoch || sessionToken !== getClientSessionKey()) {
 				throw new Error("Label request was invalidated");
 			}
 			if (requestEpoch === epoch || retries >= MAX_INVALIDATION_RETRIES) throw error;

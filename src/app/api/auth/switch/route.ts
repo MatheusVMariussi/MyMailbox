@@ -13,9 +13,8 @@ import { SESSION_COOKIE } from "@/lib/auth/session";
 
 /**
  * Make another signed-in account the active one. The client names a user id;
- * the token comes from the httpOnly accounts cookie and is re-validated here.
- * The token is returned because the web client mirrors the active session
- * in its bearer header, exactly as it does after a normal login.
+ * the token comes from the httpOnly accounts cookie, is re-validated here and
+ * only ever travels back in the session cookie.
  */
 export async function POST(request: Request) {
 	if (!isSameOriginRequest(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
 	const target = accounts.find((account) => account.userId === userId);
 	if (!target) return NextResponse.json({ error: "Sign in again to use this account" }, { status: 401 });
 
-	const response = NextResponse.json({ ok: true, token: target.token, redirect: "/inbox" });
+	const response = NextResponse.json({ ok: true, redirect: "/inbox" });
 	response.headers.set("Cache-Control", "no-store");
 	response.cookies.set(SESSION_COOKIE, target.token, cookieOptions());
 	// Prune dead entries while we are here.

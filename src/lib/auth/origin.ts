@@ -17,8 +17,10 @@ export function isSameOriginRequest(request: Request, expectedOrigin: string = e
 	return origin !== null && origin === expectedOrigin;
 }
 
-/** Call only after session authentication. Bearer tokens are not sent automatically by browsers. */
+/**
+ * The origin rule for a state-changing request that authenticates with the session cookie. Sessions
+ * are cookie only, so an `Authorization` header earns no exemption.
+ */
 export function hasValidSessionMutationOrigin(request: Request, expectedOrigin?: string): boolean {
-	if (request.headers.get("Authorization")?.startsWith("Bearer ")) return true;
 	return isSameOriginRequest(request, expectedOrigin);
 }

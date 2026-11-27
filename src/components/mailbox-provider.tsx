@@ -17,7 +17,7 @@ import {
 } from "./mailbox-provider-utils";
 import {
 	AUTH_SESSION_CHANGED_EVENT,
-	getClientSessionToken,
+	getClientSessionKey,
 } from "@/lib/auth/client";
 import { PROFILE_NAME_CHANGED_EVENT } from "@/lib/profile/name-client";
 import { PROFILE_AVATAR_CHANGED_EVENT } from "@/lib/profile/avatar-client";
@@ -65,8 +65,8 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 
 	const loadMailboxes = useCallback(() => {
 		const id = ++loadId.current;
-		const sessionToken = getClientSessionToken();
-		const isCurrent = () => id === loadId.current && sessionToken === getClientSessionToken();
+		const sessionToken = getClientSessionKey();
+		const isCurrent = () => id === loadId.current && sessionToken === getClientSessionKey();
 
 		fetchMailboxOptions()
 			.then((items) => {

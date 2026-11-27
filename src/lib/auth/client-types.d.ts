@@ -4,7 +4,8 @@ export type AuthFetchOptions = RequestInit & {
 
 export type AuthSessionResponse = {
 	ok?: boolean;
-	token?: string;
+	/** A session was issued; it lives only in the HttpOnly cookie. */
+	authenticated?: boolean;
 	redirect?: string;
 	error?: string;
 };
