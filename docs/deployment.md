@@ -139,6 +139,11 @@ MyMailbox exports its D1 records as JSON and stores the backup files in the R2 b
 
 Deploy the complete Worker with `npm run deploy` whenever the cron trigger is added or changed.
 
+Backups leave out two things on purpose:
+
+- **Sign-in sessions.** Restoring signs everyone out, including the administrator who ran it; sign in again afterwards. Older backups that still contain sessions restore without them.
+- **Provider secrets** in the app settings: the Resend API key, the Resend inbound and events webhook signing secrets, and the Spamhaus DQS and abuse.ch keys are written as empty. After a restore, re-enter the Resend key in **Admin → Domains** (or keep it in the `RESEND_API_KEY` secret), run the Resend receiving setup again for a domain that receives through Resend, and the bounce and complaint events setup if you use it (each replaces a webhook whose signing secret is missing), and re-enter the spam-intelligence keys under **Admin → Spam filter**.
+
 Backups use the `mymailbox-database-backup` format. Restore refuses backups written by Mailflare, the upstream project, because their schema differs.
 
 ## Database migrations

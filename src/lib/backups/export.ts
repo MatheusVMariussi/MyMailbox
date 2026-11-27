@@ -3,7 +3,7 @@ import type { BackupTableGroupId, DatabaseBackupDocument, DatabaseBackupTable, D
 import { BACKUP_TABLE_GROUPS, getSelectedBackupTables } from "./table-groups";
 
 /** Every backed-up table, in foreign-key order: restore inserts in this order and deletes in reverse. */
-export const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "user_compose_preferences", "domains", "domain_tracking_hosts", "email_suppressions", "domain_deliverability", "projects", "project_addresses", "mailboxes", "mailbox_access", "contacts", "labels", "mailbox_promotion_settings", "mailbox_sender_preferences", "api_keys", "messages", "message_labels", "message_attachments", "shared_attachment_links", "outbound_jobs", "message_tracking", "message_opens", "follow_ups", "conversation_notes", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "deliverability_reports", "dmarc_daily_stats", "tls_daily_stats", "deliverability_alerts", "email_templates", "calendar_events", "calendar_event_overrides", "calendar_occurrence_responses", "calendar_invite_tombstones", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback", "mailbox_aliases", "password_reset_tokens", "mfa_recovery_codes", "login_challenges", "passkey_credentials", "api_key_mailboxes"];
+export const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "user_compose_preferences", "domains", "domain_tracking_hosts", "email_suppressions", "domain_deliverability", "projects", "project_addresses", "mailboxes", "mailbox_access", "contacts", "labels", "mailbox_promotion_settings", "mailbox_sender_preferences", "api_keys", "messages", "message_labels", "message_attachments", "shared_attachment_links", "outbound_jobs", "message_tracking", "message_opens", "follow_ups", "conversation_notes", "routing_rules", "webhooks", "webhook_deliveries", "audit_logs", "backup_settings", "backups", "app_settings", "deliverability_reports", "dmarc_daily_stats", "tls_daily_stats", "deliverability_alerts", "email_templates", "calendar_events", "calendar_event_overrides", "calendar_occurrence_responses", "calendar_invite_tombstones", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback", "mailbox_aliases", "password_reset_tokens", "mfa_recovery_codes", "login_challenges", "passkey_credentials", "api_key_mailboxes"];
 /** The document format this release writes and restores. */
 const BACKUP_FORMAT = "mymailbox-database-backup";
 const BACKUP_FORMAT_VERSION = 3;
@@ -15,6 +15,21 @@ const INSERT_BATCH_SIZE = 50;
  * restore lets the database assign fresh ids.
  */
 const OMITTED_COLUMNS: Partial<Record<DatabaseBackupTable, string[]>> = { dmarc_daily_stats: ["id"], tls_daily_stats: ["id"] };
+/**
+ * Provider secrets in `app_settings` are written as null: a backup file is a copy of the database that
+ * outlives it (downloads, R2), and these keys open the operator's accounts elsewhere. After a restore
+ * the operator re-enters the Resend key (or sets RESEND_API_KEY), re-runs Resend receiving and event
+ * setup (which replaces a webhook it has no secret for) and re-enters the spam-intelligence keys.
+ */
+export const REDACTED_APP_SETTINGS_COLUMNS = [
+	"resend_api_key",
+	"resend_webhook_secret",
+	"resend_events_webhook_secret",
+	"spamhaus_dqs_key",
+	"abusech_auth_key",
+] as const;
+/** Tables older version-3 backups carried that are no longer backed up; restore ignores them. */
+const RETIRED_BACKUP_TABLES = ["sessions"];
 
 export function getBackupConfigurationStatus(_env?: CloudflareEnv) {
 	return { configured: true, missing: [] };
@@ -53,6 +68,11 @@ export const INTERNAL_TABLES = [
 	// let an already-used undo token be replayed, and the table is rewritten by
 	// the installation that owns the tokens.
 	"message_action_undo_claims",
+	// Sign-in sessions are ephemeral, and restoring them would revive sessions
+	// that were signed out or revoked since the backup. A restore signs
+	// everyone out; older backups that still carry the table are accepted and
+	// the rows ignored.
+	"sessions",
 ];
 
 /**
@@ -86,10 +106,18 @@ export async function exportDatabaseRecords(db: D1Database, excludedGroups: Back
 		}
 		const result = await db.prepare(`SELECT * FROM ${table}`).all<DatabaseRecord>();
 		const omitted = OMITTED_COLUMNS[table];
-		tables[table] = omitted ? result.results.map((row) => Object.fromEntries(Object.entries(row).filter(([column]) => !omitted.includes(column)))) : result.results;
+		const rows = omitted ? result.results.map((row) => Object.fromEntries(Object.entries(row).filter(([column]) => !omitted.includes(column)))) : result.results;
+		tables[table] = table === "app_settings" ? rows.map(redactAppSettings) : rows;
 	}
 	const document: DatabaseBackupDocument = { format: BACKUP_FORMAT, version: BACKUP_FORMAT_VERSION, createdAt: new Date().toISOString(), includedTables, tables };
 	return new TextEncoder().encode(JSON.stringify(document));
+}
+
+/** An app_settings row with its provider secrets nulled (see REDACTED_APP_SETTINGS_COLUMNS). */
+function redactAppSettings(row: DatabaseRecord): DatabaseRecord {
+	const redacted = { ...row };
+	for (const column of REDACTED_APP_SETTINGS_COLUMNS) if (column in redacted) redacted[column] = null;
+	return redacted;
 }
 
 export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffer): Promise<void> {
@@ -110,6 +138,8 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 	// purged. Deleting users first also empties the table the restore inserts
 	// into last, so the rest of the teardown has no live accounts to protect.
 	await db.prepare("UPDATE users SET deleted_at = ?").bind(Math.floor(Date.now() / 1000)).run();
+	// Every session ends with a restore (sessions are not backed up); do not rely on the cascade alone.
+	if (existing.has("sessions")) await db.prepare("DELETE FROM sessions").run();
 	await db.prepare("DELETE FROM users").run();
 	for (const table of [...restoreTables].reverse()) {
 		if (table === "users") continue;
@@ -131,8 +161,21 @@ function parseDatabaseBackup(content: ArrayBuffer): DatabaseBackupDocument {
 	if (format === UPSTREAM_BACKUP_FORMAT) throw new Error("This backup was written by Mailflare and cannot be restored into MyMailbox.");
 	const version = format === BACKUP_FORMAT ? (value as { version?: unknown }).version : undefined;
 	if (typeof version === "number" && version < BACKUP_FORMAT_VERSION) throw new Error("This backup was written by an older MyMailbox release and cannot be restored into this database.");
+	dropRetiredTables(value);
 	if (!isDatabaseBackupDocument(value)) throw new Error("The selected file is not a valid MyMailbox backup");
 	return value;
+}
+
+/** Older version-3 documents list tables this release no longer backs up; their rows are ignored. */
+function dropRetiredTables(value: unknown): void {
+	if (!value || typeof value !== "object") return;
+	const document = value as { includedTables?: unknown; tables?: unknown };
+	if (Array.isArray(document.includedTables)) {
+		document.includedTables = document.includedTables.filter((table) => !RETIRED_BACKUP_TABLES.includes(table as string));
+	}
+	if (document.tables && typeof document.tables === "object") {
+		for (const table of RETIRED_BACKUP_TABLES) delete (document.tables as Record<string, unknown>)[table];
+	}
 }
 
 function isDatabaseBackupDocument(value: unknown): value is DatabaseBackupDocument {
