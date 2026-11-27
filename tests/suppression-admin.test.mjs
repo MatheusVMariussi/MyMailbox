@@ -39,14 +39,14 @@ async function createFixture(t) {
 	database.db.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, created_at) VALUES ('d1', 'u1', 'example.com', 'zone', 1)").run();
 	database.db.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, created_at) VALUES ('d2', 'u1', 'other.org', 'zone', 1)").run();
 	const insert = database.db.prepare("INSERT INTO email_suppressions (id, domain_id, email, reason, source, event_count, first_event_at, last_event_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)");
-	const add = (id, domainId, email, reason = "hard_bounce", source = "resend", at = 100) => insert.run(id, domainId, email, reason, source, at, at);
+	const add = (id, domainId, email, reason = "hard_bounce", source = "admin", at = 100) => insert.run(id, domainId, email, reason, source, at, at);
 	return { env: { DB: database }, add, raw: database.db };
 }
 
 test("lists one domain's entries, newest event first, with a total", async (t) => {
 	const { env, add } = await createFixture(t);
-	add("a", "d1", "old@x.org", "hard_bounce", "resend", 100);
-	add("b", "d1", "new@x.org", "complaint", "resend", 300);
+	add("a", "d1", "old@x.org", "hard_bounce", "admin", 100);
+	add("b", "d1", "new@x.org", "complaint", "admin", 300);
 	add("c", "d2", "other@x.org");
 	const result = await admin.listSuppressions(env, "d1", {});
 	assert.equal(result.total, 2);
@@ -66,7 +66,7 @@ test("search is a case-insensitive substring match and treats % and _ literally"
 
 test("reason filter and paging, with the limit capped at 100", async (t) => {
 	const { env, add } = await createFixture(t);
-	for (let index = 0; index < 120; index += 1) add(`s${index}`, "d1", `u${String(index).padStart(3, "0")}@x.org`, index % 2 ? "complaint" : "hard_bounce", "resend", 1000 - index);
+	for (let index = 0; index < 120; index += 1) add(`s${index}`, "d1", `u${String(index).padStart(3, "0")}@x.org`, index % 2 ? "complaint" : "hard_bounce", "admin", 1000 - index);
 	assert.equal((await admin.listSuppressions(env, "d1", { reason: "complaint" })).total, 60);
 	const first = await admin.listSuppressions(env, "d1", { limit: 500 });
 	assert.equal(first.items.length, 100);

@@ -13,7 +13,7 @@ export type SuppressionItem = {
 	reason: SuppressionReason;
 	source: SuppressionSource;
 	detail: string | null;
-	/** False: recorded from a single returned message (or an ambiguous Resend event) and not enforced yet. */
+	/** False: recorded from a single returned message and not enforced yet. */
 	confirmed: boolean;
 	eventCount: number;
 	firstEventAt: Date;

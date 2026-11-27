@@ -47,7 +47,7 @@ async function createFixture(t, mode) {
 	database.db.prepare("INSERT INTO domains (id, user_id, hostname, zone_id, sending_provider, created_at) VALUES ('d1', 'u1', 'example.com', 'zone', 'cloudflare', ?)").run(now);
 	database.db.prepare("INSERT INTO mailboxes (id, user_id, domain_id, local_part, type, created_at) VALUES ('mb1', 'u1', 'd1', 'kevin', 'primary', ?)").run(now);
 	database.db.prepare("UPDATE app_settings SET suppression_mode = ? WHERE id = 'default'").run(mode);
-	const suppress = (email, domainId = "d1", confirmed = 1) => database.db.prepare("INSERT INTO email_suppressions (id, domain_id, email, reason, source, confirmed, first_event_at, last_event_at) VALUES (?, ?, ?, 'hard_bounce', 'resend', ?, ?, ?)").run(crypto.randomUUID(), domainId, email, confirmed, now, now);
+	const suppress = (email, domainId = "d1", confirmed = 1) => database.db.prepare("INSERT INTO email_suppressions (id, domain_id, email, reason, source, confirmed, first_event_at, last_event_at) VALUES (?, ?, ?, 'hard_bounce', 'admin', ?, ?, ?)").run(crypto.randomUUID(), domainId, email, confirmed, now, now);
 	const sent = [];
 	const queued = [];
 	const env = {

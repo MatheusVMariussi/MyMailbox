@@ -45,43 +45,6 @@ test("filterSuppressed splits recipients by bare lower-case address and keeps di
 	assert.deepEqual(result.suppressed, ["anna@example.org"]);
 });
 
-test("mapResendEvent: permanent bounce, complaint, display-name sender", () => {
-	const bounced = utils.mapResendEvent({ type: "email.bounced", data: { from: "Acme <hi@Example.com>", to: ["A@x.org", "b@x.org"], bounce: { type: "Permanent", subType: "Suppressed", message: "No such user" } } });
-	assert.equal(bounced.sender, "hi@example.com");
-	assert.deepEqual(bounced.entries.map((entry) => [entry.email, entry.reason]), [["a@x.org", "hard_bounce"], ["b@x.org", "hard_bounce"]]);
-	assert.equal(bounced.entries[0].detail, "No such user");
-	const complained = utils.mapResendEvent({ type: "email.complained", data: { from: "hi@example.com", to: ["a@x.org"] } });
-	assert.deepEqual(complained.entries.map((entry) => entry.reason), ["complaint"]);
-});
-
-test("mapResendEvent marks every entry unconfirmed when the event names several recipients (no per-recipient field in the payload)", () => {
-	const flags = (event) => event.entries.map((entry) => entry.unconfirmed === true);
-	assert.deepEqual(flags(utils.mapResendEvent({ type: "email.bounced", data: { from: "a@example.com", to: ["a@x.org", "b@x.org"], bounce: { type: "Permanent" } } })), [true, true]);
-	assert.deepEqual(flags(utils.mapResendEvent({ type: "email.complained", data: { from: "a@example.com", to: ["a@x.org", "b@x.org"] } })), [true, true]);
-	assert.deepEqual(flags(utils.mapResendEvent({ type: "email.bounced", data: { from: "a@example.com", to: ["a@x.org"], bounce: { type: "Permanent" } } })), [false]);
-	assert.deepEqual(flags(utils.mapResendEvent({ type: "email.complained", data: { from: "a@example.com", to: ["a@x.org", "A@x.org"] } })), [false], "duplicates are one recipient");
-});
-
-test("mapResendEvent ignores temporary and transient bounces in any case, records a bounce with no type", () => {
-	for (const type of ["Temporary", "Transient", "transient", "TEMPORARY"]) {
-		assert.equal(utils.mapResendEvent({ type: "email.bounced", data: { from: "a@example.com", to: ["b@x.org"], bounce: { type } } }), null, type);
-	}
-	const bare = utils.mapResendEvent({ type: "email.bounced", data: { from: "a@example.com", to: ["b@x.org"] } });
-	assert.deepEqual(bare.entries.map((entry) => entry.reason), ["hard_bounce"]);
-});
-
-test("mapResendEvent rejects other events and malformed payloads", () => {
-	for (const body of [null, "x", {}, { type: "email.delivered", data: { from: "a@example.com", to: ["b@x.org"] } }, { type: "email.bounced" }, { type: "email.bounced", data: { from: "a@example.com", to: "b@x.org" } }, { type: "email.bounced", data: { to: ["b@x.org"] } }, { type: "email.bounced", data: { from: "a@example.com", to: ["not an address", 5] } }]) {
-		assert.equal(utils.mapResendEvent(body), null, JSON.stringify(body));
-	}
-});
-
-test("detail is truncated to 300 characters", () => {
-	const long = "x".repeat(500);
-	const mapped = utils.mapResendEvent({ type: "email.bounced", data: { from: "me@example.com", to: ["a@x.org"], bounce: { type: "Permanent", message: long } } });
-	assert.equal(mapped.entries[0].detail.length, 300);
-});
-
 // ---- delivery status notifications ----------------------------------------------
 
 const dsn = ({ action = "failed", status = "5.1.1", original = "Message-ID: <orig-1@mail.example.com>", originalType = "text/rfc822-headers", recipient = "anna@example.org", recipients = [recipient] } = {}) => [
@@ -170,47 +133,31 @@ test("getSuppressionMode defaults to off, with and without a settings row", asyn
 	assert.equal(await service.getSuppressionMode(withRow.env), "enforce");
 });
 
-test("recordSuppressionEvents does nothing in mode off", async (t) => {
-	const { env, rows } = await createFixture(t, "off");
-	const count = await service.recordSuppressionEvents(env, { sender: "kevin@example.com", source: "resend", entries: [{ email: "anna@example.org", reason: "hard_bounce" }] });
-	assert.equal(count, 0);
-	assert.deepEqual(rows(), []);
-});
-
-test("recordSuppressionEvents stores per sending domain and counts repeats", async (t) => {
-	const { env, rows } = await createFixture(t, "record");
-	const entry = { email: "anna@example.org", reason: "hard_bounce", detail: "550" };
-	assert.equal(await service.recordSuppressionEvents(env, { sender: "kevin@example.com", source: "resend", entries: [entry] }), 1);
-	await service.recordSuppressionEvents(env, { sender: "kevin@example.com", source: "resend", entries: [entry] });
-	await service.recordSuppressionEvents(env, { sender: "sales@other.org", source: "resend", entries: [entry] });
-	assert.deepEqual(rows().map((row) => [row.domain_id, row.email, row.event_count]), [["d1", "anna@example.org", 2], ["d2", "anna@example.org", 1]]);
-});
-
-test("recordSuppressionEvents ignores a sender on an unknown domain", async (t) => {
-	const { env, rows } = await createFixture(t, "record");
-	assert.equal(await service.recordSuppressionEvents(env, { sender: "x@unknown.test", source: "resend", entries: [{ email: "a@x.org", reason: "complaint" }] }), 0);
-	assert.deepEqual(rows(), []);
-});
-
 test("reason only ever gets stronger: complaint > hard_bounce > manual", async (t) => {
 	const { env, rows } = await createFixture(t, "record");
 	const base = { domainId: "d1", email: "a@x.org" };
 	await service.recordSuppression(env, { ...base, reason: "manual", source: "admin", detail: "note" });
 	assert.equal(rows()[0].reason, "manual");
-	await service.recordSuppression(env, { ...base, reason: "hard_bounce", source: "resend", detail: "550" });
-	assert.deepEqual([rows()[0].reason, rows()[0].source, rows()[0].detail, rows()[0].event_count], ["hard_bounce", "resend", "550", 2]);
-	await service.recordSuppression(env, { ...base, reason: "complaint", source: "resend" });
+	await service.recordSuppression(env, { ...base, reason: "hard_bounce", source: "dsn", detail: "550" });
+	assert.deepEqual([rows()[0].reason, rows()[0].source, rows()[0].detail, rows()[0].event_count], ["hard_bounce", "dsn", "550", 2]);
+	await service.recordSuppression(env, { ...base, reason: "complaint", source: "admin" });
 	assert.equal(rows()[0].reason, "complaint");
-	await service.recordSuppression(env, { ...base, reason: "hard_bounce", source: "resend", detail: "again" });
+	await service.recordSuppression(env, { ...base, reason: "hard_bounce", source: "dsn", detail: "again" });
 	await service.recordSuppression(env, { ...base, reason: "manual", source: "admin", detail: "again" });
 	const row = rows()[0];
-	assert.deepEqual([row.reason, row.source, row.event_count], ["complaint", "resend", 4]);
+	assert.deepEqual([row.reason, row.source, row.event_count], ["complaint", "admin", 4]);
+});
+
+test("detail is truncated to 300 characters", async (t) => {
+	const { env, rows } = await createFixture(t, "record");
+	await service.recordSuppression(env, { domainId: "d1", email: "a@x.org", reason: "hard_bounce", source: "dsn", detail: "x".repeat(500) });
+	assert.equal(rows()[0].detail.length, 300);
 });
 
 test("findSuppressed is scoped to the domain and handles more than 90 addresses", async (t) => {
 	const { env, raw } = await createFixture(t, "enforce");
 	const now = seconds(new Date());
-	const insert = raw.prepare("INSERT INTO email_suppressions (id, domain_id, email, reason, source, first_event_at, last_event_at) VALUES (?, ?, ?, 'hard_bounce', 'resend', ?, ?)");
+	const insert = raw.prepare("INSERT INTO email_suppressions (id, domain_id, email, reason, source, first_event_at, last_event_at) VALUES (?, ?, ?, 'hard_bounce', 'admin', ?, ?)");
 	for (let index = 0; index < 150; index += 1) insert.run(`s${index}`, "d1", `u${index}@x.org`, now, now);
 	insert.run("other", "d2", "only-d2@x.org", now, now);
 	const emails = Array.from({ length: 200 }, (_, index) => `u${index}@x.org`).concat("only-d2@x.org");
@@ -287,23 +234,23 @@ test("a second DSN for the same address from a different original message confir
 	assert.deepEqual([...await service.findSuppressed(env, "d1", ["anna@example.org"])], ["anna@example.org"]);
 });
 
-test("a provider event is enforced and a later unconfirmed DSN does not downgrade or overwrite it", async (t) => {
+test("a confirmed entry is enforced and a later unconfirmed DSN does not downgrade or overwrite it", async (t) => {
 	const { env, addSent, rows } = await createFixture(t, "enforce");
 	addSent();
-	await service.recordSuppressionEvents(env, { sender: "kevin@example.com", source: "resend", entries: [{ email: "anna@example.org", reason: "hard_bounce", detail: "550" }] });
+	await service.recordSuppression(env, { domainId: "d1", email: "anna@example.org", reason: "hard_bounce", source: "admin", detail: "550" });
 	assert.equal(rows()[0].confirmed, 1);
 	await service.recordDsnBounces(env, { mailboxId: "mb1", raw: toBuffer(dsn()) });
-	assert.deepEqual([rows()[0].confirmed, rows()[0].source, rows()[0].detail], [1, "resend", "550"]);
+	assert.deepEqual([rows()[0].confirmed, rows()[0].source, rows()[0].detail], [1, "admin", "550"]);
 	assert.equal((await service.findSuppressed(env, "d1", ["anna@example.org"])).size, 1);
 });
 
-test("an unconfirmed provider entry (several Resend recipients) is stored but not enforced", async (t) => {
+test("an unconfirmed entry is stored but not enforced until a confirmed event arrives", async (t) => {
 	const { env, rows } = await createFixture(t, "enforce");
-	await service.recordSuppressionEvents(env, { sender: "kevin@example.com", source: "resend", entries: [{ email: "anna@example.org", reason: "hard_bounce", unconfirmed: true }] });
+	await service.recordSuppression(env, { domainId: "d1", email: "anna@example.org", reason: "hard_bounce", source: "dsn", confirmed: false, evidenceRef: "orig-1@mail.example.com" });
 	assert.equal(rows()[0].confirmed, 0);
 	assert.equal((await service.findSuppressed(env, "d1", ["anna@example.org"])).size, 0);
-	await service.recordSuppressionEvents(env, { sender: "kevin@example.com", source: "resend", entries: [{ email: "anna@example.org", reason: "hard_bounce" }] });
-	assert.equal(rows()[0].confirmed, 1, "a signed single-recipient event confirms it");
+	await service.recordSuppression(env, { domainId: "d1", email: "anna@example.org", reason: "hard_bounce", source: "admin" });
+	assert.equal(rows()[0].confirmed, 1, "a confirmed event confirms it");
 });
 
 test("a manual entry is confirmed", async (t) => {

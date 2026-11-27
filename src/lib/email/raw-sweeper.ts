@@ -16,7 +16,6 @@ const STALE_PREFIXES: Array<{ prefix: string; maxAgeMs: number }> = [
 	{ prefix: `${UPLOAD_PREFIX}/`, maxAgeMs: 7 * 24 * HOUR_MS },
 	// Webhook replay markers only matter while a signature is still within its 5-minute tolerance.
 	{ prefix: SVIX_SEEN_PREFIX, maxAgeMs: 2 * 24 * HOUR_MS },
-	{ prefix: "provider-events/resend/", maxAgeMs: 2 * 24 * HOUR_MS },
 ];
 /** D1 allows 100 bound parameters per statement. */
 const LOOKUP_BATCH = 50;

@@ -2,44 +2,39 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/components/language-provider";
-import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { DeliverabilitySettings, SuppressionMode } from "./types";
-import { fetchSettings, saveMode, setFeed } from "./utils";
+import { saveMode } from "./utils";
 
 type Props = { settings: DeliverabilitySettings; onChange: (settings: DeliverabilitySettings) => void };
 
 export function SettingsPanel({ settings, onChange }: Props) {
 	const { t } = useLanguage();
-	const [busy, setBusy] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	async function run(name: string, action: () => Promise<DeliverabilitySettings | void>, failure: string) {
-		setBusy(name);
+	async function changeMode(mode: SuppressionMode) {
+		setBusy(true);
 		setError(null);
 		try {
-			const next = await action();
-			onChange(next ?? await fetchSettings());
+			onChange(await saveMode(mode));
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : failure);
+			setError(cause instanceof Error ? cause.message : t("deliverability.mode.saveFailed"));
 		} finally {
-			setBusy(null);
+			setBusy(false);
 		}
 	}
 
-	const feeds = [
-		{ id: "resend" as const, label: "Resend", connected: settings.feeds.resend },
-	];
 	return <section className="space-y-5 rounded-2xl bg-white p-5">
 		<div className="space-y-2">
 			<label htmlFor="suppression-mode" className="block text-sm font-semibold text-neutral-900">{t("deliverability.mode.label")}</label>
 			<Select
 				id="suppression-mode"
 				value={settings.suppressionMode}
-				disabled={!settings.canEdit || busy !== null}
+				disabled={!settings.canEdit || busy}
 				containerClassName="w-full sm:w-96"
 				className="h-10 text-sm"
-				onChange={(event) => void run("mode", () => saveMode(event.target.value as SuppressionMode), t("deliverability.mode.saveFailed"))}
+				onChange={(event) => void changeMode(event.target.value as SuppressionMode)}
 			>
 				<option value="off">{t("deliverability.mode.off")}</option>
 				<option value="record">{t("deliverability.mode.record")}</option>
@@ -47,14 +42,8 @@ export function SettingsPanel({ settings, onChange }: Props) {
 			</Select>
 			{!settings.canEdit && <p className="text-xs text-neutral-500">{t("deliverability.mode.readOnly")}</p>}
 		</div>
-		<div className="space-y-3">
+		<div className="space-y-2">
 			<h2 className="text-sm font-semibold text-neutral-900">{t("deliverability.feeds.title")}</h2>
-			<ul className="space-y-2">
-				{feeds.map((feed) => <li key={feed.id} className="flex flex-wrap items-center justify-between gap-3 text-sm">
-					<span><span className="font-medium text-neutral-900">{feed.label}</span> <span className="text-neutral-500">{feed.connected ? t("deliverability.feeds.connected") : t("deliverability.feeds.notConnected")}</span></span>
-					{settings.canEdit && <Button type="button" variant="outline" size="sm" disabled={busy !== null} onClick={() => void run(feed.id, () => setFeed(feed.id, !feed.connected), t("deliverability.feeds.failed"))}>{feed.connected ? t("deliverability.feeds.disconnect") : t("deliverability.feeds.connect")}</Button>}
-				</li>)}
-			</ul>
 			<p className="text-xs text-neutral-500">{t("deliverability.feeds.dsn")}</p>
 		</div>
 		{error && <p role="alert" className="text-sm text-red-700">{error}</p>}

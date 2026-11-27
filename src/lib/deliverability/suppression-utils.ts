@@ -2,13 +2,8 @@ import { getEmailAddress, normalizeEmailAddress, splitEmailAddressList } from "@
 
 export type SuppressionMode = "off" | "record" | "enforce";
 export type SuppressionReason = "hard_bounce" | "complaint" | "manual";
-export type SuppressionSource = "resend" | "dsn" | "admin";
-/**
- * What a provider event can add: manual entries come from the admin UI only. `unconfirmed` entries are
- * stored but not enforced (see `recordSuppression`); an entry without the flag is enforced.
- */
-export type SuppressionEntry = { email: string; reason: "hard_bounce" | "complaint"; detail?: string; unconfirmed?: true };
-export type SuppressionEvent = { sender: string; entries: SuppressionEntry[] };
+/** `dsn`: a returned bounce message read by inbound mail; `admin`: added in the admin UI. */
+export type SuppressionSource = "dsn" | "admin";
 
 export const SUPPRESSED_RECIPIENT_CODE = "SUPPRESSED_RECIPIENT";
 export const MAX_SUPPRESSION_DETAIL = 300;
@@ -53,8 +48,6 @@ export function cleanAddress(value: unknown): string | null {
 
 export const addressDomain = (address: string) => address.slice(address.lastIndexOf("@") + 1).toLowerCase();
 
-const truncate = (value: unknown) => typeof value === "string" && value.trim() ? value.trim().slice(0, MAX_SUPPRESSION_DETAIL) : undefined;
-
 /** Splits header-style recipients into those still allowed (original entries kept) and the suppressed bare addresses. */
 export function filterSuppressed(recipients: string[], suppressed: ReadonlySet<string>): { allowed: string[]; suppressed: string[] } {
 	const allowed: string[] = [];
@@ -65,48 +58,4 @@ export function filterSuppressed(recipients: string[], suppressed: ReadonlySet<s
 		else allowed.push(recipient.trim());
 	}
 	return { allowed, suppressed: [...dropped] };
-}
-
-function toEntries(addresses: unknown, reason: SuppressionEntry["reason"], detail?: string, unconfirmed = false): SuppressionEntry[] {
-	if (!Array.isArray(addresses)) return [];
-	const seen = new Set<string>();
-	const entries: SuppressionEntry[] = [];
-	for (const value of addresses) {
-		const email = cleanAddress(value);
-		if (!email || seen.has(email)) continue;
-		seen.add(email);
-		entries.push({ email, reason, ...(detail ? { detail } : {}), ...(unconfirmed ? { unconfirmed: true as const } : {}) });
-	}
-	return entries;
-}
-
-type Json = Record<string, unknown>;
-const isObject = (value: unknown): value is Json => !!value && typeof value === "object" && !Array.isArray(value);
-
-/**
- * Resend `email.bounced` / `email.complained`. Resend documents `data.bounce.type` as
- * `Permanent` or `Temporary`; older material says `Transient`, so both soft types are
- * skipped and a bounce without a type counts as permanent (the event itself means the
- * receiving server permanently rejected the message).
- *
- * The payload has `to` (every recipient of the message) but no field naming which one bounced or
- * complained. With one recipient the event is unambiguous; with several, naming all of them would let
- * one bad address block the rest, so those entries are stored unconfirmed and are not enforced.
- */
-export function mapResendEvent(body: unknown): SuppressionEvent | null {
-	if (!isObject(body) || !isObject(body.data)) return null;
-	const sender = cleanAddress(body.data.from);
-	if (!sender) return null;
-	const to = body.data.to;
-	const ambiguous = Array.isArray(to) && new Set(to.map((value) => (typeof value === "string" ? value.trim().toLowerCase() : value))).size > 1;
-	let entries: SuppressionEntry[];
-	if (body.type === "email.complained") {
-		entries = toEntries(to, "complaint", undefined, ambiguous);
-	} else if (body.type === "email.bounced") {
-		const bounce = isObject(body.data.bounce) ? body.data.bounce : {};
-		const type = typeof bounce.type === "string" ? bounce.type.trim().toLowerCase() : "";
-		if (type === "transient" || type === "temporary") return null;
-		entries = toEntries(to, "hard_bounce", truncate(bounce.message), ambiguous);
-	} else return null;
-	return entries.length ? { sender, entries } : null;
 }

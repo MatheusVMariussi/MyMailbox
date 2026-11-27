@@ -7,7 +7,7 @@ import { getAuthorizedSenderAddress } from "@/lib/email/sender";
 import { parseDeliveryStatus } from "./dsn";
 import {
 	addressDomain, cleanAddress, filterSuppressed, MAX_SUPPRESSION_DETAIL, SuppressedRecipientError,
-	type SuppressionEntry, type SuppressionMode, type SuppressionReason, type SuppressionSource,
+	type SuppressionMode, type SuppressionReason, type SuppressionSource,
 } from "./suppression-utils";
 
 const SETTINGS_ID = "default";
@@ -41,9 +41,9 @@ export async function domainIdForAddress(env: CloudflareEnv, address: string): P
  * hard_bounce beats manual), and a weaker event neither replaces the stronger entry's source and
  * detail nor, for a manual entry, counts as another event.
  *
- * Only `confirmed` entries are enforced (default). An unconfirmed one (a DSN, or a Resend event naming
- * several recipients) becomes confirmed when a later confirmed event arrives, when a DSN names the
- * same address for a different original message (`evidenceRef`), or through `confirmSuppression`.
+ * Only `confirmed` entries are enforced (default). An unconfirmed one (a DSN) becomes confirmed when
+ * a later confirmed event arrives, when a DSN names the same address for a different original
+ * message (`evidenceRef`), or through `confirmSuppression`.
  * An unconfirmed event never alters an entry that is already confirmed, beyond counting.
  */
 export async function recordSuppression(
@@ -84,20 +84,6 @@ export async function recordSuppression(
 			...(input.reason === "manual" ? {} : { eventCount: sql`${table.eventCount} + 1`, lastEventAt: now }),
 		},
 	});
-}
-
-/** Records verified provider events for the sender's domain. Mode "off" and unknown domains record nothing. */
-export async function recordSuppressionEvents(
-	env: CloudflareEnv,
-	input: { sender: string; source: SuppressionSource; entries: SuppressionEntry[] },
-): Promise<number> {
-	if (await getSuppressionMode(env) === "off") return 0;
-	const domainId = await domainIdForAddress(env, input.sender);
-	if (!domainId) return 0;
-	for (const entry of input.entries) {
-		await recordSuppression(env, { domainId, email: entry.email, reason: entry.reason, source: input.source, detail: entry.detail, confirmed: !entry.unconfirmed });
-	}
-	return input.entries.length;
 }
 
 /** Which of the addresses are suppressed (and confirmed, so enforceable) for the domain. */

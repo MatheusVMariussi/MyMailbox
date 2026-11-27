@@ -4,14 +4,12 @@ import { getEnv } from "@/lib/cloudflare";
 import { requireSessionUser } from "@/lib/api/auth";
 import { canManageDomains, isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { getResendEventsSecret } from "@/lib/deliverability/provider-events";
 import { getSuppressionMode, setSuppressionMode } from "@/lib/deliverability/suppression";
 
 const schema = z.object({ suppressionMode: z.enum(["off", "record", "enforce"]) });
 
 async function view(env: CloudflareEnv, canEdit: boolean) {
-	const [mode, resendSecret] = await Promise.all([getSuppressionMode(env), getResendEventsSecret(env)]);
-	return { suppressionMode: mode, canEdit, feeds: { resend: !!resendSecret } };
+	return { suppressionMode: await getSuppressionMode(env), canEdit };
 }
 
 export async function GET(request: Request) {

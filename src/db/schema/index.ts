@@ -703,7 +703,7 @@ export const emailSuppressions = sqliteTable(
 		domainId: text("domain_id").notNull().references(() => domains.id, { onDelete: "cascade" }),
 		email: text("email").notNull(),
 		reason: text("reason", { enum: ["hard_bounce", "complaint", "manual"] }).notNull(),
-		source: text("source", { enum: ["resend", "dsn", "admin"] }).notNull(),
+		source: text("source", { enum: ["dsn", "admin"] }).notNull(),
 		detail: text("detail"),
 		/** Only confirmed entries are enforced. A single returned message (DSN) can be forged by a co-recipient, so it is stored unconfirmed. */
 		confirmed: bool("confirmed").notNull().default(true),

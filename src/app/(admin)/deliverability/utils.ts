@@ -23,10 +23,6 @@ export async function saveMode(suppressionMode: SuppressionMode): Promise<Delive
 	return json(await authFetch("/api/deliverability/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ suppressionMode }) }));
 }
 
-export async function setFeed(feed: "resend", enabled: boolean): Promise<void> {
-	await json(await authFetch(`/api/deliverability/feeds/${feed}`, { method: enabled ? "POST" : "DELETE" }));
-}
-
 export async function fetchSuppressions(domainId: string, query: { q: string; reason: string; offset: number }): Promise<SuppressionPage> {
 	const params = new URLSearchParams({ offset: String(query.offset), limit: String(PAGE_SIZE) });
 	if (query.q.trim()) params.set("q", query.q.trim());
