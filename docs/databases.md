@@ -10,12 +10,12 @@ Migrations are plain SQL files in `drizzle/migrations/`, recorded in the `d1_mig
 - **Update database** on the admin overview's database card (the in-app runner, `src/lib/migrations/service.ts`, which applies the bundled copy `src/lib/migrations/bundle.json`),
 - `npm run db:migrate:remote` (or `npm run db:migrate:local` for the local development database).
 
-The history is a two-file baseline: `0000_baseline.sql` (tables, indexes and foreign keys, generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (triggers, the search index and seed rows). A new database applies both and is complete. Databases created from an earlier, pre-release migration history cannot be upgraded in place; start from a fresh install.
+The history starts with a two-file baseline: `0000_baseline.sql` (tables, indexes and foreign keys, generated from `src/db/schema/index.ts`) and `0001_triggers_and_seeds.sql` (triggers, the search index and seed rows). Later migrations follow it, such as `0002_remove_resend.sql` (drops the Resend settings and rewrites rows that named Resend). A new database applies them all in order. Databases created from an earlier, pre-release migration history cannot be upgraded in place; start from a fresh install.
 
-Changing the schema means adding the next migration file, starting at `0002`:
+Changing the schema means adding the next migration file (`0003` next):
 
 ```bash
-npm run db:generate -- --name <name>   # drizzle-kit generate -> drizzle/migrations/0002_<name>.sql (+ snapshot and journal entry)
+npm run db:generate -- --name <name>   # drizzle-kit generate -> drizzle/migrations/0003_<name>.sql (+ snapshot and journal entry)
 npm run db:bundle                      # rebuild src/lib/migrations/bundle.json (commit it)
 ```
 

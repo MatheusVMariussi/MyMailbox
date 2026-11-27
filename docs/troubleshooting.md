@@ -28,17 +28,18 @@ Update the token so it can read the zone and manage its DNS, Email Routing setti
 
 Cloudflare Email Routing cannot be enabled while another mail provider's MX records are present. MyMailbox shows a confirmation before replacing them. Continuing deletes the existing MX records and points incoming mail to Cloudflare Email Routing, so the previous provider will stop receiving mail. The `CF_TOKEN` needs **DNS Edit** permission for this action.
 
-## Resend domain stays "not verified"
+## Cloudflare Email Sending cannot be set up
 
-The status is the provider's own, not MyMailbox's. After the DNS records are added it can stay pending for several minutes (Resend checks public DNS, not Cloudflare's dashboard), and **Check status** re-asks the provider without creating anything. If one record stays stuck, look at the per-record statuses listed under the domain row, then check for a duplicate or older TXT record on the same name, a CNAME that is proxied through Cloudflare (it must be DNS only), or a record created at the wrong name (`send.example.com.example.com`). `dig TXT resend._domainkey.example.com +short` shows what the public sees.
+The Domains page names the cause when Cloudflare refuses to create the domain's sending subdomain:
+
+- **The API token needs "Email Sending: Edit".** Edit `CF_TOKEN` in the Cloudflare dashboard (My Profile → API Tokens) and add an `Entire Account` policy with Email & Messaging → Email Sending → `Edit`; the zone permissions alone are not enough. Then press **Setup** again; the token secret does not change, so nothing needs redeploying.
+- **Email Sending is not active for the domain.** In the Cloudflare dashboard, go to **Compute → Email Service → Email Sending** and onboard the domain. This needs the Workers Paid plan. Then press **Setup** again.
+
+If the sending subdomain exists but shows as disabled, the onboarding is not finished on Cloudflare's side. You can also add a domain with **Send mail with** set to Not selected and turn sending on later.
 
 ## "This domain has MX records for another mail service"
 
-Only one service can own a domain's MX records. Setting up a receiving provider shows the records it would replace and waits for your confirmation; confirming means the previous service stops receiving mail for that domain.
-
-## Resend says the key can only send mail
-
-A sending-only Resend key cannot add domains or webhooks. Replace it with a full-access key under the domain's Resend card, or add the domain in the Resend dashboard yourself (and, for receiving, create an `email.received` webhook pointing at `/api/inbound/resend`).
+Only one service can own a domain's MX records. Setting up Cloudflare receiving, or Cloudflare sending, shows the records it would replace and waits for your confirmation; confirming means the previous service stops receiving mail for that domain.
 
 ## D1 error 7404: Database could not be found
 
@@ -69,12 +70,12 @@ Confirm that:
 - `services[].service` in `wrangler.jsonc` is also `mymailbox`, and `CF_EMAIL_WORKER_NAME`, if set, matches the Worker name. If you renamed the Worker, re-save the mailboxes and the catch-all so their Email Routing rules point at the new name.
 - Email Routing is enabled for the domain in Cloudflare.
 - The mailbox has an Email Routing rule pointing to the Worker.
-- If the domain receives through Resend instead, its receiving checklist is all green, the MX record points at that provider, and `APP_URL` is a public HTTPS address.
+- Receiving is turned on for the domain under **Admin → Domains** and its MX records point at Cloudflare (`*.mx.cloudflare.net`). A domain that used to receive elsewhere keeps the old MX until you run its Setup.
 
 ## The password-reset email never arrives
 
 The reset form always answers success, so it cannot tell you why no mail was sent. Check the Worker logs for one of these lines:
 
 - `Password reset skipped: account has no recovery email` — set the recovery email on the account first.
-- `Password reset requested but no domain can send mail` — enable sending on a domain (Cloudflare or Resend) with an active mailbox owned by an enabled user.
+- `Password reset requested but no domain can send mail` — turn on Cloudflare sending, and finish its setup, on a domain with an active mailbox owned by an enabled user.
 - `Password reset request failed` — the sending provider rejected the message; the error follows.

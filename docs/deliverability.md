@@ -1,25 +1,24 @@
-# Bounce and complaint suppression list
+# Bounce suppression list
 
-MyMailbox can remember addresses that bounced permanently or reported your mail as spam, per sending domain, and optionally stop sending to them. It is **off by default**, on upgrades and on new installations. Nothing changes until the primary administrator picks a mode under **Admin → Email → Deliverability**.
+MyMailbox can remember addresses that bounced permanently, per sending domain, and optionally stop sending to them. It is **off by default**, on upgrades and on new installations. Nothing changes until the primary administrator picks a mode under **Admin → Email → Deliverability**.
 
 ## Modes
 
-| Mode | Provider events and returned bounces | Sending |
+| Mode | Returned bounces | Sending |
 |---|---|---|
-| Off (default) | Verified, answered `200`, not recorded (no replay marker is written either). Returned messages are not parsed. | Unchanged |
+| Off (default) | Not parsed, not recorded | Unchanged |
 | Record only | Stored in the list | Unchanged |
 | Skip suppressed recipients | Stored in the list | Refused or filtered, see below |
 
-The mode applies to the whole installation. The list itself is per sending domain: a complaint about mail from `a.example` does not block the same person on `b.example`.
+The mode applies to the whole installation. The list itself is per sending domain: a bounce of mail from `a.example` does not block the same person on `b.example`.
 
-## Where events come from
+## Where entries come from
 
-- **Resend**: a second webhook, separate from the receiving one, for `email.bounced` and `email.complained`, posting to `/api/provider-events/resend`. It has its own Svix signing secret. Soft bounces (`bounce.type` `Temporary` or `Transient`) are ignored; a bounce without a type counts as permanent. Resend's payload lists every recipient of the message (`to`) but does not say which one bounced or complained: with one recipient the entry is enforced, with several they are stored **unconfirmed** (see below). Needs a full-access API key and a public HTTPS `APP_URL`.
-- **Returned bounce messages** (Cloudflare sending, which has no event feed): a delivery status notification that reaches a mailbox is read only if it names a `Message-ID` of a message sent from that mailbox in the last 30 days, and only for recipients that message was addressed to (To, Cc, Bcc). The message itself stays in the mailbox. At most 50 distinct addresses are taken from one message.
+Cloudflare Email Sending has no bounce or complaint event feed, so the list is built from **returned bounce messages**: a delivery status notification that reaches a mailbox is read only if it names a `Message-ID` of a message sent from that mailbox in the last 30 days, only for recipients that message was addressed to (To, Cc, Bcc), and only for permanent failures (`5.x.x`). The message itself stays in the mailbox. At most 50 distinct addresses are taken from one message.
 
-  A returned message alone is **not enforced**. A co-recipient of a message you sent knows its `Message-ID` and the other addresses, so it can forge a bounce for them. These entries are stored **unconfirmed** and start to count once a second returned message names the same address for a *different* original message, or an administrator confirms the entry. A person who received two of your messages could still forge both, so use this source as a hint and review the list.
+A returned message alone is **not enforced**. A co-recipient of a message you sent knows its `Message-ID` and the other addresses, so it can forge a bounce for them. These entries are stored **unconfirmed** and start to count once a second returned message names the same address for a *different* original message, or an administrator confirms the entry. A person who received two of your messages could still forge both, so use this source as a hint and review the list.
 
-Connect or disconnect Resend on the Deliverability page. Providers retry unacknowledged events, so with the mode off the endpoints still answer `200`.
+Entries recorded from Resend's bounce and complaint events, before Resend was removed, are kept as administrator entries (source **Administrator**), still confirmed.
 
 ## What "skip suppressed recipients" does
 
@@ -36,10 +35,10 @@ Connect or disconnect Resend on the Deliverability page. Providers retry unackno
 
 The Deliverability page lists a domain's entries (address, reason, source, event count, last event), with search and a reason filter. **Remove** deletes an entry, after which the next message to that address is attempted again; removals are audit-logged (`deliverability.suppression_removed`). If the same address bounces again it returns to the list.
 
-Unconfirmed entries show an **Unconfirmed** badge. **Confirm** makes one enforceable (audit-logged as `deliverability.suppression_confirmed`); **Remove** deletes it. Entries from signed provider events (Resend with one recipient) and manual entries are confirmed from the start, and a later confirmed event confirms an unconfirmed entry. An unconfirmed event never changes an entry that is already confirmed.
+Unconfirmed entries show an **Unconfirmed** badge. **Confirm** makes one enforceable (audit-logged as `deliverability.suppression_confirmed`); **Remove** deletes it. Administrator entries are confirmed from the start, and a later confirmed event confirms an unconfirmed entry. An unconfirmed event never changes an entry that is already confirmed.
 
 An address that complained stays a complaint; a later bounce does not downgrade it.
 
 ## Data
 
-Table `email_suppressions` (address, reason, source, `confirmed`, the `Message-ID` that first reported it (`evidence_ref`, used to tell a second DSN from a repeat of the first), a diagnostic text truncated to 300 characters, counters and times). It is included in backups. The settings live in three `app_settings` columns: `suppression_mode`, `resend_events_webhook_id` and `resend_events_webhook_secret`. As with the other provider secrets, the Resend signing secret is stored in plain text in `app_settings`, so protect backups.
+Table `email_suppressions` (address, reason, source `dsn` or `admin`, `confirmed`, the `Message-ID` that first reported it (`evidence_ref`, used to tell a second DSN from a repeat of the first), a diagnostic text truncated to 300 characters, counters and times). It is included in backups. The mode lives in `app_settings.suppression_mode`.

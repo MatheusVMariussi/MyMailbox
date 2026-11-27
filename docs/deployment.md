@@ -9,7 +9,7 @@ Set up MyMailbox in four steps:
 1. **Create the runtime token:** a scoped Cloudflare API token the app uses as `CF_TOKEN`.
 2. **Deploy the Worker:** create the queues and deploy with Wrangler, using the `mymailbox` resource names in `wrangler.jsonc`.
 3. **Complete setup:** open the deployed app and follow `/setup` to check the installation and create the first admin account.
-4. **Connect your domain:** add a domain managed by the same Cloudflare account and choose which service receives its mail. MyMailbox configures email routing and, when available and selected, email sending before helping you create the first mailbox. Resend is an alternative to Cloudflare for receiving and sending; see [Sending and receiving providers](providers.md).
+4. **Connect your domain:** add a domain managed by the same Cloudflare account. MyMailbox configures Cloudflare Email Routing to receive its mail and, when selected, Cloudflare Email Sending to send it, before helping you create the first mailbox. See [Sending and receiving mail](providers.md).
 
 ## Step 1: Create CF_TOKEN
 
@@ -23,12 +23,12 @@ To configure your `CF_TOKEN` (a scoped Cloudflare API token with specific permis
         2. DNS & Zones > Zone > Select `Read` Access
         3. DNS & Zones → Zone Settings → Select `Edit` Access
         4. Email & Messaging > Email Routing Rules > Select `Edit` Access
-3. If MyMailbox will send emails through Cloudflare: Add another policy and select `Entire Account`, and configure these permissions:
+3. If MyMailbox will send emails (all sending goes through Cloudflare Email Sending): add another policy, select `Entire Account`, and configure this permission:
     1. Email & Messaging > Email Sending > Select `Edit` Access
 4. After your token is set up, go to `Compute` → `Email Service` → `Email Sending`
-    1. You will need to purchase a paid workers plan if you don't already have one
-    2. Select On-board domain and follow the prompts
-    3. After this is done, and after you have set up MyMailbox, on the Admin > domains page, when you expand the domain you can then configure DKIM and DMARC records
+    1. Email Sending needs the Workers Paid plan; buy it if you do not have it yet. It includes 3,000 emails a month, then $0.35 per 1,000.
+    2. Select **Onboard domain** for each domain that will send, and follow the prompts
+    3. After this is done, and after you have set up MyMailbox, expand the domain under **Admin → Domains** to set up its sending subdomain, DKIM and DMARC records. Without the permission or the onboarding, the Domains page says which one is missing.
 
 Store only the token secret as `CF_TOKEN` in step 2. Do not include the word `Bearer` and do not use the token ID. The token must belong to the same Cloudflare account as the domains you connect. It is a runtime token, separate from the credentials Wrangler uses to deploy.
 
@@ -57,7 +57,7 @@ The Worker name, `services[].service` and `CF_EMAIL_WORKER_NAME` (default `mymai
 4. Deploy with `npm run deploy`. On the first deploy, Wrangler provisions the D1 database `mymailbox` and the R2 bucket `mymailbox-raw` declared in `wrangler.jsonc`.
 5. Store the runtime token as a Worker secret: `npx wrangler secret put CF_TOKEN`.
 6. Store a setup token as a Worker secret: `npx wrangler secret put SETUP_TOKEN`, with a long random value (for example the output of `openssl rand -base64 32`). Keep it until setup is finished. Until an admin account exists, `/setup` and the first-account registration provision DNS with your `CF_TOKEN`, so every setup request must carry this token; without the secret, setup is refused on every host except `localhost` and `127.0.0.1`. The token is compared in constant time, and failed attempts spend the same per-IP budget as sign-in (`LOGIN_RATE_LIMIT`). You can delete it after setup (`npx wrangler secret delete SETUP_TOKEN`); setup stays closed once the admin exists.
-7. Set `APP_URL` to the app's public HTTPS address (for example `https://mail.example.com`) as a variable on the Worker, under **Settings → Variables and Secrets**. `keep_vars` in `wrangler.jsonc` keeps dashboard variables across deploys. Receiving through Resend needs it, and read-receipt pixels use it.
+7. Set `APP_URL` to the app's public HTTPS address (for example `https://mail.example.com`) as a variable on the Worker, under **Settings → Variables and Secrets**. `keep_vars` in `wrangler.jsonc` keeps dashboard variables across deploys. Password reset links, read-receipt pixels and download links for large attachments use it.
 
 ### Optional Web Push configuration
 
@@ -83,9 +83,7 @@ Setup applies the committed migrations through the Worker's D1 binding before cr
 3. Choose the address for your first mailbox and finish setup.
 4. Open the inbox and send a test message to the new address.
 
-To connect more domains later, open **Admin → Domains**, select **New domain**, enter the hostname and choose the receiving service. With Cloudflare, MyMailbox configures Email Routing and Email Sending automatically. With Resend, add its API key and run its setup from the domain page; see [Sending and receiving providers](providers.md). The `CF_TOKEN` is still needed in every case, because Cloudflare manages the domain's DNS.
-
-Resend receives mail by calling your app, so set `APP_URL` to the app's public HTTPS address before setting it up for receiving.
+To connect more domains later, open **Admin → Domains**, select **New domain**, enter the hostname and choose whether Cloudflare receives (**Receive mail with**) and sends (**Send mail with**) its mail. MyMailbox enables Email Routing and, for sending, creates the zone's Email Sending subdomain with its DKIM record. Onboard the domain under **Compute → Email Service → Email Sending** first, or add it with sending **Not selected** and turn sending on later from the domain page; see [Sending and receiving mail](providers.md).
 
 Your inbox is now ready to send and receive email.
 
@@ -96,7 +94,7 @@ Your inbox is now ready to send and receive email.
 Paste the prompt below into an agent with terminal access. Give it your Cloudflare account ID and **two separate scoped API tokens** through the agent's secret input. Never put them in a public chat, repository, or committed file.
 
 - **Deployment token** (Wrangler uses it as `CLOUDFLARE_API_TOKEN`): scope it to the target account with **Workers Scripts Edit** (or **Workers Admin** if you see Cloudflare's newer roles), **D1 Edit**, **Workers R2 Storage Edit**, **Queues Edit**, and **Account Settings Read**. Add **Workers Routes Edit** for the target zone only if the agent should attach a custom domain or route. See Cloudflare's [token permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/) and [Workers roles](https://developers.cloudflare.com/workers/authorization/workers/).
-- **Runtime token** (stored as the Worker secret `CF_TOKEN`): use the domain permissions above. Add **Email Sending Edit** to send mail. It must cover the zones you will connect in MyMailbox.
+- **Runtime token** (stored as the Worker secret `CF_TOKEN`): use the domain permissions above. Add the account-level **Email Sending Edit** to send mail. It must cover the zones you will connect in MyMailbox.
 - **Setup token** (stored as the Worker secret `SETUP_TOKEN`): a random value you generate yourself, for example with `openssl rand -base64 32`. `/setup` asks for it.
 
 ```text
@@ -142,7 +140,9 @@ Deploy the complete Worker with `npm run deploy` whenever the cron trigger is ad
 Backups leave out two things on purpose:
 
 - **Sign-in sessions.** Restoring signs everyone out, including the administrator who ran it; sign in again afterwards. Older backups that still contain sessions restore without them.
-- **Provider secrets** in the app settings: the Resend API key, the Resend inbound and events webhook signing secrets, and the Spamhaus DQS and abuse.ch keys are written as empty. After a restore, re-enter the Resend key in **Admin → Domains** (or keep it in the `RESEND_API_KEY` secret), run the Resend receiving setup again for a domain that receives through Resend, and the bounce and complaint events setup if you use it (each replaces a webhook whose signing secret is missing), and re-enter the spam-intelligence keys under **Admin → Spam filter**.
+- **Provider secrets** in the app settings: the Spamhaus DQS and abuse.ch keys are written as empty. After a restore, re-enter them under **Admin → Spam filter**.
+
+A backup written while Resend was still a provider restores too: its Resend settings are dropped, a domain that sent through Resend comes back with sending off, one that received through Resend comes back on Cloudflare Email Routing (run its Setup), and suppression entries from Resend events become administrator entries.
 
 Backups use the `mymailbox-database-backup` format. Restore refuses backups written by Mailflare, the upstream project, because their schema differs.
 

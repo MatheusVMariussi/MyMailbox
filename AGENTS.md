@@ -4,9 +4,9 @@ MyMailbox is a personal webmail (email and calendar) on Cloudflare Workers with 
 
 ## Database schema changes
 
-The database is Cloudflare D1 (SQLite). `drizzle/migrations/` is a clean two-file baseline: `0000_baseline.sql` (generated from `src/db/schema/index.ts`, with the `coalesce(thread_id, id)` expression indexes hand-corrected) and `0001_triggers_and_seeds.sql` (hand-written triggers, FTS5 table and seed rows). Any change to the schema (table, column, index, default) **must ship a new migration in the same change**, starting at `0002`:
+The database is Cloudflare D1 (SQLite). `drizzle/migrations/` starts from a two-file baseline: `0000_baseline.sql` (generated from `src/db/schema/index.ts`, with the `coalesce(thread_id, id)` expression indexes hand-corrected) and `0001_triggers_and_seeds.sql` (hand-written triggers, FTS5 table and seed rows), followed by incremental migrations (`0002_remove_resend.sql`, …). Production databases exist, so a migration must be safe on a live D1. Any change to the schema (table, column, index, default) **must ship a new migration in the same change**, numbered after the last one:
 
-1. Add `drizzle/migrations/0002_<name>.sql` (then `0003_...`): run `npm run db:generate -- --name <name>`, or hand-write the SQL in the generated style and add a matching entry to `drizzle/migrations/meta/_journal.json` (next `idx`, `tag` = file name without `.sql`, `breakpoints: true`).
+1. Add `drizzle/migrations/0003_<name>.sql` (then `0004_...`): run `npm run db:generate -- --name <name>`, or hand-write the SQL in the generated style and add a matching entry to `drizzle/migrations/meta/_journal.json` (next `idx`, `tag` = file name without `.sql`, `breakpoints: true`).
 2. End every statement with `--> statement-breakpoint`, never inside a trigger body (the bundle splitter, `tests/helpers/migrate.ts` and `wrangler d1 migrations apply` all read the file).
 3. `npm run db:bundle` to refresh `src/lib/migrations/bundle.json` (commit it).
 4. Run `node --test tests/*.test.mjs` (`tests/database-schema.test.mjs` fails if the bundle or journal is stale or the migrations no longer produce exactly the schema's tables and columns).

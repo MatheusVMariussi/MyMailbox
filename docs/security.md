@@ -16,10 +16,8 @@ or its mailbox is disabled; they also expire on their own.
 
 ## Authentication results
 
-* Cloudflare receiving: SPF, DKIM and DMARC come from the `Authentication-Results`
-  header Cloudflare writes (authserv-id `mx.cloudflare.net`). A failure in any such clause
-  wins over a pass.
-* Resend receiving: the verdicts SES (which Resend receives through) wrote are used.
+SPF, DKIM and DMARC come from the `Authentication-Results` header Cloudflare Email Routing
+writes (authserv-id `mx.cloudflare.net`). A failure in any such clause wins over a pass.
 
 Sender-written `Authentication-Results`, `Received-SPF` and `Received` headers are never
 trusted.
@@ -40,7 +38,6 @@ off by adding the header. With none of those set the header falls back to `1`.
 
 MyMailbox does not run an antivirus engine. What it does instead:
 
-* Resend (which receives through SES) drops mail SES flagged as infected.
 * Every attachment is judged from its name and type: programs and scripts, macro-enabled
   Office files, double extensions such as `invoice.pdf.exe`, hidden bidi characters, and
   containers that hide other files (HTML, SVG, disk images, archives).

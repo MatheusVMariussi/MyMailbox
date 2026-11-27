@@ -47,7 +47,7 @@ The **TLS reports** tab shows sessions per day, why sessions failed, totals by p
 
 "Publish in testing mode" on the **MTA-STS** tab:
 
-1. Reads the domain's MX records and stores the host names (at most 20; none is refused, and so is an MX answer that is not a plain host name: leaving it out would make senders refuse that server, so you fix the record first. The null MX `.` is not a host). Hosts that are not Cloudflare Email Routing (`*.mx.cloudflare.net`) or the SES inbound host Resend receives through (`inbound-smtp.<region>.amazonaws.com`) are listed with a warning: MyMailbox cannot check their certificates.
+1. Reads the domain's MX records and stores the host names (at most 20; none is refused, and so is an MX answer that is not a plain host name: leaving it out would make senders refuse that server, so you fix the record first. The null MX `.` is not a host). Hosts that are not Cloudflare Email Routing (`*.mx.cloudflare.net`) are listed with a warning: MyMailbox cannot check their certificates.
 2. Writes the TXT record `_mta-sts.<domain>` = `v=STSv1; id=<YYYYMMDDHHMMSS>`, then stores the policy it announces. The id moves forward whenever the mode, the MX list or the cache time (`max_age`, one day to one year, default one week) changes, and not otherwise, so senders fetch the policy again exactly when it changed. DNS goes first so that a failed write changes nothing: a sender that fetched the policy in between and saw a rollback would hold a new mode under an old id and never ask again.
 3. A record at `_mta-sts` that MyMailbox did not publish is never overwritten: publishing is refused until you remove it. In a zone MyMailbox does not manage, the TXT value is shown for you to publish.
 

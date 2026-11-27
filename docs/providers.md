@@ -1,71 +1,71 @@
-# Sending and receiving providers
+# Sending and receiving mail
 
-MyMailbox keeps your mail data in your own D1 database and R2 bucket. What carries mail over the wire is a choice you make **per domain**, separately for receiving and for sending:
+MyMailbox keeps your mail data in your own D1 database and R2 bucket, and Cloudflare carries it over the wire:
 
-| | Cloudflare | Resend |
-|---|---|---|
-| **Receiving** | Email Routing (the default) | `email.received` webhook |
-| **Sending** | Cloudflare Email Sending | Resend API |
+| | Service |
+|---|---|
+| **Receiving** | Cloudflare Email Routing (free) |
+| **Sending** | Cloudflare Email Sending (Workers Paid plan) |
 
-DNS stays on Cloudflare for every combination: MyMailbox writes the records for whichever provider you pick. A domain can also be **receive-only** (sending: Not selected) or **send-only** (receiving: Not selected).
+Each can be turned off per domain: a domain can be **receive-only** (sending: Not selected) or **send-only** (receiving: Not selected). DNS stays on Cloudflare, and MyMailbox writes the records each service needs.
 
-Open **Admin → Domains**, expand a domain, and use the **Setup receiving email** and **Setup sending email** sections. Each provider is a card with a switch. Turning a switch on selects that provider and shows its setup; the icon on the left is a green check when it is fully set up and an amber triangle when it is not.
+Open **Admin → Domains**, expand a domain, and use the **Setup receiving email** and **Setup sending email** sections. Each is a card with a switch. Turning the switch on selects the service and shows its setup; the icon on the left is a green check when it is fully set up and an amber triangle when it is not.
 
-> Selecting a provider does not change DNS. The Setup button inside the provider's card does. This lets you prepare a new provider while the old one keeps working.
+> Turning a switch on records the choice; it does not change DNS. The **Setup** button inside the card does, except that turning sending on also tries to create the sending subdomain right away.
 
 ## Choosing at add time
 
-**New domain** asks which service receives the domain's mail (**Receive mail with**) and which sends it (**Send mail with**), each a dropdown of Cloudflare, Resend or Not selected. Cloudflare Email Routing and the Cloudflare sending subdomain are only enabled on the zone for the Cloudflare choice. For Resend the domain is added without touching either; finish from the domain page once the API key is in. The same choices are available over the API as `receivingProvider` and `sendingProvider` (see [API](api.md#domain-management)).
+**New domain** asks whether Cloudflare receives the domain's mail (**Receive mail with**) and sends it (**Send mail with**), each Cloudflare or Not selected. Email Routing is only enabled on the zone, and the sending subdomain only created, for the Cloudflare choice. The same choices are available over the API as `receivingProvider` and `sendingProvider` (`cloudflare` or `none`; see [API](api.md#domain-management)).
 
-## Resend
+## Receiving: Cloudflare Email Routing
 
-Resend uses one **API key**, shared by every domain that uses it. Create it at [resend.com/api-keys](https://resend.com/api-keys).
+Setup enables Email Routing on the zone, points the domain's MX at Cloudflare and sends every mailbox, alias and catch-all address to the MyMailbox Worker, whose `email` handler applies routing rules, stores the raw message in R2 and queues it for parsing. Reject and forward rules act on the live SMTP session, so a rejected sender gets a bounce.
 
-- A **full-access** key lets MyMailbox add the domain to Resend, write its DNS records to the Cloudflare zone, verify it, and (for receiving) register the webhook.
-- A **sending-only** key can send, but Resend refuses it for domain and webhook management, so you add the domain at [resend.com/domains](https://resend.com/domains), create its records yourself, and use **Send test email** to confirm. MyMailbox says so in the card instead of failing.
+Email Routing is free and needs only the `CF_TOKEN` zone permissions listed in the [deployment guide](deployment.md#step-1-create-cf_token).
 
-The key is checked against Resend when you save it. Only the primary administrator can change it, and saving or removing it needs the same fresh confirmation (password and second step, or a passkey) as other security changes. It can also come from the `RESEND_API_KEY` Worker secret (`npx wrangler secret put RESEND_API_KEY`): the secret wins over a key saved in the app, which the Domains page then shows as coming from the environment and does not offer to replace. A secret keeps the key out of the database and its backups.
+## Sending: Cloudflare Email Sending
 
-A service with a Resend-compatible API works the same way: set `RESEND_BASE_URL` to its API address and use its key. Every Resend call (sending, domains, webhooks, received mail) goes to that address. If the service refuses a custom `Message-ID` header, set `RESEND_CUSTOM_MESSAGE_ID=false`: MyMailbox then sends without it and threads replies on the Message-ID the service reports for the sent email (`message_id` from `GET /emails/{id}`), falling back to its own when none is reported yet. If it refuses other headers MyMailbox sets, such as `Auto-Submitted` on system mail and auto-replies, list them in `RESEND_OMIT_HEADERS` (comma-separated) and they are left out of every send.
+Outgoing mail goes through the Worker's `EMAIL` send_email binding. Before a domain can send:
 
-**Sending.** Setup creates the domain in Resend, publishes its DKIM and SPF records, and asks Resend to verify. Verification is Resend's own status: it can stay `pending` for a few minutes after the DNS is added, and **Check status** re-asks Resend without creating anything new. Replies thread correctly because MyMailbox sets its own `Message-ID`.
+1. **Plan.** Email Sending needs the Workers Paid plan ($5/month), which includes 3,000 emails a month; beyond that it costs $0.35 per 1,000.
+2. **Token.** `CF_TOKEN` needs the account-level **Email Sending: Edit** permission (an `Entire Account` policy, separate from the zone permissions).
+3. **Onboarding.** In the Cloudflare dashboard, go to **Compute → Email Service → Email Sending** and onboard the domain.
 
-**Receiving.** Setup enables the receiving capability on the domain, points the apex MX at Resend, and registers one webhook for `email.received` at `/api/inbound/resend`. The webhook is authenticated with the Svix signing secret Resend returns when it is created; MyMailbox stores that secret, which is why a webhook it did not create itself is replaced. For each event MyMailbox fetches the message, downloads the raw MIME and runs it through the normal inbound pipeline. Resend must be able to reach your app, so `APP_URL` has to be a public HTTPS address.
+Then turn on **Cloudflare Email** under **Setup sending email** (or press **Setup** on its Email Sending row). MyMailbox creates the zone's sending subdomain, which publishes the DKIM record Cloudflare signs with; the DKIM row turns green once public DNS answers. A DMARC record can be added from **Domain setup**.
 
-## Bounces and complaints
+When Cloudflare refuses, the Domains page says why instead of showing Cloudflare's raw answer:
 
-Resend can report permanent bounces and spam complaints back to MyMailbox, which keeps a per-domain suppression list. It is off by default; see [deliverability.md](deliverability.md).
+- **The token lacks "Email Sending: Edit"**: add the account-level permission to `CF_TOKEN` and press Setup again.
+- **The domain is not onboarded**: onboard it under **Compute → Email Service → Email Sending** (on the Workers Paid plan) and press Setup again.
+- **Another service's MX records**: Cloudflare will not create the sending subdomain while the domain's MX points elsewhere; MyMailbox lists the records and replaces them only after you confirm.
 
-## MX records and switching receiving provider
+If Cloudflare shows the sending subdomain as disabled, check the domain's onboarding in the dashboard.
 
-Only one service can own a domain's MX records. When a provider's Setup finds MX records for something else (including Cloudflare Email Routing's), it stops and shows them, and replaces them only after you confirm. Confirming means the previous service stops receiving mail for that domain.
+Cloudflare Email Sending limits the whole encoded message to 5 MiB for general recipients, so files over 3 MB, and smaller files that would push the message past the limit, go out as download links from your storage bucket (see [API](api.md#sending-email)).
 
-Per-address routes to the MyMailbox Worker are only created for domains that receive through Cloudflare, and are recreated when you set Cloudflare up again.
+## Bounces
 
-## Cleaning up the provider you left
+Bounce messages returned to a mailbox feed a per-domain suppression list, which is off by default; see [deliverability.md](deliverability.md).
 
-If a provider you are not using still has configuration for the domain, its card shows **Clean up**:
+## MX records and switching receiving on or off
 
-- **Cloudflare sending** deletes the zone's sending subdomain and its DNS.
-- **Cloudflare receiving** deletes the domain's routing rules and MX, and disables Email Routing on the zone when no other domain uses it.
-- **Resend** deletes the domain from Resend and its DNS records. If the domain still receives (or sends) through Resend, only the capability you are leaving is switched off.
+Only one service can own a domain's MX records. When Email Routing's Setup finds MX records for something else, it stops and shows them, and replaces them only after you confirm. Confirming means the previous service stops receiving mail for that domain.
 
-You cannot clean up the provider that is currently selected.
+Per-address routes to the MyMailbox Worker are only created for domains that receive through Cloudflare, and are recreated when you set receiving up again.
 
-## Behavior that differs from Cloudflare
+## Cleaning up
 
-- **Routing rules.** Reject and forward rules need to act on the live SMTP session, which only Cloudflare's email handler can do. For mail received through Resend, a reject rule drops the message and forward rules are not applied. Store and categorize rules, mailbox rules, spam handling and webhooks work as usual.
-- **Attachments.** Cloudflare sends large files as download links from your storage bucket to stay under its 5 MiB limit. Resend sends attachments directly, within the administrator's outgoing limit; past 20 MB they too go as download links, which keeps the encoded message under what most receiving servers accept.
-- **Size.** Inbound mail from any provider is capped at 25 MiB and the same attachment limits apply; larger messages are dropped.
+If a service you turned off still has configuration for the domain, its card shows **Clean up**:
+
+- **Sending** deletes the zone's sending subdomain and its DNS.
+- **Receiving** deletes the domain's routing rules and MX, and disables Email Routing on the zone when no other domain uses it.
+
+You cannot clean up a service that is turned on.
 
 ## Configuration reference
 
 | Variable | Purpose |
 |---|---|
-| `RESEND_API_KEY` | Resend key (Worker secret); wins over a key saved in the app |
-| `RESEND_BASE_URL` | Base URL of the Resend API (default `https://api.resend.com`); point it at a Resend-compatible service to send and receive through that instead |
-| `RESEND_CUSTOM_MESSAGE_ID` | `false` stops sending MyMailbox's own `Message-ID` header, for compatible services that refuse it (default: sent) |
-| `RESEND_OMIT_HEADERS` | Comma-separated headers left out of every Resend send, for compatible services that refuse them (default: none) |
-| `APP_URL` | Public HTTPS address; required for Resend receiving, because Resend calls this app |
-
-Settings saved in the app take precedence over these variables. Keys saved in the app are stored as plain text in the `app_settings` table (as the AI provider key already is), so protect database backups accordingly.
+| `CF_TOKEN` | Cloudflare API token: zone permissions for DNS and Email Routing, plus the account-level "Email Sending: Edit" to send |
+| `CF_EMAIL_WORKER_NAME` | Worker name Email Routing rules deliver to (default `mymailbox`) |
+| `APP_URL` | Public HTTPS address, used for password reset links, read receipts and download links for large attachments |
