@@ -90,7 +90,7 @@ export function MessageDetailsPanel({ message, onClose, className }: MessageDeta
 
 	const spfDetail = authentication?.available
 		? authentication.mailedBy
-			? `mailed by ${authentication.mailedBy}${authentication.spf?.detail ? ` · ${authentication.spf.detail}` : ""}`
+			? `${t("message.detailsMailedBy", { domain: authentication.mailedBy })}${authentication.spf?.detail ? ` · ${authentication.spf.detail}` : ""}`
 			: authentication.spf?.detail ?? null
 		: null;
 

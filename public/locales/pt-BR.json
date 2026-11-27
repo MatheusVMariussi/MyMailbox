@@ -2238,5 +2238,6 @@
 	"empty.confirm.everyMailbox.multiple": "Excluir de vez as {count} mensagens em {folder}? Isso esvazia {folder} em todas as caixas que você gerencia ({mailboxes}) e não dá pra desfazer.",
 	"empty.confirm.everyMailbox.all": "Excluir de vez todas as mensagens em {folder}? Isso esvazia {folder} em todas as caixas que você gerencia ({mailboxes}) e não dá pra desfazer.",
 	"settings.reading.right": "À direita",
-	"settings.reading.off": "Desligado"
+	"settings.reading.off": "Desligado",
+	"message.detailsMailedBy": "enviado por {domain}"
 }

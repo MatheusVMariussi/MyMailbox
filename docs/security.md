@@ -19,6 +19,12 @@ or its mailbox is disabled; they also expire on their own.
 SPF, DKIM and DMARC come from the `Authentication-Results` header Cloudflare Email Routing
 writes (authserv-id `mx.cloudflare.net`). A failure in any such clause wins over a pass.
 
+The message details panel (`readCloudflareAuthentication` in `src/lib/email/provider-trace.ts`) shows the
+topmost `Authentication-Results` only, and only when its authserv-id is exactly `mx.cloudflare.net`, it
+comes before every header of the sender's message, and that leading block also holds Cloudflare's own trace
+(its `Received` hop, `Received-SPF` or ARC record): Cloudflare prepends its trace, so anything lower down
+was written by the sender. Mail with no such header is shown as unverified.
+
 Sender-written `Authentication-Results`, `Received-SPF` and `Received` headers are never
 trusted.
 

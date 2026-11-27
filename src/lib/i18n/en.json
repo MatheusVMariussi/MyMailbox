@@ -2225,5 +2225,6 @@
 	"empty.confirm.everyMailbox.multiple": "Permanently delete all {count} messages in {folder}? This empties {folder} in every mailbox you manage ({mailboxes}) and cannot be undone.",
 	"empty.confirm.everyMailbox.all": "Permanently delete every message in {folder}? This empties {folder} in every mailbox you manage ({mailboxes}) and cannot be undone.",
 	"settings.reading.right": "Right",
-	"settings.reading.off": "Off"
+	"settings.reading.off": "Off",
+	"message.detailsMailedBy": "mailed by {domain}"
 }
