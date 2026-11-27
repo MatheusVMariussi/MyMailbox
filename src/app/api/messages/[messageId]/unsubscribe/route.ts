@@ -5,7 +5,7 @@ import { domains, mailboxes, messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { getEmailAddress } from "@/lib/email/address";
-import { getOutboundProviderConfig, sendThroughProvider } from "@/lib/email/outbound-provider";
+import { assertSendingConfigured, sendThroughProvider } from "@/lib/email/outbound-provider";
 import { extractUnsubscribeLinkFromBody, getUnsubscribeUrlFromRawR2Key, parseMailtoUnsubscribe } from "@/lib/email/unsubscribe";
 import { recordUnsubscribed } from "@/lib/promotions/subscriptions";
 import { toSenderAddress } from "@/lib/promotions/classify-utils";
@@ -35,8 +35,8 @@ async function sendUnsubscribeEmail(env: CloudflareEnv, mailboxId: string, targe
 	if (!mailbox) return false;
 	try {
 		const from = `${mailbox.localPart}@${mailbox.hostname}`;
-		const provider = await getOutboundProviderConfig(env, from);
-		await sendThroughProvider(env, provider, { from, to: [target.to], subject: target.subject, text: target.text });
+		await assertSendingConfigured(env, from);
+		await sendThroughProvider(env, { from, to: [target.to], subject: target.subject, text: target.text });
 		return true;
 	} catch {
 		return false;

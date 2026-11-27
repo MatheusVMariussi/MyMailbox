@@ -10,7 +10,7 @@ const m = await loadRoutes("promotions-subscriptions-api", `
 	export { MAX_SWEEP_ROWS, SWEEP_WINDOW_DAYS } from "./src/lib/promotions/subscriptions-utils.ts";
 `, {
 	"@/lib/security/public-url": "export const isPublicHttpsUrl = () => true; export async function assertResolvesPublic() {}",
-	"@/lib/email/outbound-provider": "export async function getOutboundProviderConfig() { return {}; } export async function sendThroughProvider() { if (globalThis.__mailFails) throw new Error('smtp down'); globalThis.__sent = (globalThis.__sent ?? 0) + 1; }",
+	"@/lib/email/outbound-provider": "export async function assertSendingConfigured() {} export async function sendThroughProvider() { if (globalThis.__mailFails) throw new Error('smtp down'); globalThis.__sent = (globalThis.__sent ?? 0) + 1; }",
 });
 const DAY = 86_400;
 const now = () => Math.floor(Date.now() / 1000);

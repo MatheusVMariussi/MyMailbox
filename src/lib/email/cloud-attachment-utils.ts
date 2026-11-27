@@ -1,6 +1,5 @@
 import type { AttachmentContent } from "./attachment-types";
 import { planAttachmentDelivery } from "./attachment-limits";
-import type { SendingProvider } from "./outbound-provider-types";
 import { SHARED_ATTACHMENT_LINK_DAYS, getOrCreateSharedAttachmentUrl } from "./shared-attachments";
 import { sharedFileNotice } from "./shared-file-notice";
 import type { SharedFileLink } from "./shared-file-notice";
@@ -21,18 +20,17 @@ async function senderTranslator(env: CloudflareEnv, value: string | undefined): 
 }
 
 /**
- * Files the provider cannot carry in the message go out as Shared Files download links (filename and size kept)
- * instead of failing the send. Cloudflare has a 5 MiB message cap; for other providers see `planAttachmentDelivery`.
+ * Files Cloudflare Email Sending cannot carry in its 5 MiB message go out as Shared Files download links
+ * (filename and size kept) instead of failing the send; see `planAttachmentDelivery`.
  */
 export async function prepareOutboundAttachments(
 	env: CloudflareEnv,
-	provider: SendingProvider,
 	attachments: AttachmentContent[],
 	message: { subject: string; html?: string; text?: string; headers: Record<string, string>; publicOrigin?: string; locale?: string },
 ): Promise<{ attachments: AttachmentContent[]; html?: string; text?: string }> {
 	const encoder = new TextEncoder();
 	const baseSize = encoder.encode(message.subject + (message.html ?? "") + (message.text ?? "") + JSON.stringify(message.headers)).byteLength + 8192;
-	const plan = planAttachmentDelivery(provider, attachments.map((attachment) => attachment.content.byteLength), baseSize);
+	const plan = planAttachmentDelivery(attachments.map((attachment) => attachment.content.byteLength), baseSize);
 	const direct: AttachmentContent[] = [];
 	const linked: SharedFileLink[] = [];
 	let estimatedSize = baseSize;
@@ -46,15 +44,14 @@ export async function prepareOutboundAttachments(
 		if (!attachment.storageId) throw new Error("Large attachment was not stored in object storage");
 		linked.push({ filename: attachment.filename, size, url: await getOrCreateSharedAttachmentUrl(env, attachment.storageId, message.publicOrigin) });
 	}
-	const cloudflare = provider === "cloudflare";
 	if (!linked.length) {
-		if (cloudflare && estimatedSize > GENERAL_MESSAGE_LIMIT_BYTES - MIME_SAFETY_MARGIN_BYTES) throw new Error("Message exceeds Cloudflare's 5 MiB email size limit");
+		if (estimatedSize > GENERAL_MESSAGE_LIMIT_BYTES - MIME_SAFETY_MARGIN_BYTES) throw new Error("Message exceeds Cloudflare's 5 MiB email size limit");
 		return { attachments: direct, html: message.html, text: message.text };
 	}
 	const notice = sharedFileNotice(linked, SHARED_ATTACHMENT_LINK_DAYS, await senderTranslator(env, message.locale));
 	const text = notice.textBlock(message.text);
 	const html = `${message.html ?? ""}${notice.htmlBlock}`;
-	if (cloudflare && estimatedSize + encoder.encode(notice.text + notice.html + notice.intro + notice.intro).byteLength + 4096 > GENERAL_MESSAGE_LIMIT_BYTES - MIME_SAFETY_MARGIN_BYTES) {
+	if (estimatedSize + encoder.encode(notice.text + notice.html + notice.intro + notice.intro).byteLength + 4096 > GENERAL_MESSAGE_LIMIT_BYTES - MIME_SAFETY_MARGIN_BYTES) {
 		throw new Error("Message exceeds Cloudflare's 5 MiB email size limit even with download links");
 	}
 	return { attachments: direct, html, text };

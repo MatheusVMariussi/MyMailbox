@@ -44,28 +44,20 @@ function answerDns(answers) {
 
 const emptyView = { routing: { records: [], missing: [] }, sending: [] };
 
-test("SPF for a Resend sender is found on Resend's return-path subdomains", async () => {
-	// send.<domain> carries the SPF TXT itself, or a CNAME whose target does;
-	// either way the TXT lookup answers. Newer domains use rsend.<domain> too.
+test("SPF is read at the apex only", async () => {
+	answerDns({ "example.com|TXT": ["v=spf1 include:_spf.mx.cloudflare.net ~all"] });
+	assert.equal((await auditDomainDns("example.com", emptyView)).spf.status, "ok");
 	answerDns({ "send.example.com|TXT": ["v=spf1 include:amazonses.com ~all"] });
-	assert.equal((await auditDomainDns("example.com", emptyView, "resend")).spf.status, "ok");
-	answerDns({ "rsend.example.com|TXT": ["v=spf1 ip4:1.2.3.4 ~all"] });
-	assert.equal((await auditDomainDns("example.com", emptyView, "resend")).spf.status, "ok");
-	answerDns({ "example.com|TXT": ["v=spf1 include:_spf.resend.com ~all"] });
-	assert.equal((await auditDomainDns("example.com", emptyView, "resend")).spf.status, "ok");
-	answerDns({});
-	assert.equal((await auditDomainDns("example.com", emptyView, "resend")).spf.status, "missing");
-	// Other senders still only look at the apex.
-	answerDns({ "send.example.com|TXT": ["v=spf1 include:amazonses.com ~all"] });
-	assert.equal((await auditDomainDns("example.com", emptyView, "cloudflare")).spf.status, "missing");
 	assert.equal((await auditDomainDns("example.com", emptyView)).spf.status, "missing");
+	globalThis.fetch = async () => { throw new Error("offline"); };
+	assert.equal((await auditDomainDns("example.com", emptyView)).spf.status, "unknown");
 });
 
-test("DKIM for a Resend domain is checked at Resend's selector when nothing else names one", async () => {
-	const asked = answerDns({ "resend._domainkey.example.com|TXT": ["p=abc"] });
-	const resend = await auditDomainDns("example.com", emptyView, "resend");
-	assert.equal(resend.dkim.status, "ok");
-	assert.ok(asked.includes("resend._domainkey.example.com"));
-	const other = await auditDomainDns("example.com", emptyView, "none");
-	assert.equal(other.dkim.status, "unknown");
+test("DKIM is checked at the selector Cloudflare signs with, and unknown without one", async () => {
+	const asked = answerDns({ "cf2024-1._domainkey.example.com|TXT": ["v=DKIM1; p=abc"] });
+	const signed = await auditDomainDns("example.com", { ...emptyView, dkimSelector: "cf2024-1" });
+	assert.equal(signed.dkim.status, "ok");
+	assert.ok(asked.includes("cf2024-1._domainkey.example.com"));
+	answerDns({});
+	assert.equal((await auditDomainDns("example.com", emptyView)).dkim.status, "unknown");
 });

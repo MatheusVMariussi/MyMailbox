@@ -3,19 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { confirmDestructive } from "@/components/ui/confirm-dialog";
 import { useLanguage } from "@/components/language-provider";
-import type { TranslationKey } from "@/lib/i18n/types";
 import { requestJson } from "./api";
 import ProviderCard from "./ProviderCard";
-import ResendDomainSection from "./ResendDomainSection";
 import type { Domain, SendingProvider } from "./types";
-
-type Option = Exclude<SendingProvider, "none">;
-type Present = Record<Option, boolean | null>;
-
-const OPTIONS: { id: Option; titleKey: TranslationKey; descriptionKey: TranslationKey }[] = [
-	{ id: "cloudflare", titleKey: "domains.opt.cfEmail", descriptionKey: "domains.opt.cfSendDesc" },
-	{ id: "resend", titleKey: "domains.providerResend", descriptionKey: "domains.opt.resendSendDesc" },
-];
 
 type Props = {
 	domain: Domain;
@@ -28,68 +18,55 @@ type Props = {
 	cloudflareOk: boolean;
 };
 
-type PresenceResponse = Partial<Present> & { resendStatus?: string | null };
-
+/** Cloudflare Email Sending is the only sending service: on sends through it, off makes the domain receive-only. */
 export default function SendingSetupSection({ domain, onChange, busy, message, cloudflareConfig, cloudflareOk }: Props) {
 	const { t } = useLanguage();
-	const [present, setPresent] = useState<Present>({ cloudflare: null, resend: null });
-	const [resendStatus, setResendStatus] = useState<string | null>(null);
+	const [present, setPresent] = useState<boolean | null>(null);
 	const [reload, setReload] = useState(0);
-	const [removing, setRemoving] = useState<Option | null>(null);
+	const [removing, setRemoving] = useState(false);
 	const [error, setError] = useState("");
 
 	useEffect(() => {
 		let active = true;
-		requestJson<PresenceResponse>(`/api/domains/${domain.id}/sending`, "GET")
-			.then((data) => {
-				if (!active) return;
-				setPresent({ cloudflare: data.cloudflare ?? null, resend: data.resend ?? null });
-				setResendStatus(data.resendStatus ?? null);
-			})
-			.catch(() => { if (active) setPresent({ cloudflare: null, resend: null }); });
+		requestJson<{ cloudflare?: boolean }>(`/api/domains/${domain.id}/sending`, "GET")
+			.then((data) => { if (active) setPresent(data.cloudflare ?? null); })
+			.catch(() => { if (active) setPresent(null); });
 		return () => { active = false; };
 	}, [domain.id, domain.sendingProvider, reload]);
 
-	async function cleanUp(option: Option, title: string) {
+	const title = t("domains.opt.cfEmail");
+	const selected = domain.sendingProvider === "cloudflare";
+
+	async function cleanUp() {
 		if (!await confirmDestructive(t("domains.removeSendingConfirm", { title, host: domain.hostname }))) return;
-		setRemoving(option);
+		setRemoving(true);
 		setError("");
 		try {
-			await requestJson(`/api/domains/${domain.id}/sending`, "DELETE", { target: option });
+			await requestJson(`/api/domains/${domain.id}/sending`, "DELETE", { target: "cloudflare" });
 			setReload((value) => value + 1);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("domains.removeConfigFailed"));
-		} finally { setRemoving(null); }
+		} finally { setRemoving(false); }
 	}
-
-	// true/false when we know whether the option is set up, null when we cannot tell.
-	const okFor = (option: Option): boolean | null =>
-		option === "cloudflare" ? cloudflareOk : (resendStatus === null ? null : resendStatus === "verified");
 
 	return (
 		<section className="mt-6">
 			<h2 className="text-base font-semibold text-neutral-900">{t("domains.setupSending")}</h2>
 			<p className="mt-0.5 text-sm text-neutral-500">
-				{domain.sendingProvider === "none" ? t("domains.sendingNone") : t("domains.sendingChoose")}
+				{selected ? t("domains.sendingChoose") : t("domains.sendingNone")}
 			</p>
 			<ul className="mt-3 space-y-2">
-				{OPTIONS.map((option) => {
-					const selected = domain.sendingProvider === option.id;
-					return (
-						<ProviderCard
-							key={option.id}
-							title={t(option.titleKey)}
-							description={t(option.descriptionKey)}
-							ok={selected || present[option.id] ? okFor(option.id) : null}
-							selected={selected}
-							disabled={busy}
-							onToggle={(on) => onChange?.(on ? option.id : "none")}
-							cleanup={{ present: !!present[option.id], busy: removing === option.id, disabled: removing !== null, onClick: () => void cleanUp(option.id, t(option.titleKey)) }}
-						>
-							{option.id === "cloudflare" ? cloudflareConfig : <ResendDomainSection domainId={domain.id} onStatus={setResendStatus} />}
-						</ProviderCard>
-					);
-				})}
+				<ProviderCard
+					title={title}
+					description={t("domains.opt.cfSendDesc")}
+					ok={selected || present ? cloudflareOk : null}
+					selected={selected}
+					disabled={busy}
+					onToggle={(on) => onChange?.(on ? "cloudflare" : "none")}
+					cleanup={{ present: !!present, busy: removing, disabled: removing, onClick: () => void cleanUp() }}
+				>
+					{cloudflareConfig}
+				</ProviderCard>
 			</ul>
 			{message && <p role="alert" className="mt-2 text-xs text-red-600">{message}</p>}
 			{error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}

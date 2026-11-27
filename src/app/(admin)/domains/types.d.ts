@@ -1,4 +1,4 @@
-export type SendingProvider = "none" | "cloudflare" | "resend";
+export type SendingProvider = "none" | "cloudflare";
 export type ReceivingProvider = "none" | "cloudflare";
 
 export type Domain = {

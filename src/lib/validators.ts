@@ -102,7 +102,7 @@ export const addDomainSchema = z.object({
 	/** Record the domain without adding or checking DNS; a warning shows until it is confirmed. */
 	skipDns: z.boolean().optional(),
 	/** Which service sends mail for the domain; derived from `enableSending` when omitted. */
-	sendingProvider: z.enum(["none", "cloudflare", "resend"]).optional(),
+	sendingProvider: z.enum(["none", "cloudflare"]).optional(),
 	/** Whether Cloudflare Email Routing receives mail for the domain (`cloudflare`, the default) or nothing does (`none`). */
 	receivingProvider: z.enum(["none", "cloudflare"]).optional(),
 });
@@ -155,7 +155,6 @@ export const stepUpActionSchema = z.enum([
 	"routing.forward",
 	"webhook.change",
 	"app_password.create",
-	"provider.resend_key",
 ]);
 
 export const appPasswordCreateSchema = z.object({

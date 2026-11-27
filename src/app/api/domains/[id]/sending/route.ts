@@ -11,19 +11,18 @@ import { getDomainForUser } from "@/lib/domains/service";
 import { adoptCloudflareZone } from "@/lib/domains/adopt-zone";
 import { isManualZone } from "@/lib/domains/provision";
 import { findCloudflareSending, removeCloudflareSending } from "@/lib/domains/cloudflare-sending";
-import { getResendDomainStatus, removeResendConfig } from "@/lib/domains/resend-domain";
 import { setupDomainDnsRecord } from "@/lib/domains/dns-setup";
 import { MxConflictError } from "@/lib/domains/receiving-dns";
 import { mtaStsBlockedResponse } from "@/lib/deliverability/mta-sts-block-response";
 
 type Params = { params: Promise<{ id: string }> };
 
-const schema = z.object({ provider: z.enum(["none", "cloudflare", "resend"]), replaceMx: z.boolean().optional() });
+const schema = z.object({ provider: z.enum(["none", "cloudflare"]), replaceMx: z.boolean().optional() });
 
 /**
- * Chooses what sends mail for this domain. Receiving is unaffected, except that
- * Cloudflare sending refuses while another service's MX records exist: that is a
- * 409 MX_CONFLICT (the choice is still saved) until the caller retries with replaceMx.
+ * Turns Cloudflare Email Sending on (`cloudflare`) or off (`none`) for this domain. Receiving is
+ * unaffected, except that Cloudflare sending refuses while another service's MX records exist:
+ * that is a 409 MX_CONFLICT (the choice is still saved) until the caller retries with replaceMx.
  */
 export async function PUT(request: Request, { params }: Params) {
 	const { id } = await params;
@@ -64,24 +63,19 @@ export async function PUT(request: Request, { params }: Params) {
 	return NextResponse.json({ domain: updated, warning }, { headers: { "Cache-Control": "no-store" } });
 }
 
-/** Which providers have leftover configuration for this domain (null = could not tell). */
+/** Whether the zone still has a Cloudflare sending subdomain for this domain. */
 export async function GET(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
 	const user = await requireUser(env, request);
 	const domain = await getDomainForUser(env, user.id, id);
 	if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
-	const [cloudflare, resendStatus] = await Promise.all([
-		findCloudflareSending(env, domain),
-		getResendDomainStatus(env, domain),
-	]);
-	const resend = resendStatus === null ? null : resendStatus !== "not_registered";
-	return NextResponse.json({ cloudflare: !!cloudflare, resend, resendStatus }, { headers: { "Cache-Control": "no-store" } });
+	return NextResponse.json({ cloudflare: !!(await findCloudflareSending(env, domain)) }, { headers: { "Cache-Control": "no-store" } });
 }
 
-const removeSchema = z.object({ target: z.enum(["cloudflare", "resend"]) });
+const removeSchema = z.object({ target: z.enum(["cloudflare"]) });
 
-/** Removes the config of a provider this domain is not using. */
+/** Removes Cloudflare sending from a domain that no longer sends through it. */
 export async function DELETE(request: Request, { params }: Params) {
 	const { id } = await params;
 	const env = getEnv();
@@ -96,8 +90,7 @@ export async function DELETE(request: Request, { params }: Params) {
 		return NextResponse.json({ error: "Switch to another provider before removing this one" }, { status: 400 });
 	}
 	try {
-		if (parsed.data.target === "cloudflare") await removeCloudflareSending(env, domain);
-		else await removeResendConfig(env, domain);
+		await removeCloudflareSending(env, domain);
 		return NextResponse.json({ ok: true });
 	} catch (error) {
 		return NextResponse.json({ error: error instanceof Error ? error.message : "Could not remove configuration" }, { status: 502 });

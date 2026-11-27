@@ -1,8 +1,8 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { domains, mailboxes, users } from "@/db/schema";
 import { formatEmailAddress } from "@/lib/email/address";
-import { getOutboundProviderConfig, sendThroughProvider } from "@/lib/email/outbound-provider";
+import { assertSendingConfigured, sendThroughProvider } from "@/lib/email/outbound-provider";
 import type { SystemMailInput } from "@/lib/email/system-mail-types";
 
 /**
@@ -19,7 +19,8 @@ export async function sendSystemEmail(env: CloudflareEnv, input: SystemMailInput
 	if (!sender) return false;
 
 	const from = formatEmailAddress(sender.address, sender.name);
-	await sendThroughProvider(env, await getOutboundProviderConfig(env, from), {
+	await assertSendingConfigured(env, from);
+	await sendThroughProvider(env, {
 		from,
 		to: [input.to],
 		subject: input.subject,
@@ -44,36 +45,35 @@ export async function pickSystemSender(
 			displayName: mailboxes.displayName,
 			hostname: domains.hostname,
 			role: users.role,
-			provider: domains.sendingProvider,
-			cloudflareSending: domains.sendingEnabled,
 		})
 		.from(mailboxes)
 		.innerJoin(domains, eq(mailboxes.domainId, domains.id))
 		.innerJoin(users, eq(mailboxes.userId, users.id))
 		.where(and(
-			ne(domains.sendingProvider, "none"),
-			...(hostname ? [eq(domains.hostname, hostname.toLowerCase())] : []),
+			...sendingDomain(hostname),
 			eq(mailboxes.disabled, false),
 			eq(users.disabled, false),
 		))
 		.orderBy(asc(mailboxes.createdAt))
 		.limit(50);
-	// Cloudflare sending only works once the zone's sending subdomain is enabled;
-	// Resend is verified per domain in Resend itself.
-	const usable = rows.filter((row) => row.provider !== "cloudflare" || row.cloudflareSending);
-	const chosen = usable.find((row) => row.role === "admin") ?? usable[0];
+	const chosen = rows.find((row) => row.role === "admin") ?? rows[0];
 	if (chosen) return { address: `${chosen.localPart}@${chosen.hostname}`, name: chosen.displayName ?? "MyMailbox" };
 
 	// No enabled mailbox on a sending domain: system mail does not need one, so
-	// send from no-reply@ on any domain whose provider can send.
-	const sendingDomains = await db
-		.select({ hostname: domains.hostname, provider: domains.sendingProvider, cloudflareSending: domains.sendingEnabled })
+	// send from no-reply@ on any domain that can send.
+	const [domain] = await db
+		.select({ hostname: domains.hostname })
 		.from(domains)
-		.where(and(
-			ne(domains.sendingProvider, "none"),
-			...(hostname ? [eq(domains.hostname, hostname.toLowerCase())] : []),
-		))
-		.limit(50);
-	const domain = sendingDomains.find((row) => row.provider !== "cloudflare" || row.cloudflareSending);
+		.where(and(...sendingDomain(hostname)))
+		.limit(1);
 	return domain ? { address: `no-reply@${domain.hostname}`, name: "MyMailbox" } : null;
+}
+
+/** Domains that send through Cloudflare, which works only once the zone's sending subdomain is enabled. */
+function sendingDomain(hostname?: string) {
+	return [
+		eq(domains.sendingProvider, "cloudflare"),
+		eq(domains.sendingEnabled, true),
+		...(hostname ? [eq(domains.hostname, hostname.toLowerCase())] : []),
+	];
 }

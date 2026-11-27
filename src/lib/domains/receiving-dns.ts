@@ -18,5 +18,3 @@ export async function listDomainMx(env: CloudflareEnv, domain: DomainRow): Promi
 	if (isManualZone(domain.zoneId)) return [];
 	return listMxRecords(env, domain.zoneId, domain.hostname);
 }
-
-export const isInboundSmtpMx = (content: string) => /inbound-smtp\.[a-z0-9-]+\.amazonaws\.com\.?$/i.test(content.trim());

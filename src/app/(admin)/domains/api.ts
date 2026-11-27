@@ -69,7 +69,7 @@ export type CreateDomainInput = {
 	enableSending?: boolean;
 	replaceMxRecords?: boolean;
 	skipDns?: boolean;
-	sendingProvider?: "none" | "cloudflare" | "resend";
+	sendingProvider?: "none" | "cloudflare";
 	receivingProvider?: "none" | "cloudflare";
 };
 

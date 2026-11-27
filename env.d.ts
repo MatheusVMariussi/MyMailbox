@@ -36,12 +36,7 @@ interface CloudflareEnv {
 	 * setup and first-account registration are refused everywhere but a localhost development host.
 	 */
 	SETUP_TOKEN?: string;
-	/**
-	 * Resend API key as a Worker secret (`npx wrangler secret put RESEND_API_KEY`). When set it wins over the key
-	 * saved in Admin > Domains, which then cannot be changed there.
-	 */
-	RESEND_API_KEY?: string;
-	/** Public origin of this install (https://mail.example.com); used for links in mail and for provider webhooks. */
+	/** Public origin of this install (https://mail.example.com); used for links in mail (resets, download links, read receipts) and for passkeys. */
 	APP_URL?: string;
 	/** VAPID public key (uncompressed P-256 point, URL-safe base64) for Web Push. */
 	VAPID_PUBLIC_KEY?: string;

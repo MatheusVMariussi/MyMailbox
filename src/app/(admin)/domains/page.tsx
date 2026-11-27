@@ -394,9 +394,7 @@ export default function DomainsPage() {
                       ? t("setup.checkingCloudflare")
                       : sendingProvider === "cloudflare"
                         ? t("domains.sendHintCloudflare")
-                        : sendingProvider === "none"
-                          ? t("domains.sendHintNone")
-                          : t("domains.providerHintLater")}
+                        : t("domains.sendHintNone")}
                   </p>
                 </div>
                 {domainChecking && <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-neutral-500" />}
@@ -408,7 +406,6 @@ export default function DomainsPage() {
                   className="px-3 text-sm"
                 >
                   <option value="cloudflare">{t("domains.cloudflareSending")}</option>
-                  <option value="resend">Resend</option>
                   <option value="none">{t("domains.notSelected")}</option>
                 </Select>
               </div>

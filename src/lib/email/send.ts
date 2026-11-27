@@ -12,7 +12,7 @@ import { createAuditLog } from "@/lib/mailboxes/audit";
 import { loadMessageAttachmentContents, storeMessageAttachments, validateAttachments } from "@/lib/email/attachments";
 import type { AttachmentContent } from "@/lib/email/attachment-types";
 import { getOutboundAttachmentMaxMb } from "@/lib/email/attachment-policy";
-import { getOutboundProviderConfig, sendThroughProvider } from "@/lib/email/outbound-provider";
+import { assertSendingConfigured, sendThroughProvider } from "@/lib/email/outbound-provider";
 import { prepareOutboundAttachments } from "@/lib/email/cloud-attachment-utils";
 import { ensureTrackingToken, getTrackingHostForSender } from "@/lib/tracking/open-tracking";
 import { setFollowUp } from "@/lib/follow-ups/service";
@@ -246,10 +246,9 @@ async function deliverEmail(env: CloudflareEnv, delivery: PreparedDelivery): Pro
 			if (to.length === 0) throw new Error("All recipients are on the suppression list");
 		}
 		const toAddr = joinEmailAddressList(to);
-		const provider = await getOutboundProviderConfig(env, from);
-		// Files the provider cannot carry (Cloudflare's 5 MiB cap, or past 25 MB on Resend/SES)
-		// go out as download links; the admin's outgoing limit still applies.
-		const prepared = await prepareOutboundAttachments(env, provider.provider, attachments, {
+		await assertSendingConfigured(env, from);
+		// Files past Cloudflare's 5 MiB message cap go out as download links; the admin's outgoing limit still applies.
+		const prepared = await prepareOutboundAttachments(env, attachments, {
 			subject: input.subject,
 			html: input.html,
 			text: input.text,
@@ -263,7 +262,6 @@ async function deliverEmail(env: CloudflareEnv, delivery: PreparedDelivery): Pro
 		const html = input.trackOpens && prepared.html ? await withTrackingPixel(env, messageId, from, prepared.html, input.publicOrigin) : prepared.html;
 		const response = await sendThroughProvider(
 			env,
-			provider,
 			{
 				from,
 				to,
@@ -281,7 +279,6 @@ async function deliverEmail(env: CloudflareEnv, delivery: PreparedDelivery): Pro
 					contentId: attachment.contentId,
 				})),
 			},
-			jobId,
 		);
 		accepted = true;
 

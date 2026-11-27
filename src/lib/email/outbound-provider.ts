@@ -1,116 +1,28 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { appSettings, domains } from "@/db/schema";
+import { domains } from "@/db/schema";
 import { getEmailAddress } from "@/lib/email/address";
-import { fetchSentMessageId, resendClient, resendOmittedHeaders, resendSetsMessageId, type ResendClient } from "@/lib/email/resend-api";
-import type { OutboundProviderConfig, OutboundProviderMessage, ResendKeyStatus } from "@/lib/email/outbound-provider-types";
+import type { OutboundProviderMessage } from "@/lib/email/outbound-provider-types";
 
 /**
- * Each domain picks its own sender: Cloudflare Email Sending, Resend, or none
- * (receive-only). Receiving and storage always stay on Cloudflare. The Resend key
- * is shared by every domain. A RESEND_API_KEY Worker secret wins: it lives outside
- * the database (and its backups), so the admin UI cannot replace it; without it,
- * the key saved in Admin > Domains is used.
+ * Each domain either sends through Cloudflare Email Sending or not at all
+ * (receive-only). Throws when the From domain does not send, so nothing is
+ * handed to the send binding for a domain Cloudflare would refuse.
  */
-export async function getResendKeyStatus(env: CloudflareEnv): Promise<ResendKeyStatus & { apiKey: string | null }> {
-	const fromEnv = env.RESEND_API_KEY?.trim();
-	if (fromEnv) return { configured: true, source: "environment", apiKey: fromEnv };
-	const [settings] = await getDb(env)
-		.select({ resendApiKey: appSettings.resendApiKey })
-		.from(appSettings)
-		.where(eq(appSettings.id, "default"))
-		.limit(1);
-	const saved = settings?.resendApiKey?.trim();
-	return { configured: !!saved, source: saved ? "settings" : null, apiKey: saved || null };
-}
-
-export async function getResendClient(env: CloudflareEnv): Promise<ResendClient> {
-	const { apiKey } = await getResendKeyStatus(env);
-	if (!apiKey) throw new Error("Resend is selected but no API key is configured");
-	return resendClient(env, apiKey);
-}
-
-/** The provider for the domain a message is sent from. */
-export async function getOutboundProviderConfig(env: CloudflareEnv, fromAddress: string): Promise<OutboundProviderConfig> {
+export async function assertSendingConfigured(env: CloudflareEnv, fromAddress: string): Promise<void> {
 	const hostname = getEmailAddress(fromAddress).split("@")[1]?.toLowerCase();
 	const [domain] = hostname
 		? await getDb(env).select({ provider: domains.sendingProvider }).from(domains).where(eq(domains.hostname, hostname)).limit(1)
 		: [];
-	if (domain?.provider === "resend") return { provider: "resend", apiKey: (await getResendClient(env)).apiKey };
-	if (domain?.provider === "cloudflare") return { provider: "cloudflare" };
-	throw new Error(`Sending is not set up for ${hostname ?? "this domain"}. Choose a sending provider on the Domains page.`);
+	if (domain?.provider === "cloudflare") return;
+	throw new Error(`Sending is not set up for ${hostname ?? "this domain"}. Turn on Cloudflare Email Sending on the Domains page.`);
 }
 
-function toBase64(buffer: ArrayBuffer): string {
-	const bytes = new Uint8Array(buffer);
-	let binary = "";
-	for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-		binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-	}
-	return btoa(binary);
-}
-
-/** Resend does not return the RFC 5322 Message-ID, so we mint one for replies to thread against. */
-function mintMessageId(from: string): string {
-	const domain = getEmailAddress(from).split("@")[1] || "mymailbox.local";
-	return `<${crypto.randomUUID()}@${domain}>`;
-}
-
-function resendPayload(message: OutboundProviderMessage, messageIdHeader: string | null, omitted: Set<string>) {
-	// Drop any caller-supplied Message-ID so only the one decided here is sent,
-	// and any header the configured service refuses.
-	const headers = Object.fromEntries(Object.entries(message.headers ?? {})
-		.filter(([name]) => name !== "Message-ID" && !omitted.has(name.toLowerCase())));
-	return {
-		from: message.from,
-		to: message.to,
-		...(message.cc?.length ? { cc: message.cc } : {}),
-		...(message.bcc?.length ? { bcc: message.bcc } : {}),
-		subject: message.subject,
-		html: message.html,
-		text: message.text,
-		headers: messageIdHeader ? { ...headers, "Message-ID": messageIdHeader } : headers,
-		attachments: message.attachments?.map((attachment) => ({
-			filename: attachment.filename,
-			content: toBase64(attachment.content),
-			content_type: attachment.type,
-			...(attachment.disposition === "inline" && attachment.contentId ? { content_id: attachment.contentId } : {}),
-		})),
-	};
-}
-
-async function sendWithResend(
-	env: CloudflareEnv,
-	client: ResendClient,
-	message: OutboundProviderMessage,
-	idempotencyKey?: string,
-): Promise<{ messageId: string }> {
-	const mintedId = message.headers?.["Message-ID"] ?? mintMessageId(message.from);
-	const setsMessageId = resendSetsMessageId(env);
-	const response = await fetch(`${client.baseUrl}/emails`, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${client.apiKey}`,
-			"Content-Type": "application/json",
-			...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
-		},
-		body: JSON.stringify(resendPayload(message, setsMessageId ? mintedId : null, resendOmittedHeaders(env))),
-	});
-	const body = (await response.json().catch(() => null)) as { id?: string; message?: string } | null;
-	if (!response.ok) throw new Error(`Resend: ${body?.message ?? `request failed (${response.status})`}`);
-	if (setsMessageId || !body?.id) return { messageId: mintedId };
-	// Without our own header, thread replies against the ID the provider assigned.
-	// It can be missing while the send is still queued; the minted ID is the fallback.
-	return { messageId: (await fetchSentMessageId(client, body.id)) ?? mintedId };
-}
-
-export async function sendThroughProvider(
-	env: CloudflareEnv,
-	config: OutboundProviderConfig,
-	message: OutboundProviderMessage,
-	idempotencyKey?: string,
-): Promise<{ messageId: string }> {
-	if (config.provider === "resend") return sendWithResend(env, resendClient(env, config.apiKey), message, idempotencyKey);
+/**
+ * Sends through the `EMAIL` send_email binding (Cloudflare Email Sending); returns the Message-ID
+ * Cloudflare gave the message. Callers check the From domain with `assertSendingConfigured` first.
+ */
+export async function sendThroughProvider(env: CloudflareEnv, message: OutboundProviderMessage): Promise<{ messageId: string }> {
 	const response = await env.EMAIL.send({
 		from: message.from,
 		to: message.to,

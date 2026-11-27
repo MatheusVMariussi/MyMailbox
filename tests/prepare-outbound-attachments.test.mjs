@@ -36,32 +36,30 @@ const file = (name, size, storageId) => ({ filename: name, type: "application/pd
 const message = { subject: "Report", html: "<p>Hi</p>", text: "Hi", headers: {}, publicOrigin: "https://mail.example.com" };
 const makeEnv = (extra = {}) => ({ linked: [], ASSETS: { fetch: async () => new Response(JSON.stringify(ptBR)) }, ...extra });
 
-for (const provider of ["resend"]) {
-	test(`${provider}: a file past the 20 MB direct limit becomes a Shared Files link, small files stay attached`, async () => {
-		const env = makeEnv();
-		const small = file("small.pdf", 2 * MB, "att_small");
-		const out = await prepareOutboundAttachments(env, provider, [small, file("big.pdf", 30 * MB, "att_big")], message);
-		assert.deepEqual(out.attachments, [small]);
-		assert.deepEqual(env.linked, ["att_big"]);
-		assert.match(out.html, /^<p>Hi<\/p><div>.*big\.pdf \(30\.0 MB\): <a href="https:\/\/mail\.example\.com\/api\/shared-files\/link_att_big">/s);
-		assert.match(out.text, /^Hi\n\n.*big\.pdf \(30\.0 MB\): https:\/\/mail\.example\.com\/api\/shared-files\/link_att_big/s);
-	});
+test("a file over 3 MB becomes a Shared Files link, small files stay attached", async () => {
+	const env = makeEnv();
+	const small = file("small.pdf", 1 * MB, "att_small");
+	const out = await prepareOutboundAttachments(env, [small, file("big.pdf", 30 * MB, "att_big")], message);
+	assert.deepEqual(out.attachments, [small]);
+	assert.deepEqual(env.linked, ["att_big"]);
+	assert.match(out.html, /^<p>Hi<\/p><div>.*big\.pdf \(30\.0 MB\): <a href="https:\/\/mail\.example\.com\/api\/shared-files\/link_att_big">/s);
+	assert.match(out.text, /^Hi\n\n.*big\.pdf \(30\.0 MB\): https:\/\/mail\.example\.com\/api\/shared-files\/link_att_big/s);
+});
 
-	test(`${provider}: an over-threshold file without a storageId is refused, not dropped`, async () => {
-		await assert.rejects(prepareOutboundAttachments(makeEnv(), provider, [file("big.pdf", 30 * MB)], message), /not stored in object storage/);
-	});
+test("an over-threshold file without a storageId is refused, not dropped", async () => {
+	await assert.rejects(prepareOutboundAttachments(makeEnv(), [file("big.pdf", 30 * MB)], message), /not stored in object storage/);
+});
 
-	test(`${provider}: nothing over the threshold leaves the body untouched and creates no links`, async () => {
-		const env = makeEnv();
-		const out = await prepareOutboundAttachments(env, provider, [file("a.pdf", 10 * MB, "a")], message);
-		assert.equal(out.html, message.html);
-		assert.equal(out.text, message.text);
-		assert.deepEqual(env.linked, []);
-	});
-}
+test("nothing over the threshold leaves the body untouched and creates no links", async () => {
+	const env = makeEnv();
+	const out = await prepareOutboundAttachments(env, [file("a.pdf", 1 * MB, "a")], message);
+	assert.equal(out.html, message.html);
+	assert.equal(out.text, message.text);
+	assert.deepEqual(env.linked, []);
+});
 
 test("the notice follows the sender's locale", async () => {
-	const localized = await prepareOutboundAttachments(makeEnv(), "resend", [file("big.pdf", 30 * MB, "x")], { ...message, locale: "pt-BR" });
+	const localized = await prepareOutboundAttachments(makeEnv(), [file("big.pdf", 30 * MB, "x")], { ...message, locale: "pt-BR" });
 	assert.ok(localized.text.includes(ptBR["attachment.sharedIntro"].replace("{days}", "30")));
 	assert.ok(localized.html.includes(`>${ptBR["attachment.sharedDownload"]}</a>`));
 });

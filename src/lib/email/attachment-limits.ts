@@ -1,5 +1,3 @@
-import type { SendingProvider } from "./outbound-provider-types";
-
 export const DEFAULT_OUTBOUND_ATTACHMENT_MAX_MB = 25;
 /** Workers hold each file in a 128 MB isolate while it is read and sent, so 25 MB is the most an administrator can allow. */
 export const OUTBOUND_ATTACHMENT_CEILING_MB = 25;
@@ -15,8 +13,6 @@ export function clampOutboundAttachmentMb(value: number | null | undefined): num
 const LEGACY_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
 const CLOUDFLARE_MESSAGE_LIMIT_BYTES = 5 * 1024 * 1024;
 const MIME_SAFETY_MARGIN_BYTES = 256 * 1024;
-/** Resend attaches directly up to 20 MB: encoding grows a file by a third, and many receiving servers refuse messages over about 25 MB. Larger files go as download links. */
-const OTHER_PROVIDER_ATTACHMENT_BYTES = 20_000_000;
 
 /** An error message when the files break the administrator's limit (each file and all files together), else null. */
 export function outgoingSizeError(sizes: number[], maxMb: number): string | null {
@@ -37,17 +33,12 @@ export function requestBodyLimit(maxMb: number): number {
  * For each file, true when it must go as a Shared Files link instead of an attachment.
  * `baseBytes` is the size of the message without its files (Cloudflare counts the whole encoded message).
  */
-export function planAttachmentDelivery(provider: SendingProvider, sizes: number[], baseBytes: number): boolean[] {
-	let used = provider === "cloudflare" ? baseBytes : 0;
+export function planAttachmentDelivery(sizes: number[], baseBytes: number): boolean[] {
+	let used = baseBytes;
 	return sizes.map((size) => {
-		if (provider === "cloudflare") {
-			const encoded = Math.ceil(size / 3) * 4 + 2048;
-			const direct = size <= CLOUD_ATTACHMENT_THRESHOLD_BYTES && used + encoded <= CLOUDFLARE_MESSAGE_LIMIT_BYTES - MIME_SAFETY_MARGIN_BYTES;
-			if (direct) used += encoded;
-			return !direct;
-		}
-		const direct = size <= OTHER_PROVIDER_ATTACHMENT_BYTES && used + size <= OTHER_PROVIDER_ATTACHMENT_BYTES;
-		if (direct) used += size;
+		const encoded = Math.ceil(size / 3) * 4 + 2048;
+		const direct = size <= CLOUD_ATTACHMENT_THRESHOLD_BYTES && used + encoded <= CLOUDFLARE_MESSAGE_LIMIT_BYTES - MIME_SAFETY_MARGIN_BYTES;
+		if (direct) used += encoded;
 		return !direct;
 	});
 }

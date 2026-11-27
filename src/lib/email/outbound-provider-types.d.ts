@@ -1,9 +1,3 @@
-export type SendingProvider = "none" | "cloudflare" | "resend";
-
-export type OutboundProviderConfig =
-	| { provider: "cloudflare" }
-	| { provider: "resend"; apiKey: string };
-
 export type OutboundProviderAttachment = {
 	filename: string;
 	type: string;
@@ -22,10 +16,4 @@ export type OutboundProviderMessage = {
 	text?: string;
 	headers?: Record<string, string>;
 	attachments?: OutboundProviderAttachment[];
-};
-
-export type ResendKeyStatus = {
-	configured: boolean;
-	/** Where the key in use comes from; the key itself never leaves the server. */
-	source: "settings" | "environment" | null;
 };

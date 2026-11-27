@@ -49,19 +49,9 @@ test("request bodies keep the 30 MiB cap at the default and grow with a raised l
 });
 
 test("Cloudflare sends files over 3 MB, or past the 5 MiB message cap, as links", () => {
-	assert.deepEqual(planAttachmentDelivery("cloudflare", [2 * MB, 4 * MB], 10_000), [false, true]);
-	assert.deepEqual(planAttachmentDelivery("cloudflare", [2_900_000, 2_900_000], 10_000), [false, true], "the second file would push the message past 5 MiB");
-});
-
-test("Resend keeps files up to 20 MB attached and links anything past it", () => {
-	assert.deepEqual(planAttachmentDelivery("resend", [19 * MB], 10_000), [false]);
-	assert.deepEqual(planAttachmentDelivery("resend", [20 * MB, 20 * MB], 10_000), [false, true]);
-	assert.deepEqual(planAttachmentDelivery("resend", [22 * MB], 10_000), [true]);
-	assert.deepEqual(planAttachmentDelivery("resend", [30 * MB, 5 * MB], 10_000), [true, false]);
-});
-
-test("small attachments stay attached on Resend", () => {
-	assert.deepEqual(planAttachmentDelivery("resend", [8 * MB, 10 * MB], 10_000), [false, false]);
+	assert.deepEqual(planAttachmentDelivery([2 * MB, 4 * MB], 10_000), [false, true]);
+	assert.deepEqual(planAttachmentDelivery([2_900_000, 2_900_000], 10_000), [false, true], "the second file would push the message past 5 MiB");
+	assert.deepEqual(planAttachmentDelivery([4 * MB, 1 * MB], 10_000), [true, false], "a later small file still fits after a large one is linked");
 });
 
 test("stored values are clamped to the 25 MB ceiling", () => {
