@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { List, ListRow } from "@/components/ui/list";
 import { SectionRowSkeleton } from "@/components/page-skeletons";
-import { clearMailboxesCache } from "@/components/mailbox-provider-utils";
+import { notifyMailboxesChanged } from "@/components/mailbox-provider-utils";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
 import { authFetch } from "@/lib/auth/client";
 import type { CurrentAccountResponse, Domain, MailboxOwner, MailboxesResponse } from "./types";
@@ -115,7 +115,7 @@ export default function MailboxesPage() {
 			return json.id;
 		},
 		onSuccess: (mailboxId) => {
-			clearMailboxesCache();
+			notifyMailboxesChanged();
 			setCreateOpen(false);
 			qc.invalidateQueries({ queryKey: ["mailboxes"] });
 			if (mailboxType === "shared" && mailboxId) router.push(`${base}/${mailboxId}`);

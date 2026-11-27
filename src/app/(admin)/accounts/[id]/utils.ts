@@ -1,4 +1,5 @@
 import { authFetch } from "@/lib/auth/client";
+import { notifyMailboxesChanged } from "@/components/mailbox-provider-utils";
 import { requestError } from "@/lib/http/client-error";
 import { appendOptimizedAvatar } from "@/lib/avatar-upload-client";
 import type {
@@ -203,10 +204,12 @@ export async function addManagedMailbox(
 	});
 	const data = (await response.json()) as { error?: string };
 	if (!response.ok) throw new Error(data.error ?? "Unable to add mailbox");
+	notifyMailboxesChanged();
 }
 
 export async function removeManagedMailbox(mailboxId: string): Promise<void> {
 	const response = await authFetch(`/api/mailboxes/${mailboxId}`, { method: "DELETE" });
 	const data = (await response.json()) as { error?: string };
 	if (!response.ok) throw new Error(data.error ?? "Unable to remove mailbox");
+	notifyMailboxesChanged();
 }

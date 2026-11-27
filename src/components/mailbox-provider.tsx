@@ -13,6 +13,8 @@ import {
 	clearMailboxesCache,
 	fetchMailboxOptions,
 	isIdentityMailbox,
+	MAILBOXES_CHANGED_EVENT,
+	pickSelectedMailbox,
 	SELECTED_MAILBOX_STORAGE_KEY,
 } from "./mailbox-provider-utils";
 import {
@@ -63,30 +65,19 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 
 	const loadId = useRef(0);
 
-	const loadMailboxes = useCallback(() => {
+	const loadMailboxes = useCallback((force = false) => {
 		const id = ++loadId.current;
 		const sessionToken = getClientSessionKey();
 		const isCurrent = () => id === loadId.current && sessionToken === getClientSessionKey();
 
-		fetchMailboxOptions()
+		fetchMailboxOptions(force)
 			.then((items) => {
 				if (!isCurrent()) return;
 				setMailboxes(items);
-
-				const storedId = localStorage.getItem(SELECTED_MAILBOX_STORAGE_KEY);
-				if (storedId) {
-					const found = items.find((mb) => mb.id === storedId);
-					if (found) {
-						setSelectedMailboxState(found);
-						return;
-					}
-				}
-
-				const primary = items.find((mb) => mb.isPrimary) ?? items[0] ?? null;
-				if (primary) {
-					setSelectedMailboxState(primary);
-					localStorage.setItem(SELECTED_MAILBOX_STORAGE_KEY, primary.id);
-				}
+				// A reload keeps the user's choice while it exists; a removed mailbox falls back to the primary one.
+				const selected = pickSelectedMailbox(items, localStorage.getItem(SELECTED_MAILBOX_STORAGE_KEY));
+				setSelectedMailboxState(selected);
+				if (selected) localStorage.setItem(SELECTED_MAILBOX_STORAGE_KEY, selected.id);
 			})
 			.catch(() => {})
 			.finally(() => {
@@ -100,6 +91,14 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 			// Invalidate any request still in flight.
 			loadId.current += 1;
 		};
+	}, [loadMailboxes]);
+
+	useEffect(() => {
+		// Onboarding, the admin pages and the domain screens create and remove mailboxes while this provider is
+		// mounted (or after it loaded an empty list), so a change always fetches the list again.
+		const reloadMailboxes = () => loadMailboxes(true);
+		window.addEventListener(MAILBOXES_CHANGED_EVENT, reloadMailboxes);
+		return () => window.removeEventListener(MAILBOXES_CHANGED_EVENT, reloadMailboxes);
 	}, [loadMailboxes]);
 
 	useEffect(() => {

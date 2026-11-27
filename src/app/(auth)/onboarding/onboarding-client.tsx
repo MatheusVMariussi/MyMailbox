@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { notifyMailboxesChanged } from "@/components/mailbox-provider-utils";
 import { checkDomain, createDomain, createMailbox, getDomains } from "./utils";
 import type { DomainPreflight } from "./types";
 
@@ -75,6 +76,7 @@ export function OnboardingClient() {
 				setError(data.error ?? t("onboarding.addDomainFailed"));
 				return;
 			}
+			notifyMailboxesChanged();
 			setMxConflict(false);
 			setDomainId(data.domain.id);
 			setStep(2);
@@ -122,6 +124,8 @@ export function OnboardingClient() {
 				setError(data.error ?? t("onboarding.createMailboxFailed"));
 				return;
 			}
+			// A provider may have cached the empty list before the first mailbox existed.
+			notifyMailboxesChanged();
 			router.push("/inbox");
 		} catch {
 			setError(t("auth.serverUnreachable"));
