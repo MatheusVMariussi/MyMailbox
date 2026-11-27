@@ -8,7 +8,6 @@ import type { WebhookRouteParams } from "./types";
 import { newId } from "@/lib/ids";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { readJsonObject } from "@/lib/http/request";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { authError } from "@/lib/http/auth-error";
 
@@ -48,7 +47,7 @@ export async function PATCH(request: Request, { params }: WebhookRouteParams) {
 	const widens = (parsed.data.url !== undefined && parsed.data.url !== loaded.hook.url)
 		|| (parsed.data.events?.some((event) => !storedEvents.includes(event)) ?? false)
 		|| (parsed.data.enabled === true && !loaded.hook.enabled);
-	if (widens && !(await authorizeSecurityChange(loaded.env, loaded.user, getSessionTokenFromRequestHeaders(request), parsed.data, "webhook.change"))) {
+	if (widens && !(await authorizeSecurityChange(loaded.env, loaded.user, request, parsed.data, "webhook.change"))) {
 		return authError("verification_failed", 401);
 	}
 

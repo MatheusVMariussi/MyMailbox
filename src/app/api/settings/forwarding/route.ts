@@ -5,7 +5,6 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { bumpSecurityVersion } from "@/lib/auth/webauthn/grants";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { authError } from "@/lib/http/auth-error";
@@ -29,7 +28,7 @@ export async function PATCH(request: Request) {
 
 	// A forwarding address receives a copy of all mail: changing it needs a password or step-up proof.
 	const changed = input.forwardingEmail !== user.forwardingEmail;
-	if (changed && !(await authorizeSecurityChange(env, user, getSessionTokenFromRequestHeaders(request), input, "profile.recovery_email"))) {
+	if (changed && !(await authorizeSecurityChange(env, user, request, input, "profile.recovery_email"))) {
 		return authError("verification_failed", 401);
 	}
 

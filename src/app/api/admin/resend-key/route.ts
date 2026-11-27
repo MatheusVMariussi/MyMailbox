@@ -6,7 +6,6 @@ import { getEnv } from "@/lib/cloudflare";
 import { requireSessionUser } from "@/lib/api/auth";
 import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { authError } from "@/lib/http/auth-error";
 import { getResendKeyStatus } from "@/lib/email/outbound-provider";
@@ -52,7 +51,7 @@ export async function PUT(request: Request) {
 	if ((await getResendKeyStatus(access.env)).source === "environment") {
 		return Response.json({ error: ENVIRONMENT_KEY_ERROR }, { status: 409 });
 	}
-	if (!(await authorizeSecurityChange(access.env, access.user, getSessionTokenFromRequestHeaders(request), parsed.data, "provider.resend_key"))) {
+	if (!(await authorizeSecurityChange(access.env, access.user, request, parsed.data, "provider.resend_key"))) {
 		return authError("verification_required", 401);
 	}
 	const check = await checkResendKey(resendClient(access.env, parsed.data.apiKey)).catch(() => null);
@@ -68,7 +67,7 @@ export async function DELETE(request: Request) {
 	if (access.error || !access.user) return access.error;
 	const parsed = deleteSchema.safeParse(await request.json().catch(() => ({})));
 	if (!parsed.success) return authError("invalid_request", 400);
-	if (!(await authorizeSecurityChange(access.env, access.user, getSessionTokenFromRequestHeaders(request), parsed.data, "provider.resend_key"))) {
+	if (!(await authorizeSecurityChange(access.env, access.user, request, parsed.data, "provider.resend_key"))) {
 		return authError("verification_required", 401);
 	}
 	await getDb(access.env).update(appSettings).set({ resendApiKey: null, updatedAt: new Date() }).where(eq(appSettings.id, "default"));

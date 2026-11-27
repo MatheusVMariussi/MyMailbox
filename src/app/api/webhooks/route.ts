@@ -12,7 +12,6 @@ import { webhookSchema } from "@/lib/validators";
 import { readJsonBody } from "@/lib/http/request";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { authError } from "@/lib/http/auth-error";
 
@@ -75,7 +74,7 @@ export async function POST(request: Request) {
 	}
 
 	// A webhook copies message content to an outside URL: creating one needs fresh proof.
-	if (!(await authorizeSecurityChange(env, user, getSessionTokenFromRequestHeaders(request), parsed.data, "webhook.change"))) {
+	if (!(await authorizeSecurityChange(env, user, request, parsed.data, "webhook.change"))) {
 		return authError("verification_failed", 401);
 	}
 

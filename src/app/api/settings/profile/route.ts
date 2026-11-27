@@ -6,7 +6,6 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { bumpSecurityVersion } from "@/lib/auth/webauthn/grants";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { authError } from "@/lib/http/auth-error";
@@ -33,7 +32,7 @@ export async function PATCH(request: Request) {
 	// Where a password reset link or a copy of all mail goes is an account-takeover lever: changing it
 	// needs the same proof as a password change (password plus code where required, or a step-up grant).
 	const recoveryChanged = parsed.resetEmail !== user.resetEmail || forwardingEmail !== user.forwardingEmail;
-	if (recoveryChanged && !(await authorizeSecurityChange(env, user, getSessionTokenFromRequestHeaders(request), parsed, "profile.recovery_email"))) {
+	if (recoveryChanged && !(await authorizeSecurityChange(env, user, request, parsed, "profile.recovery_email"))) {
 		return authError("verification_failed", 401);
 	}
 	if (parsed.name !== undefined) {

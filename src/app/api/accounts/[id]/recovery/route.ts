@@ -4,7 +4,6 @@ import { requireAdminSession } from "../../utils";
 import { canManageUserAccount, isPrimaryAdmin } from "@/lib/auth/admin";
 import { selectAccountById } from "../utils";
 import { readJsonBody } from "@/lib/http/request";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { bumpSecurityVersion, createEnrollmentGrant } from "@/lib/auth/webauthn/grants";
 import { getPublicOrigin } from "@/lib/auth/webauthn/config";
@@ -31,7 +30,7 @@ export async function POST(request: Request, { params }: AccountRouteParams) {
 	if (!(await authorizeSecurityChange(
 		access.env,
 		actor,
-		getSessionTokenFromRequestHeaders(request),
+		request,
 		body ?? {},
 		"admin.recovery_link",
 		{ targetUserId: account.id },

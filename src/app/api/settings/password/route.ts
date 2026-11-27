@@ -5,7 +5,8 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { deleteUserSessions, getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
-import { hasPasswordHash, hashPassword, PASSWORDLESS_PASSWORD_HASH, verifyPassword } from "@/lib/auth/password";
+import { hasPasswordHash, hashPassword, PASSWORDLESS_PASSWORD_HASH, verifyPassword, verifyPasswordInConstantTime } from "@/lib/auth/password";
+import { clearPasswordAttempt, PASSWORD_LOCKOUT_RETRY_AFTER, reservePasswordAttempt } from "@/lib/auth/password-attempts";
 import { getEnv } from "@/lib/cloudflare";
 import { readJsonBody } from "@/lib/http/request";
 import { passwordSetSchema, stepUpTokenSchema } from "@/lib/validators";
@@ -31,9 +32,13 @@ export async function PATCH(request: Request) {
 	if (!hasPasswordHash(user.passwordHash)) {
 		return authError("verification_required", 400);
 	}
-	if (!verifyPassword(parsed.currentPassword, user.passwordHash)) {
+	// The current password spends the account's sign-in budget, so a session cannot be used to guess it.
+	const attempt = await reservePasswordAttempt(env, user.id, request);
+	if (!attempt) return authError("rate_limited", 429, { "Retry-After": PASSWORD_LOCKOUT_RETRY_AFTER });
+	if (!verifyPasswordInConstantTime(parsed.currentPassword, user.passwordHash)) {
 		return authError("password_incorrect", 400);
 	}
+	await clearPasswordAttempt(env, attempt);
 	if (verifyPassword(parsed.newPassword, user.passwordHash)) {
 		return authError("invalid_request", 400);
 	}

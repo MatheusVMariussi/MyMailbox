@@ -5,7 +5,6 @@ import { readJsonBody } from "@/lib/http/request";
 import { getDb } from "@/db";
 import { disableMfa } from "@/lib/auth/mfa";
 import { mfaDisableSchema } from "@/lib/validators";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { bumpSecurityVersion } from "@/lib/auth/webauthn/grants";
 import { authError } from "@/lib/http/auth-error";
@@ -19,7 +18,7 @@ export async function POST(request: Request) {
 	if (!parsed.success) return authError("verification_required", 400);
 	// The password path must always present a current authenticator or recovery
 	// code. A step-up grant already proves the required factor(s).
-	if (!(await authorizeSecurityChange(env, auth.user, getSessionTokenFromRequestHeaders(request), parsed.data, "mfa.disable", { requireCode: true }))) {
+	if (!(await authorizeSecurityChange(env, auth.user, request, parsed.data, "mfa.disable", { requireCode: true }))) {
 		return authError("verification_failed", 401);
 	}
 	await disableMfa(env, auth.user.id);

@@ -5,7 +5,6 @@ import { readJsonBody } from "@/lib/http/request";
 import { getDb } from "@/db";
 import { issueRecoveryCodes } from "@/lib/auth/recovery-codes";
 import { mfaEnrollSchema } from "@/lib/validators";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { bumpSecurityVersion } from "@/lib/auth/webauthn/grants";
 import { authError } from "@/lib/http/auth-error";
@@ -18,7 +17,7 @@ export async function POST(request: Request) {
 	const parsed = mfaEnrollSchema.safeParse(await readJsonBody(request, 16 * 1024).catch(() => null));
 	if (!parsed.success) return authError("verification_required", 400);
 	if (!auth.user.totpEnabled) return authError("invalid_request", 409);
-	if (!(await authorizeSecurityChange(env, auth.user, getSessionTokenFromRequestHeaders(request), parsed.data, "mfa.codes"))) {
+	if (!(await authorizeSecurityChange(env, auth.user, request, parsed.data, "mfa.codes"))) {
 		return authError("verification_failed", 401);
 	}
 	const recoveryCodes = await issueRecoveryCodes(env, auth.user.id);

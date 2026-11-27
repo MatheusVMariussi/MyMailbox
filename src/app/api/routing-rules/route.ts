@@ -9,7 +9,6 @@ import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { routingRuleSchema } from "@/lib/validators";
 import { resolveRuleTarget } from "./utils";
 import { readJsonObject } from "@/lib/http/request";
-import { getSessionTokenFromRequestHeaders } from "@/lib/auth/session";
 import { authorizeSecurityChange } from "@/lib/auth/webauthn/authorize";
 import { authError } from "@/lib/http/auth-error";
 import { forwardTargetChanged, isExternalForwardTarget } from "@/lib/routing/forward-proof";
@@ -58,7 +57,7 @@ export async function POST(request: Request) {
 
 	// A forward to an outside address copies all matching mail there: it needs fresh proof.
 	if (forwardTargetChanged(null, target) && await isExternalForwardTarget(db, user, target.forwardTo!)
-		&& !(await authorizeSecurityChange(env, user, getSessionTokenFromRequestHeaders(request), parsed.data, "routing.forward"))) {
+		&& !(await authorizeSecurityChange(env, user, request, parsed.data, "routing.forward"))) {
 		return authError("verification_failed", 401);
 	}
 
