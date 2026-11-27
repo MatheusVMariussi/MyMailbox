@@ -155,6 +155,7 @@ export const stepUpActionSchema = z.enum([
 	"routing.forward",
 	"webhook.change",
 	"app_password.create",
+	"provider.resend_key",
 ]);
 
 export const appPasswordCreateSchema = z.object({

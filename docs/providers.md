@@ -24,7 +24,7 @@ Resend uses one **API key**, shared by every domain that uses it. Create it at [
 - A **full-access** key lets MyMailbox add the domain to Resend, write its DNS records to the Cloudflare zone, verify it, and (for receiving) register the webhook.
 - A **sending-only** key can send, but Resend refuses it for domain and webhook management, so you add the domain at [resend.com/domains](https://resend.com/domains), create its records yourself, and use **Send test email** to confirm. MyMailbox says so in the card instead of failing.
 
-The key is checked against Resend when you save it. It can also come from the `RESEND_API_KEY` secret, which is used when no key is saved in the app. Only the primary administrator can change it.
+The key is checked against Resend when you save it. Only the primary administrator can change it, and saving or removing it needs the same fresh confirmation (password and second step, or a passkey) as other security changes. It can also come from the `RESEND_API_KEY` Worker secret (`npx wrangler secret put RESEND_API_KEY`): the secret wins over a key saved in the app, which the Domains page then shows as coming from the environment and does not offer to replace. A secret keeps the key out of the database and its backups.
 
 A service with a Resend-compatible API works the same way: set `RESEND_BASE_URL` to its API address and use its key. Every Resend call (sending, domains, webhooks, received mail) goes to that address. If the service refuses a custom `Message-ID` header, set `RESEND_CUSTOM_MESSAGE_ID=false`: MyMailbox then sends without it and threads replies on the Message-ID the service reports for the sent email (`message_id` from `GET /emails/{id}`), falling back to its own when none is reported yet. If it refuses other headers MyMailbox sets, such as `Auto-Submitted` on system mail and auto-replies, list them in `RESEND_OMIT_HEADERS` (comma-separated) and they are left out of every send.
 
@@ -62,7 +62,7 @@ You cannot clean up the provider that is currently selected.
 
 | Variable | Purpose |
 |---|---|
-| `RESEND_API_KEY` | Resend key used when none is saved in the app |
+| `RESEND_API_KEY` | Resend key (Worker secret); wins over a key saved in the app |
 | `RESEND_BASE_URL` | Base URL of the Resend API (default `https://api.resend.com`); point it at a Resend-compatible service to send and receive through that instead |
 | `RESEND_CUSTOM_MESSAGE_ID` | `false` stops sending MyMailbox's own `Message-ID` header, for compatible services that refuse it (default: sent) |
 | `RESEND_OMIT_HEADERS` | Comma-separated headers left out of every Resend send, for compatible services that refuse them (default: none) |

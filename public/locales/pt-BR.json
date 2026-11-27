@@ -1375,6 +1375,7 @@
 	"resend.remove": "Remover",
 	"resend.saveKey": "Salvar chave",
 	"resend.keySaved": "Chave de API salva",
+	"resend.keyFromEnv": "Definida pelo segredo RESEND_API_KEY do Worker. Para trocar, rode npx wrangler secret put RESEND_API_KEY.",
 	"resend.removeConfirm": "Remover a chave de API do Resend? Todos os domínios que usam o Resend deixarão de enviar e receber.",
 	"resend.keyInstructions": "Crie uma chave em resend.com/api-keys. Uma chave de acesso total permite que o MyMailbox adicione o domínio, seu DNS e o webhook de recebimento; uma chave somente de envio funciona para enviar, mas você adiciona o domínio no Resend por conta própria.",
 	"webhooks.event.inbound": "Mensagem recebida",

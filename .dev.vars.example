@@ -12,7 +12,7 @@ CF_TOKEN=your_api_token_with_zone_email_permissions
 # CF_API_KEY=your_global_api_key
 
 # Optional: send and receive through Resend instead of Cloudflare.
-# The key can also be entered in Admin > Domains; a value saved there takes precedence.
+# The key can also be entered in Admin > Domains; this secret wins when both are set.
 # RESEND_API_KEY=re_...
 # Receiving through Resend needs a public HTTPS address.
 # APP_URL=https://mail.example.com
