@@ -29,7 +29,8 @@ export type MessageListRowProps = {
 	compact?: boolean;
 	currentAccountName?: string;
 	onSelectedChange: (messageId: string, selected: boolean) => void;
-	onMessageAction: (messageId: string, action: RowMessageAction) => Promise<void>;
+	/** `labelId` goes with `label`, `unlabel` and `move`. */
+	onMessageAction: (messageId: string, action: RowMessageAction, labelId?: string) => Promise<void>;
 	onOpening?: (messageId: string) => void;
 	onSnoozeChange?: (messageId: string, snoozed: boolean) => void;
 	showCompactRowActions?: boolean;
@@ -49,7 +50,23 @@ export type MessageListRowProps = {
 	selectionMode?: boolean;
 };
 
-export type RowMessageAction = "archive" | "trash" | "read" | "unread" | "inbox" | "delete";
+export type RowMessageAction = "archive" | "trash" | "read" | "unread" | "inbox" | "delete" | "spam" | "label" | "unlabel" | "move";
+
+export type MessageRowActionSheetProps = {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	/** The row's message with its optimistic read and star flags. */
+	message: Message;
+	/** The sender (or recipients) as the row shows them. */
+	party: string;
+	onAction: (action: RowMessageAction, labelId?: string) => Promise<void>;
+	onToggleStar: () => void;
+	/** Check the row, entering selection mode. */
+	onSelect: () => void;
+	onSnoozeChange?: (messageId: string, snoozed: boolean) => void;
+	promotionTarget?: "promotions" | "inbox";
+	onPromotionMove?: () => void;
+};
 
 export type MessageListRowActionsProps = {
 	message: Message;

@@ -1,34 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { RefreshCw } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { refreshMessageViews } from "@/hooks/message-refresh";
 
-export function MessageListRefreshButton({ disabled = false, onError }: {
+/** The header refresh button; the list owns the refresh (useMessageListRefresh) so pull-to-refresh shares its state. */
+export function MessageListRefreshButton({ disabled = false, refreshing, onRefresh }: {
 	disabled?: boolean;
-	onError?: () => void;
+	refreshing: boolean;
+	onRefresh: () => void;
 }) {
 	const { t } = useLanguage();
-	const [refreshing, setRefreshing] = useState(false);
-	const pending = useRef(false);
-
-	async function refresh() {
-		if (pending.current) return;
-		pending.current = true;
-		setRefreshing(true);
-		try {
-			await refreshMessageViews();
-		} catch {
-			onError?.();
-		} finally {
-			pending.current = false;
-			setRefreshing(false);
-		}
-	}
-
 	const label = refreshing ? t("list.refreshing") : t("list.refresh");
 	return (
 		<>
@@ -40,7 +23,7 @@ export function MessageListRefreshButton({ disabled = false, onError }: {
 					disabled={disabled || refreshing}
 					aria-label={label}
 					aria-busy={refreshing}
-					onClick={() => void refresh()}
+					onClick={onRefresh}
 				>
 					<RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
 				</Button>

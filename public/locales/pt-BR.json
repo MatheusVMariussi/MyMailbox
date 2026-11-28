@@ -222,6 +222,7 @@
 	"list.markRead": "Marcar como lida",
 	"list.starred": "Com estrela",
 	"list.notStarred": "Sem estrela",
+	"list.select": "Selecionar",
 	"list.selectFrom": "Selecionar mensagem de {sender}",
 	"list.selectMessage": "Selecionar mensagem",
 	"list.unread": "Não lida",

@@ -529,6 +529,8 @@ export function useMessageNavigation() {
 	["@/components/messages/swipeable-row", `
 export function SwipeableRow({ children }) { return children; }
 `],
+	["@/components/messages/message-row-action-sheet", `export function MessageRowActionSheet() { return null; }`],
+	["@/components/messages/pull-to-refresh", `export function PullToRefresh() { return null; }`],
 ]);
 
 const relativeMocks = new Map([
@@ -540,6 +542,8 @@ const relativeMocks = new Map([
 	["./message-notes-popover", "@/components/messages/message-notes-popover"],
 	["./message-open-status", "@/components/messages/message-open-status"],
 	["./swipeable-row", "@/components/messages/swipeable-row"],
+	["./message-row-action-sheet", "@/components/messages/message-row-action-sheet"],
+	["./pull-to-refresh", "@/components/messages/pull-to-refresh"],
 	["./use-conversation-view", "@/components/messages/use-conversation-view"],
 ]);
 

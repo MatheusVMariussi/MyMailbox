@@ -5,7 +5,7 @@ import { confirmDestructive, alertDialog } from "@/components/ui/confirm-dialog"
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
-import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Paperclip, Star, Trash2 } from "@/components/icons";
+import { ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Paperclip, Star, Trash2 } from "@/components/icons";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,9 +22,14 @@ import type { Message } from "@/hooks/types";
 import { setMessageDragData } from "@/lib/messages/drag-utils";
 import { BulkMessageToolbar } from "./bulk-message-toolbar";
 import { MessageListRefreshButton } from "./message-list-refresh-button";
+import { PullToRefresh } from "./pull-to-refresh";
+import { useMessageListRefresh } from "./use-message-list-refresh";
 import { useMessageListState } from "./message-list-state";
 import { getEmptyPageOffset } from "./page-offset";
 import { SwipeableRow } from "./swipeable-row";
+import { MessageRowActionSheet } from "./message-row-action-sheet";
+import { supportsRowSheet } from "./message-row-action-sheet-utils";
+import { useLongPress } from "./use-long-press";
 import { MessageListRowActions } from "./message-list-row-actions";
 import { dispatchMessageCountsDelta, toggleMessageStar } from "./message-list-row-actions-utils";
 import { useMessageNavigation } from "./message-navigation";
@@ -79,8 +84,12 @@ function supportsRowActions(folder: MessageFolderConfig["folder"]): boolean {
 }
 
 /** Whether the action takes the row out of the folder that is on screen. A label view keeps archived and inbox mail. */
-function removesMessageFromFolder(config: MessageFolderConfig, action: RowMessageAction): boolean {
-	if (action === "trash") return true;
+function removesMessageFromFolder(config: MessageFolderConfig, action: RowMessageAction, labelId?: string): boolean {
+	if (action === "trash" || action === "spam") return true;
+	if (action === "label") return false;
+	if (action === "unlabel") return !!config.labelId && config.labelId === labelId;
+	// "Move to" a label adds it and takes received, spam and trashed mail out of where it was.
+	if (action === "move") return !config.labelId && ["inbox", "promotions", "snoozed", "spam", "trash"].includes(config.folder);
 	if (config.labelId) return action === "delete";
 	if (action === "archive") return true;
 	if (action === "inbox") {
@@ -166,7 +175,7 @@ function MessageListRowComponent({
 	// Which folder counts a read flip on this row moves; see unreadDeltas.
 	const rowDeltas = useCallback((flip: number) => unreadDeltas({ folder: config.folder, labelId: config.labelId, mode: promotionMode, category: message.category }, flip), [config.folder, config.labelId, promotionMode, message.category]);
 
-	const runRowAction = useCallback(async (action: RowMessageAction) => {
+	const runRowAction = useCallback(async (action: RowMessageAction, labelId?: string) => {
 		const previousRead = read;
 		const previousThreadUnread = threadUnread;
 		const unreadDelta = action !== "read" && action !== "unread"
@@ -181,7 +190,7 @@ function MessageListRowComponent({
 		}
 		if (unreadDelta) dispatchMessageCountsDelta(unreadDelta);
 		try {
-			await onMessageAction(message.id, action);
+			await onMessageAction(message.id, action, labelId);
 		} catch (error) {
 			if (action === "read" || action === "unread") {
 				setRead(previousRead);
@@ -202,8 +211,26 @@ function MessageListRowComponent({
 		: null;
 
 	const swipeable = compact && (config.folder === "inbox" || config.folder === "snoozed") && message.direction === "inbound";
+	// Phones have no hover rail, so holding a row opens every action for it in a bottom sheet.
+	const [sheetOpen, setSheetOpen] = useState(false);
+	const [sheetMounted, setSheetMounted] = useState(false);
+	const openSheet = useCallback(() => {
+		setSheetMounted(true);
+		setSheetOpen(true);
+	}, []);
+	const longPress = useLongPress(openSheet, compact && supportsRowSheet(config.folder, message.status));
+	// With a selection going, a tap on a phone toggles the row (as the checkbox does) instead of opening it.
+	const touchTap = useRef(false);
+	const toggleStar = useCallback(() => {
+		void toggleMessageStar(message.id, !starred).then((result) => setStarred(result.starred)).catch(() => alertDialog(t("message.error.star")));
+	}, [message.id, starred, t]);
 
 	function onMessageNavigate(event: MouseEvent<HTMLAnchorElement>) {
+		if (selectionMode && touchTap.current) {
+			event.preventDefault();
+			onSelectedChange(message.id, !selected);
+			return;
+		}
 		const plainClick = !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 		if (plainClick) onOpening?.(message.id);
 		if (!read && plainClick) {
@@ -230,8 +257,15 @@ function MessageListRowComponent({
 			<div
 				role={swipeable ? undefined : "listitem"}
 				data-message-row={message.id}
+				{...longPress}
+				onPointerDownCapture={(event) => {
+					touchTap.current = event.pointerType !== "mouse";
+				}}
 				className={clsx(
 					"group relative flex gap-2.5 py-2.5 pl-3 pr-3 transition-colors duration-150 ease-out-soft motion-reduce:transition-none",
+					// Holding a row must not select its text or open the browser's link preview.
+					longPress && "select-none [-webkit-touch-callout:none]",
+					sheetOpen && "bg-neutral-50",
 					highlighted
 						? "bg-accent-soft"
 						: selected
@@ -322,25 +356,42 @@ function MessageListRowComponent({
 				)}
 			</div>
 		);
-		if (!swipeable) return compactRow;
+		const sheet = sheetMounted && (
+			<MessageRowActionSheet
+				open={sheetOpen}
+				onOpenChange={setSheetOpen}
+				message={rowMessage}
+				party={party}
+				onAction={runRowAction}
+				onToggleStar={toggleStar}
+				onSelect={() => onSelectedChange(message.id, true)}
+				onSnoozeChange={onSnoozeChange}
+				promotionTarget={promotionTarget}
+				onPromotionMove={moveToCategory}
+			/>
+		);
+		if (!swipeable) return <>{compactRow}{sheet}</>;
 		return (
-			<SwipeableRow
-				role="listitem"
-				startAction={{
-					label: read ? t("list.markUnread") : t("list.markRead"),
-					icon: read ? Mail : MailOpen,
-					className: "bg-blue-600",
-					onTrigger: () => void runRowAction(read ? "unread" : "read").catch(() => undefined),
-				}}
-				endAction={{
-					label: t("common.archive"),
-					icon: Archive,
-					className: "bg-emerald-600",
-					onTrigger: () => void runRowAction("archive").catch(() => undefined),
-				}}
-			>
-				{compactRow}
-			</SwipeableRow>
+			<>
+				<SwipeableRow
+					role="listitem"
+					startAction={{
+						label: read ? t("list.markUnread") : t("list.markRead"),
+						icon: read ? Mail : MailOpen,
+						className: "bg-blue-600",
+						onTrigger: () => void runRowAction(read ? "unread" : "read").catch(() => undefined),
+					}}
+					endAction={{
+						label: t("common.delete"),
+						icon: Trash2,
+						className: "bg-red-600",
+						onTrigger: () => void runRowAction("trash").catch(() => undefined),
+					}}
+				>
+					{compactRow}
+				</SwipeableRow>
+				{sheet}
+			</>
 		);
 	}
 
@@ -657,12 +708,12 @@ export function MessageFolderPage({
 		});
 	}, [messages, setSelectedMessages]);
 
-	const handleMessageAction = useCallback((messageId: string, action: RowMessageAction) => {
+	const handleMessageAction = useCallback((messageId: string, action: RowMessageAction, labelId?: string) => {
 		setActionError(null);
 		const affectedIds = expandSelectedIds([messageId]);
-		return runBulkMessageAction(affectedIds, action, action !== "read" && action !== "unread").then(() => {
+		return runBulkMessageAction(affectedIds, action, action !== "read" && action !== "unread", labelId).then(() => {
 			const currentSelectedMessageId = selectedMessageIdRef.current;
-			if (!currentSelectedMessageId || !removesMessageFromFolder(config, action)) return;
+			if (!currentSelectedMessageId || !removesMessageFromFolder(config, action, labelId)) return;
 			if (!affectedIds.includes(currentSelectedMessageId)) return;
 			if (isCurrentMessageRoute(config.hrefPrefix, currentSelectedMessageId)) router.push(config.hrefPrefix);
 		}).catch((error) => {
@@ -811,10 +862,14 @@ export function MessageFolderPage({
 		t,
 	});
 
+	const listScrollRef = useRef<HTMLDivElement>(null);
+	const reportRefreshFailure = useCallback(() => setActionError(t("list.refreshFailed")), [t]);
+	const { refreshing, refresh } = useMessageListRefresh(reportRefreshFailure);
 	const refreshButton = (
 		<MessageListRefreshButton
 			disabled={mailboxesLoading}
-			onError={() => setActionError(t("list.refreshFailed"))}
+			refreshing={refreshing}
+			onRefresh={() => void refresh()}
 		/>
 	);
 
@@ -935,7 +990,8 @@ export function MessageFolderPage({
 			)}
 
 			{/* Phones keep the last rows clear of the floating Compose button. */}
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable max-md:pb-24">
+			<div ref={listScrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable max-md:pb-24">
+				<PullToRefresh scrollRef={listScrollRef} onRefresh={refresh} refreshing={refreshing} disabled={mailboxesLoading} />
 				{config.folder === "inbox" && !config.labelId && !isSearching && offset === 0 && !mailboxesLoading && <DueFollowUps mailboxId={scope.mailboxId ?? undefined} />}
 				<div role="list" aria-label={title} className="divide-y divide-line">
 					{messages.map((message) => (

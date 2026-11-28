@@ -218,6 +218,7 @@
 	"list.markRead": "Mark read",
 	"list.starred": "Starred",
 	"list.notStarred": "Not starred",
+	"list.select": "Select",
 	"list.selectFrom": "Select message from {sender}",
 	"list.selectMessage": "Select message",
 	"list.unread": "Unread",
