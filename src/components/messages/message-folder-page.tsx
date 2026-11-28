@@ -282,25 +282,26 @@ function MessageListRowComponent({
 				}}
 			>
 				{highlighted && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-accent" />}
-				{/* The project dot holds the leading slot; the checkbox takes it over on hover, focus and in selection mode. */}
-				<span className="relative z-10 mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+				{/* The project dot holds the leading slot; the checkbox takes it over on hover, focus and in selection mode.
+				    Without hover (phones) the checkbox always shows, with a 40px hit area, and the dot sits by the sender. */}
+				<label className="relative z-10 mt-0.5 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center [@media(hover:none)]:-mx-2.5 [@media(hover:none)]:-mb-2.5 [@media(hover:none)]:-mt-2 [@media(hover:none)]:box-content [@media(hover:none)]:h-5 [@media(hover:none)]:w-5 [@media(hover:none)]:p-2.5">
 					{project && (
 						<ProjectDot
 							name={project.name}
 							color={project.color}
-							className={clsx("transition-opacity duration-150 motion-reduce:transition-none", showCheckbox ? "opacity-0" : "group-hover:opacity-0 group-focus-within:opacity-0")}
+							className={clsx("transition-opacity duration-150 motion-reduce:transition-none [@media(hover:none)]:hidden", showCheckbox ? "opacity-0" : "group-hover:opacity-0 group-focus-within:opacity-0")}
 						/>
 					)}
 					<Checkbox
 						checked={selected}
 						onChange={(event) => onSelectedChange(message.id, event.target.checked)}
 						className={clsx(
-							"absolute inset-0 h-4 w-4 rounded border-line-strong transition-opacity duration-150 focus-visible:opacity-100 motion-reduce:transition-none",
-							showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+							"absolute inset-0 h-4 w-4 rounded border-line-strong transition-opacity duration-150 focus-visible:opacity-100 motion-reduce:transition-none [@media(hover:none)]:static [@media(hover:none)]:h-5 [@media(hover:none)]:w-5",
+							showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
 						)}
 						aria-label={t("list.selectFrom", { sender: party })}
 					/>
-				</span>
+				</label>
 				<Link
 					href={href}
 					onClick={config.folder === "drafts" ? undefined : onMessageNavigate}
@@ -317,6 +318,7 @@ function MessageListRowComponent({
 							{unread && <span className="sr-only">{t("list.unread")} </span>}
 							{party}
 						</span>
+						{project && <ProjectDot name={project.name} color={project.color} className="hidden [@media(hover:none)]:inline-block" />}
 						{(message.threadCount ?? 1) > 1 && (
 							<span className="shrink-0 rounded bg-surface-3 px-1 font-mono text-[10px] leading-4 text-ink-muted tabular-nums" aria-label={t("list.threadCount", { count: message.threadCount ?? 1 })}>{message.threadCount}</span>
 						)}

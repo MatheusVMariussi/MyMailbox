@@ -67,7 +67,7 @@ function ToastBody({ toast, text }: { toast: PromotionToastEntry; text: string }
 	}
 
 	const always = toast.always;
-	const buttonClass = "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md bg-white/20 px-2.5 py-1 font-semibold hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 max-md:min-h-11";
+	const buttonClass = "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md bg-current/20 px-2.5 py-1 font-semibold hover:bg-current/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 max-md:min-h-11";
 	return (
 		<section
 			role="region"
@@ -84,10 +84,11 @@ function ToastBody({ toast, text }: { toast: PromotionToastEntry; text: string }
 				if (event.key === "Escape") dismiss();
 			}}
 			className={cn(
-				"fixed z-30 flex w-[calc(100vw-3rem)] items-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white shadow-lg ring-1 ring-black/10 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
+				"fixed z-30 flex w-[calc(100vw-3rem)] items-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium shadow-lg ring-1 ring-black/10 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/80",
 				"inset-x-6 bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))]",
 				"md:bottom-6 md:w-[min(26rem,calc(100vw-var(--sidebar-width,260px)-3rem))] md:[inset-inline-end:auto] md:[inset-inline-start:calc(var(--sidebar-width,260px)+1.5rem)]",
-				toast.tone === "error" ? "bg-red-700" : toast.tone === "warn" ? "bg-amber-800" : "bg-neutral-900/95",
+				// neutral-900 and amber-800 swap lightness between themes, so the text follows them; red-700 stays saturated.
+				toast.tone === "error" ? "bg-red-700 text-white" : toast.tone === "warn" ? "bg-amber-800 text-neutral-50" : "bg-neutral-900/95 text-neutral-50",
 			)}
 		>
 			<p className="min-w-0 flex-1 break-words py-0.5">{text}</p>
@@ -107,7 +108,7 @@ function ToastBody({ toast, text }: { toast: PromotionToastEntry; text: string }
 				type="button"
 				onClick={dismiss}
 				aria-label={t("promotions.toast.dismiss")}
-				className="-m-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-base leading-none text-white/75 hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 max-md:h-11 max-md:w-11"
+				className="-m-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-base leading-none opacity-75 hover:bg-current/15 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 max-md:h-11 max-md:w-11"
 			>
 				<span aria-hidden="true">×</span>
 			</button>

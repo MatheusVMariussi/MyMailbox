@@ -370,24 +370,25 @@ export function UndoToasts() {
 								onPointerEnter={() => pauseUndoToast(entry.id, "hover")}
 								onPointerLeave={() => resumeUndoToast(entry.id, "hover")}
 								className={cn(
-									"flex items-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white shadow-lg ring-1 ring-black/10 backdrop-blur-sm",
-									"pointer-events-auto focus-within:ring-2 focus-within:ring-white/80",
-									failed ? "bg-red-700" : partial ? "bg-amber-800" : "bg-neutral-900/95",
+									"flex items-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium shadow-lg ring-1 ring-black/10 backdrop-blur-sm",
+									"pointer-events-auto focus-within:ring-2 focus-within:ring-current/80",
+									// neutral-900 and amber-800 swap lightness between themes, so the text follows them; red-700 stays saturated.
+									failed ? "bg-red-700 text-white" : partial ? "bg-amber-800 text-neutral-50" : "bg-neutral-900/95 text-neutral-50",
 									interactionHeld && "pointer-events-none",
 								)}
 							>
 								<div id={messageId} className="min-w-0 flex-1 py-0.5">
 									<p className="break-words">{mainText}</p>
 									{entry.context && !failed && !partial && (
-										<p className="mt-0.5 break-words text-xs font-normal text-white/80">{entry.context}</p>
+										<p className="mt-0.5 break-words text-xs font-normal opacity-80">{entry.context}</p>
 									)}
 									{failed && entry.failure && (
-										<p className="mt-0.5 text-xs font-normal text-white/85">
+										<p className="mt-0.5 text-xs font-normal opacity-85">
 											{t(FAILURE_LABELS[entry.failure.kind])}
 										</p>
 									)}
 									{partial && (
-										<p className="mt-0.5 text-xs font-normal text-white/85">{label}</p>
+										<p className="mt-0.5 text-xs font-normal opacity-85">{label}</p>
 									)}
 								</div>
 								{primary && (
@@ -397,8 +398,8 @@ export function UndoToasts() {
 										aria-disabled={undoing || undefined}
 										aria-describedby={messageId}
 										className={cn(
-											"inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded-md bg-white/20 px-2.5 py-1 font-semibold hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900",
-											undoing && "cursor-wait opacity-70 hover:bg-white/20",
+											"inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded-md bg-current/20 px-2.5 py-1 font-semibold hover:bg-current/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900",
+											undoing && "cursor-wait opacity-70 hover:bg-current/20",
 										)}
 									>
 										{undoing && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
@@ -412,7 +413,7 @@ export function UndoToasts() {
 										aria-label={t("undo.hidePending")}
 										title={t("undo.hidePending")}
 										aria-describedby={messageId}
-										className="-m-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-base leading-none text-white/75 hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+										className="-m-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-base leading-none opacity-75 hover:bg-current/15 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
 									>
 										<span aria-hidden="true">×</span>
 									</button>
@@ -423,7 +424,7 @@ export function UndoToasts() {
 										data-undo-dismiss
 										aria-label={t("undo.dismiss")}
 										aria-describedby={messageId}
-										className="-m-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-base leading-none text-white/75 hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+										className="-m-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-base leading-none opacity-75 hover:bg-current/15 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
 									>
 										<span aria-hidden="true">×</span>
 									</button>
